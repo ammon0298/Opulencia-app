@@ -110,19 +110,18 @@ export const App: React.FC = () => {
 
         if (error) {
             console.error("Supabase Error:", error);
-            setAuthError(`Error de servidor: ${error.message || 'No se pudo conectar con la base de datos'}`);
+            // El error 'Failed to fetch' suele ser CORS o URL errónea
+            if (error.message.includes('fetch')) {
+               setAuthError('Error de red: No se puede conectar con Supabase. Revise CORS o la URL del servidor.');
+            } else {
+               setAuthError(`Error de servidor: ${error.message}`);
+            }
             setIsInitializing(false);
             return;
         }
 
         if (!dbUser) {
-            setAuthError('El usuario no existe. Verifique su correo o registro.');
-            setIsInitializing(false);
-            return;
-        }
-
-        if (dbUser.status !== 'Active') {
-            setAuthError('Cuenta inactiva. Contacte con administración.');
+            setAuthError('El usuario no existe. Verifique sus datos.');
             setIsInitializing(false);
             return;
         }
@@ -152,7 +151,7 @@ export const App: React.FC = () => {
         }
     } catch (err: any) {
         console.error("Login catch error:", err);
-        setAuthError(`Error crítico de red: ${err.message || 'Error al intentar conectar'}`);
+        setAuthError(`Error crítico: ${err.message || 'Fallo de conexión'}`);
     } finally {
         setIsInitializing(false);
     }
@@ -200,111 +199,65 @@ export const App: React.FC = () => {
 
      switch(currentView) {
         case 'admin_dashboard':
-           return <AdminDashboard 
-              navigate={handleNavigation} user={currentUser} routes={routes} selectedRouteId={selectedRouteId}
-              stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} 
-           />;
+           return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
         case 'collector_dashboard':
-           return <CollectorDashboard 
-              navigate={handleNavigation} user={currentUser} routes={routes}
-              stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} 
-           />;
+           return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={routes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
         case 'credits':
-           return <ClientList 
-              clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes}
-              initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} 
-              onPayment={async (cId, amt) => {
+           return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => {
                  const pay = { business_id: currentUser.businessId, credit_id: cId, amount: amt, payment_date: new Date().toISOString() };
                  await supabase.from('payments').insert(pay);
                  await loadBusinessData(currentUser.businessId);
-              }}
-              onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }}
-              onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }}
-              onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }}
-           />;
+              }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
         case 'client_management':
-            return <ClientManagement 
-                clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} 
-                onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} 
-                onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk}
-            />;
+            return <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
         case 'edit_client':
             const clientToEdit = clients.find(c => c.id === selectedClientId);
             const activeCredit = credits.find(c => c.clientId === selectedClientId && c.status === 'Active');
-            return <EditClient 
-              client={clientToEdit} allClients={clients} routes={routes} credit={activeCredit} currentUser={currentUser}
-              onSave={(updatedList) => { handleSaveClientBulk(updatedList); setCurrentView('client_management'); }}
-              onCancel={() => setCurrentView('client_management')}
-            />;
+            return <EditClient client={clientToEdit} allClients={clients} routes={routes} credit={activeCredit} currentUser={currentUser} onSave={(updatedList) => { handleSaveClientBulk(updatedList); setCurrentView('client_management'); }} onCancel={() => setCurrentView('client_management')} />;
         case 'new_client':
-            return <NewClient 
-               routes={routes} clients={clients} currentUser={currentUser}
-               onSave={(newClients) => { handleSaveClientBulk(newClients); setCurrentView('client_management'); }}
-               onCancel={() => setCurrentView('client_management')}
-            />;
+            return <NewClient routes={routes} clients={clients} currentUser={currentUser} onSave={(newClients) => { handleSaveClientBulk(newClients); setCurrentView('client_management'); }} onCancel={() => setCurrentView('client_management')} />;
         case 'new_credit':
-           return <NewCredit 
-              clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={routes}
-              onSave={async (cl, cr) => { 
+           return <NewCredit clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={routes} onSave={async (cl, cr) => { 
                   await supabase.from('credits').insert(cr);
                   await loadBusinessData(currentUser.businessId);
                   setCurrentView('credits'); 
-              }}
-           />;
+              }} />;
         case 'expenses':
-           return <ExpensesView 
-              expenses={filteredData.expenses} routes={routes} user={currentUser}
-              onAdd={async (e) => {
+           return <ExpensesView expenses={filteredData.expenses} routes={routes} user={currentUser} onAdd={async (e) => {
                   await supabase.from('expenses').insert(e);
                   await loadBusinessData(currentUser.businessId);
-              }} 
-              onDelete={async (id) => {
+              }} onDelete={async (id) => {
                   await supabase.from('expenses').delete().eq('id', id);
                   setExpenses(prev => prev.filter(e => e.id !== id));
-              }}
-           />;
+              }} />;
         case 'routing':
-           return <RoutingView 
-              clients={filteredData.clients} setClients={setClients} selectedRouteId={selectedRouteId} credits={credits} payments={payments}
-              onGoToCredit={(cid) => { setCreditsFilter(cid); setCurrentView('credits'); }}
-           />;
+           return <RoutingView clients={filteredData.clients} setClients={setClients} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onGoToCredit={(cid) => { setCreditsFilter(cid); setCurrentView('credits'); }} />;
         case 'liquidation':
-           return <LiquidationView 
-              selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions}
-           />;
+           return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions} />;
         case 'users':
            return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={setUsers} />;
         case 'routes_mgmt':
-           return <RouteManagement 
-              routes={routes} users={users} user={currentUser} transactions={transactions} onSave={setRoutes} 
-              onAddTransaction={async (t) => {
+           return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={setRoutes} onAddTransaction={async (t) => {
                   await supabase.from('route_transactions').insert(t);
                   await loadBusinessData(currentUser.businessId);
-              }}
-           />;
+              }} />;
         case 'profile':
            return <UserProfile user={currentUser} users={users} onUpdate={u => { setCurrentUser(u); }} />;
         case 'credit_details':
            const crDetails = credits.find(c => c.id === selectedCreditId);
            const clDetails = crDetails ? clients.find(c => c.id === crDetails.clientId) : undefined;
-           return <ClientDetails 
-              client={clDetails} credit={crDetails} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')}
-              onMarkAsLost={async (cid) => { 
+           return <ClientDetails client={clDetails} credit={crDetails} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onMarkAsLost={async (cid) => { 
                   await supabase.from('credits').update({ status: 'Lost' }).eq('id', cid);
                   await loadBusinessData(currentUser.businessId);
                   setCurrentView('credits'); 
-              }}
-           />;
+              }} />;
         case 'credit_visits':
            const crVisits = credits.find(c => c.id === selectedCreditId);
            const clVisits = crVisits ? clients.find(c => c.id === crVisits.clientId) : undefined;
-           return <CreditVisits 
-              client={clVisits} credit={crVisits} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')}
-              onUpdatePayment={async (pid, amt) => {
+           return <CreditVisits client={clVisits} credit={crVisits} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onUpdatePayment={async (pid, amt) => {
                  await supabase.from('payments').update({ amount: amt }).eq('id', pid);
                  await loadBusinessData(currentUser.businessId);
-              }}
-           />;
+              }} />;
         default:
            return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={routes} stats={{clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses}} selectedRouteId={selectedRouteId} />;
      }
@@ -315,7 +268,7 @@ export const App: React.FC = () => {
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">
             <div className="flex flex-col items-center gap-6">
                 <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">O</div>
-                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Iniciando Servidores de Producción...</p>
+                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Sincronizando con la Central...</p>
             </div>
         </div>
     );

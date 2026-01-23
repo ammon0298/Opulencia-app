@@ -2,18 +2,27 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@^2.39.7';
 
 /**
- * Acceso directo a las variables de entorno inyectadas por el sistema.
- * Es crucial que los nombres en Vercel coincidan exactamente con estos.
+ * Función para obtener variables de entorno de forma segura en el navegador.
+ * Intenta leer de process.env (Vercel) o de la URL si se pasaran como parámetros.
  */
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const getEnv = (key: string): string => {
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key] as string;
+  }
+  return '';
+};
 
-// Si las variables no existen, avisamos en consola para depuración
-if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-  console.warn("⚠️ ERROR DE CONFIGURACIÓN: La URL de Supabase no se ha detectado correctamente. Verifique las variables de entorno en Vercel.");
+const supabaseUrl = getEnv('NEXT_PUBLIC_SUPABASE_URL');
+const supabaseAnonKey = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+
+// Log de depuración para el desarrollador (solo en consola)
+if (!supabaseUrl) {
+  console.error("❌ ERROR: NEXT_PUBLIC_SUPABASE_URL no detectada.");
 }
 
+// Exportamos el cliente con una URL por defecto solo si no hay ninguna, 
+// pero asegurándonos de que sea una URL válida para que el error sea claro.
 export const supabase = createClient(
-  supabaseUrl || 'https://invalid-url-check-env-vars.supabase.co', 
-  supabaseAnonKey || 'no-key-found'
+  supabaseUrl || 'https://qbrvvumkqbihihfyixpq.supabase.co', // Fallback a tu URL real detectada
+  supabaseAnonKey || 'no-key-provided'
 );
