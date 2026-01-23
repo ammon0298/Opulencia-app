@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole } from './types';
-import { MOCK_USERS, MOCK_CLIENTS, MOCK_CREDITS, MOCK_EXPENSES, MOCK_PAYMENTS, MOCK_ROUTES, MOCK_TRANSACTIONS } from './constants';
+import { TODAY_STR } from './constants';
 import Layout from './components/Layout';
 import LandingPage from './views/LandingPage';
 import AuthView from './views/AuthView';
@@ -20,53 +20,131 @@ import EditClient from './views/EditClient';
 import NewClient from './views/NewClient';
 import UserProfile from './views/UserProfile';
 import ClientList from './views/ClientList';
+import { supabase } from './lib/supabase';
+import { verifyPassword } from './utils/security';
 
 export const App: React.FC = () => {
-  // Data State
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
-  const [credits, setCredits] = useState<Credit[]>(MOCK_CREDITS);
-  const [expenses, setExpenses] = useState<Expense[]>(MOCK_EXPENSES);
-  const [payments, setPayments] = useState<Payment[]>(MOCK_PAYMENTS);
-  const [routes, setRoutes] = useState<Route[]>(MOCK_ROUTES);
-  const [transactions, setTransactions] = useState<RouteTransaction[]>(MOCK_TRANSACTIONS);
+  // Data State (Real from DB)
+  const [users, setUsers] = useState<User[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [credits, setCredits] = useState<Credit[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [transactions, setTransactions] = useState<RouteTransaction[]>([]);
 
-  // UI & Global State
+  // UI State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState('landing');
   const [selectedRouteId, setSelectedRouteId] = useState<string>('all');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   
-  // Selection & Filter State
+  // Selection State
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const [creditsFilter, setCreditsFilter] = useState<string>(''); 
 
-  // Simulación de carga inicial de sesión (Supabase Check)
+  const loadBusinessData = async (businessId: string) => {
+    try {
+        const [
+            { data: clientsData },
+            { data: creditsData },
+            { data: routesData },
+            { data: expensesData },
+            { data: paymentsData },
+            { data: usersData },
+            { data: transData }
+        ] = await Promise.all([
+            supabase.from('clients').select('*').eq('business_id', businessId),
+            supabase.from('credits').select('*').eq('business_id', businessId),
+            supabase.from('routes').select('*').eq('business_id', businessId),
+            supabase.from('expenses').select('*').eq('business_id', businessId),
+            supabase.from('payments').select('*').eq('business_id', businessId),
+            supabase.from('users').select('*').eq('business_id', businessId),
+            supabase.from('route_transactions').select('*').eq('business_id', businessId)
+        ]);
+
+        if (clientsData) setClients(clientsData as any);
+        if (creditsData) setCredits(creditsData as any);
+        if (routesData) setRoutes(routesData as any);
+        if (expensesData) setExpenses(expensesData as any);
+        if (paymentsData) setPayments(paymentsData as any);
+        if (usersData) setUsers(usersData as any);
+        if (transData) setTransactions(transData as any);
+    } catch (err) {
+        console.error("Error cargando datos:", err);
+    }
+  };
+
   useEffect(() => {
-    setTimeout(() => {
+    const checkSession = async () => {
+        const savedUser = localStorage.getItem('op_user');
+        if (savedUser) {
+            try {
+                const user = JSON.parse(savedUser);
+                setCurrentUser(user);
+                await loadBusinessData(user.businessId);
+                setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
+            } catch (e) {
+                localStorage.removeItem('op_user');
+            }
+        }
         setIsInitializing(false);
-    }, 1200);
+    };
+    checkSession();
   }, []);
 
-  const handleLogin = (u: string, p: string) => {
+  const handleLogin = async (u: string, p: string) => {
     setAuthError(null);
-    const user = users.find(usr => usr.username === u && usr.password === p); 
-    if (user) {
-       setCurrentUser(user);
-       setSelectedRouteId(user.role === UserRole.ADMIN ? 'all' : (user.routeIds[0] || 'all'));
-       setCurrentView(user.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
-    } else {
-       setAuthError('El usuario o la contraseña ingresados son incorrectos.');
+    setIsInitializing(true);
+
+    try {
+        const { data: dbUser, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', u)
+            .single();
+
+        if (error || !dbUser) {
+            setAuthError('Credenciales no válidas. Verifique su correo o consulte a soporte.');
+            setIsInitializing(false);
+            return;
+        }
+
+        const isValid = verifyPassword(p, dbUser.password_hash);
+        if (isValid) {
+            const mappedUser: User = {
+                id: dbUser.id,
+                businessId: dbUser.business_id,
+                username: dbUser.username,
+                name: dbUser.name,
+                dni: dbUser.dni,
+                phone: dbUser.phone || '',
+                address: dbUser.address || '',
+                role: dbUser.role as UserRole,
+                routeIds: dbUser.route_ids || [],
+                status: dbUser.status as any
+            };
+
+            setCurrentUser(mappedUser);
+            localStorage.setItem('op_user', JSON.stringify(mappedUser));
+            await loadBusinessData(mappedUser.businessId);
+            setCurrentView(mappedUser.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
+        } else {
+            setAuthError('Contraseña incorrecta.');
+        }
+    } catch (err) {
+        setAuthError('Error de conexión con la base de datos.');
+    } finally {
+        setIsInitializing(false);
     }
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('op_user');
     setCurrentUser(null);
     setCurrentView('landing');
-    setCreditsFilter('');
-    setAuthError(null);
   };
 
   const handleNavigation = (viewName: string) => {
@@ -74,10 +152,8 @@ export const App: React.FC = () => {
     setCurrentView(viewName);
   };
 
-  // Filtrado reactivo de datos según ruta y permisos
   const filteredData = useMemo(() => {
     const routeFilter = (id: string) => selectedRouteId === 'all' || id === selectedRouteId;
-    
     return {
       clients: clients.filter(c => routeFilter(c.routeId)).sort((a,b) => a.order - b.order),
       credits: credits.filter(cr => {
@@ -93,12 +169,13 @@ export const App: React.FC = () => {
     };
   }, [clients, credits, expenses, payments, selectedRouteId]);
 
-  const handleSaveClientBulk = (updatedClients: Client[]) => {
-     setClients(prev => {
+  const handleSaveClientBulk = async (updatedClients: Client[]) => {
+      setClients(prev => {
         const newMap = new Map(prev.map(c => [c.id, c]));
         updatedClients.forEach(c => newMap.set(c.id, c));
         return Array.from(newMap.values());
-     });
+      });
+      await supabase.from('clients').upsert(updatedClients);
   };
 
   const renderContent = () => {
@@ -107,27 +184,22 @@ export const App: React.FC = () => {
      switch(currentView) {
         case 'admin_dashboard':
            return <AdminDashboard 
-              navigate={handleNavigation} 
-              user={currentUser} 
-              routes={routes} 
+              navigate={handleNavigation} user={currentUser} routes={routes} selectedRouteId={selectedRouteId}
               stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} 
-              selectedRouteId={selectedRouteId}
            />;
         case 'collector_dashboard':
            return <CollectorDashboard 
-              navigate={handleNavigation} 
-              user={currentUser} 
-              routes={routes} 
+              navigate={handleNavigation} user={currentUser} routes={routes}
               stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} 
            />;
         case 'credits':
            return <ClientList 
               clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes}
               initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} 
-              onPayment={(cId, amt) => {
-                 const pay: Payment = { id: `p_${Date.now()}`, businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString().split('T')[0], amount: amt };
-                 setPayments(prev => [...prev, pay]);
-                 setCredits(prev => prev.map(cr => cr.id === cId ? { ...cr, totalPaid: cr.totalPaid + amt, paidInstallments: cr.paidInstallments + 1 } : cr)); 
+              onPayment={async (cId, amt) => {
+                 const pay = { business_id: currentUser.businessId, credit_id: cId, amount: amt, payment_date: new Date().toISOString() };
+                 await supabase.from('payments').insert(pay);
+                 await loadBusinessData(currentUser.businessId);
               }}
               onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }}
               onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }}
@@ -156,12 +228,23 @@ export const App: React.FC = () => {
         case 'new_credit':
            return <NewCredit 
               clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={routes}
-              onSave={(cl, cr) => { setCredits(prev => [...prev, cr]); setCurrentView('credits'); }}
+              onSave={async (cl, cr) => { 
+                  await supabase.from('credits').insert(cr);
+                  await loadBusinessData(currentUser.businessId);
+                  setCurrentView('credits'); 
+              }}
            />;
         case 'expenses':
            return <ExpensesView 
               expenses={filteredData.expenses} routes={routes} user={currentUser}
-              onAdd={e => setExpenses(prev => [...prev, e])} onDelete={id => setExpenses(prev => prev.filter(e => e.id !== id))}
+              onAdd={async (e) => {
+                  await supabase.from('expenses').insert(e);
+                  await loadBusinessData(currentUser.businessId);
+              }} 
+              onDelete={async (id) => {
+                  await supabase.from('expenses').delete().eq('id', id);
+                  setExpenses(prev => prev.filter(e => e.id !== id));
+              }}
            />;
         case 'routing':
            return <RoutingView 
@@ -176,35 +259,33 @@ export const App: React.FC = () => {
            return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={setUsers} />;
         case 'routes_mgmt':
            return <RouteManagement 
-              routes={routes} users={users} user={currentUser} transactions={transactions} onSave={setRoutes} onAddTransaction={t => setTransactions(prev => [...prev, t])}
+              routes={routes} users={users} user={currentUser} transactions={transactions} onSave={setRoutes} 
+              onAddTransaction={async (t) => {
+                  await supabase.from('route_transactions').insert(t);
+                  await loadBusinessData(currentUser.businessId);
+              }}
            />;
         case 'profile':
-           return <UserProfile 
-              user={currentUser} users={users} 
-              onUpdate={u => { setUsers(prev => prev.map(user => user.id === u.id ? u : user)); setCurrentUser(u); }}
-           />;
+           return <UserProfile user={currentUser} users={users} onUpdate={u => { setCurrentUser(u); }} />;
         case 'credit_details':
            const crDetails = credits.find(c => c.id === selectedCreditId);
            const clDetails = crDetails ? clients.find(c => c.id === crDetails.clientId) : undefined;
            return <ClientDetails 
               client={clDetails} credit={crDetails} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')}
-              onMarkAsLost={(cid) => { setCredits(prev => prev.map(c => c.id === cid ? { ...c, status: 'Lost' } : c)); setCurrentView('credits'); }}
+              onMarkAsLost={async (cid) => { 
+                  await supabase.from('credits').update({ status: 'Lost' }).eq('id', cid);
+                  await loadBusinessData(currentUser.businessId);
+                  setCurrentView('credits'); 
+              }}
            />;
         case 'credit_visits':
            const crVisits = credits.find(c => c.id === selectedCreditId);
            const clVisits = crVisits ? clients.find(c => c.id === crVisits.clientId) : undefined;
            return <CreditVisits 
               client={clVisits} credit={crVisits} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')}
-              onUpdatePayment={(pid, amt) => {
-                 setPayments(prev => prev.map(p => p.id === pid ? { ...p, amount: amt } : p));
-                 setCredits(prev => prev.map(c => {
-                    if (c.id === selectedCreditId) {
-                        const allP = payments.filter(p => p.creditId === c.id);
-                        const newTotal = allP.reduce((sum, p) => p.id === pid ? sum + amt : sum + p.amount, 0);
-                        return { ...c, totalPaid: newTotal };
-                    }
-                    return c;
-                 }));
+              onUpdatePayment={async (pid, amt) => {
+                 await supabase.from('payments').update({ amount: amt }).eq('id', pid);
+                 await loadBusinessData(currentUser.businessId);
               }}
            />;
         default:
@@ -217,20 +298,8 @@ export const App: React.FC = () => {
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">
             <div className="flex flex-col items-center gap-6">
                 <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">O</div>
-                <div className="flex flex-col items-center gap-2">
-                    <p className="text-white font-black uppercase tracking-[0.4em] text-[10px]">Cifrando Conexión</p>
-                    <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 animate-loading-bar"></div>
-                    </div>
-                </div>
+                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Cifrando Conexión Segura...</p>
             </div>
-            <style>{`
-                @keyframes loading-bar {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-                .animate-loading-bar { animation: loading-bar 1.5s infinite linear; }
-            `}</style>
         </div>
     );
   }
@@ -238,21 +307,10 @@ export const App: React.FC = () => {
   if (!currentUser) {
      if (currentView === 'auth' || currentView === 'register') {
         return <AuthView 
-          mode={currentView === 'register' ? 'register' : 'login'} 
-          error={authError}
-          onLogin={handleLogin} 
-          onRegister={(data) => {
-              setAuthError(null);
-              const newUser: User = { id: `u_${Date.now()}`, role: UserRole.ADMIN, ...data, routeIds: [], status: 'Active' };
-              setUsers([...users, newUser]);
-              setCurrentUser(newUser);
-              setCurrentView('admin_dashboard');
-          }}
-          onBack={() => { setAuthError(null); setCurrentView('landing'); }}
+          mode={currentView === 'register' ? 'register' : 'login'} error={authError}
+          onLogin={handleLogin} onRegister={() => {}} onBack={() => { setAuthError(null); setCurrentView('landing'); }}
           onSwitchMode={(m) => { setAuthError(null); setCurrentView(m); }}
-          onRecoverInitiate={async () => true}
-          onRecoverVerify={() => true}
-          onRecoverReset={() => {}}
+          onRecoverInitiate={async () => true} onRecoverVerify={() => true} onRecoverReset={() => {}}
         />;
      }
      return <LandingPage onLogin={() => setCurrentView('auth')} onRegister={() => setCurrentView('register')} />;
@@ -260,13 +318,8 @@ export const App: React.FC = () => {
 
   return (
     <Layout 
-       user={currentUser} 
-       onLogout={handleLogout} 
-       navigateTo={handleNavigation} 
-       currentView={currentView}
-       routes={routes}
-       selectedRouteId={selectedRouteId}
-       onRouteSelect={setSelectedRouteId}
+       user={currentUser} onLogout={handleLogout} navigateTo={handleNavigation} currentView={currentView}
+       routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}
     >
        {renderContent()}
     </Layout>
