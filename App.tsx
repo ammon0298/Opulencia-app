@@ -99,20 +99,38 @@ export const App: React.FC = () => {
     setAuthError(null);
     setIsInitializing(true);
 
+    // Normalización de entrada
+    const cleanUsername = u.trim().toLowerCase();
+    
     try {
+        // Usamos ilike para búsqueda insensible a mayúsculas
         const { data: dbUser, error } = await supabase
             .from('users')
             .select('*')
-            .eq('username', u)
-            .single();
+            .ilike('username', cleanUsername)
+            .maybeSingle();
 
-        if (error || !dbUser) {
-            setAuthError('Credenciales no válidas. Verifique su correo o consulte a soporte.');
+        if (error) {
+            console.error("Supabase Auth Error:", error);
+            setAuthError(`Error de servidor: ${error.message}`);
+            setIsInitializing(false);
+            return;
+        }
+
+        if (!dbUser) {
+            setAuthError('El usuario no existe en la base de datos.');
+            setIsInitializing(false);
+            return;
+        }
+
+        if (dbUser.status !== 'Active') {
+            setAuthError('Esta cuenta se encuentra inactiva. Contacte a soporte.');
             setIsInitializing(false);
             return;
         }
 
         const isValid = verifyPassword(p, dbUser.password_hash);
+        
         if (isValid) {
             const mappedUser: User = {
                 id: dbUser.id,
@@ -132,10 +150,11 @@ export const App: React.FC = () => {
             await loadBusinessData(mappedUser.businessId);
             setCurrentView(mappedUser.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
         } else {
-            setAuthError('Contraseña incorrecta.');
+            setAuthError('Contraseña incorrecta. Verifique sus datos.');
         }
     } catch (err) {
-        setAuthError('Error de conexión con la base de datos.');
+        console.error("Login catch error:", err);
+        setAuthError('Error crítico de conexión.');
     } finally {
         setIsInitializing(false);
     }
@@ -298,7 +317,7 @@ export const App: React.FC = () => {
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">
             <div className="flex flex-col items-center gap-6">
                 <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">O</div>
-                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Cifrando Conexión Segura...</p>
+                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Autenticando Acceso Élite...</p>
             </div>
         </div>
     );
