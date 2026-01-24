@@ -9,12 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "recharts": "^3.6.0",
-    "react-dom": "^19.2.3",
-    "bcryptjs": "2.4.3",
     "@emailjs/browser": "3.11.0",
-    "@google/genai": "^1.38.0"
+    "@google/genai": "^1.38.0",
+    "@supabase/supabase-js": "^2.91.1",
+    "bcryptjs": "2.4.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
