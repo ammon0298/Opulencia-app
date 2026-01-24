@@ -1,10 +1,12 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
+// Analyze route finances using Gemini AI
 export const analyzeRouteFinances = async (stats: any) => {
   try {
+    // Fix: Initialize GoogleGenAI right before the API call to ensure it always uses the most up-to-date API key from process.env
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Realiza un análisis de riesgo para una operación de microcréditos con estos datos:
@@ -17,6 +19,7 @@ export const analyzeRouteFinances = async (stats: any) => {
         systemInstruction: "Eres un analista de riesgos senior con 20 años de experiencia en banca de consumo."
       }
     });
+    // Fix: Access generated text output directly using the .text property
     return response.text;
   } catch (error) {
     console.error("AI Analytics Error:", error);

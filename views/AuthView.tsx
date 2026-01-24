@@ -59,8 +59,8 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
       };
       onRegister(fullData);
     }
-    // El estado de loading se maneja en el parent (App.tsx)
-    setTimeout(() => setIsLoading(false), 2000);
+    // El estado de carga lo reseteará el padre al recibir respuesta o tras timeout
+    setTimeout(() => setIsLoading(false), 4000);
   };
 
   const handleRecSubmit = async (e: React.FormEvent) => {
@@ -116,7 +116,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
              <p className="text-indigo-100 font-medium text-base md:text-lg">Gestiona tu negocio con precisión quirúrgica.</p>
           </div>
           
-          <div className="relative z-10 hidden md:block lg:mt-0 mt-8">
+          <div className="relative z-10 hidden md:block">
              <div className="flex -space-x-4">
                 {[1,2,3,4].map(i => <div key={i} className="w-12 h-12 rounded-full border-4 border-indigo-600 bg-indigo-400 overflow-hidden shadow-lg"><img src={`https://i.pravatar.cc/150?u=${i}`} alt="user" /></div>)}
                 <div className="w-12 h-12 rounded-full border-4 border-indigo-600 bg-white flex items-center justify-center text-indigo-600 font-black text-xs shadow-lg">+1k</div>
@@ -133,20 +133,12 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
           {recoveryStep !== 'none' ? (
              <div className="animate-slideDown w-full max-w-md mx-auto">
                 <header className="mb-8 text-center">
-                    <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11.536 17 12 17.464 12 20 12 22 8 22 8 20 8 18 5 18 5 15.464 11.536 8.929A6 6 0 012 9a6 6 0 016-6 6 6 0 016 6z" /></svg>
-                    </div>
                     <h3 className="text-2xl font-black text-slate-800">Recuperación de Cuenta</h3>
-                    <p className="text-slate-400 font-medium text-sm mt-2">
-                        {recoveryStep === 'email' && 'Ingrese su correo para recibir un código de acceso.'}
-                    </p>
                 </header>
-
                 <form onSubmit={handleRecSubmit} className="space-y-6">
                     {recoveryStep === 'email' && (
                         <Input label="Correo Electrónico Registrado" value={recEmail} onChange={setRecEmail} type="email" required placeholder="ejemplo@empresa.com" />
                     )}
-                    {/* ... Resto de pasos de recuperación ... */}
                     <div className="pt-2 space-y-3">
                         <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition uppercase tracking-widest text-xs">
                             {isLoading ? 'Cargando...' : 'Enviar'}
@@ -169,8 +161,8 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                             <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest leading-none">Atención</p>
+                            <div className="flex-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest leading-none">Error del Sistema</p>
                                 <p className="text-xs font-bold mt-1">{displayError}</p>
                             </div>
                         </div>
@@ -183,7 +175,6 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                         <div className="md:col-span-2">
                             <Input label="Razón Social / Nombre del Negocio" value={formData.businessName} onChange={v => setFormData({...formData, businessName: v})} required />
                         </div>
-                        {/* ... Campos de registro omitidos por brevedad ... */}
                     </div>
                     )}
                     
@@ -193,6 +184,11 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                         <div className="space-y-1 mt-4">
                             <div className="flex justify-between px-1">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contraseña de Acceso</label>
+                                {mode === 'login' && (
+                                    <button type="button" onClick={() => setRecoveryStep('email')} className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline">
+                                        ¿Olvidaste tu clave?
+                                    </button>
+                                )}
                             </div>
                             <input 
                                 type="password" 
@@ -206,7 +202,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
 
                     <div className={`pt-4 ${mode === 'login' ? 'md:max-w-xl mx-auto' : ''}`}>
                         <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 md:py-5 rounded-2xl shadow-xl transition transform active:scale-95 uppercase tracking-[0.2em] text-[10px] md:text-xs border-b-4 border-indigo-900">
-                            {isLoading ? 'VERIFICANDO...' : (mode === 'login' ? 'INICIAR SESIÓN' : 'CONFIRMAR SUSCRIPCIÓN')}
+                           {isLoading ? 'VERIFICANDO...' : (mode === 'login' ? 'INICIAR SESIÓN' : 'CONFIRMAR SUSCRIPCIÓN')}
                         </button>
                     </div>
                 </form>
@@ -227,11 +223,21 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
           )}
         </div>
       </div>
+      <style>{`
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+            animation: shake 0.2s ease-in-out 0s 2;
+        }
+      `}</style>
     </div>
   );
 };
 
-const Input = ({ label, value, onChange, type = 'text', className = '', required, placeholder, disabled = false }: any) => (
+const Input = ({ label, value, onChange, type = 'text', className = '', required, placeholder }: any) => (
   <div className={`space-y-1 ${className}`}>
     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{label}</label>
     <input 
@@ -239,7 +245,6 @@ const Input = ({ label, value, onChange, type = 'text', className = '', required
       value={value} 
       onChange={e => onChange(e.target.value)} 
       placeholder={placeholder}
-      disabled={disabled}
       className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 md:py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-800 text-sm shadow-inner"
       required={required}
     />
