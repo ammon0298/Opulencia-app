@@ -38,29 +38,32 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
     businessName: ''
   });
 
-  const countriesByContinent = useMemo(() => {
-    const groups: { [key: string]: typeof COUNTRY_DATA } = {};
-    COUNTRY_DATA.forEach(c => {
-      if (!groups[c.continent]) groups[c.continent] = [];
-      groups[c.continent].push(c);
-    });
-    return groups;
-  }, []);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    const cleanEmail = formData.email.trim();
+    const cleanPass = formData.password.trim();
+
     if (mode === 'login') {
-      onLogin(formData.email, formData.password);
+      onLogin(cleanEmail, cleanPass);
     } else {
       const fullData = {
         ...formData,
-        phone: `${formData.phoneCode} ${formData.phoneNumber}`
+        email: cleanEmail,
+        phone: `${formData.phoneCode} ${formData.phoneNumber.trim()}`
       };
       onRegister(fullData);
     }
-    // El estado de carga lo reseteará el padre al recibir respuesta o tras timeout
-    setTimeout(() => setIsLoading(false), 4000);
+    setTimeout(() => setIsLoading(false), 3000);
+  };
+
+  const startRecovery = () => {
+    // CRÍTICO: Limpiar cualquier error previo al entrar en este flujo
+    setValidationError(null);
+    setRecoveryStep('email');
+    // Si el usuario ya escribió su email en el login, lo pre-cargamos
+    if (formData.email) setRecEmail(formData.email);
   };
 
   const handleRecSubmit = async (e: React.FormEvent) => {
@@ -68,25 +71,39 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
     setValidationError(null);
     
     if (recoveryStep === 'email') {
+        const email = recEmail.trim();
+        if (!email || !email.includes('@')) {
+            setValidationError('Ingrese un correo electrónico válido antes de continuar.');
+            return;
+        }
         setIsLoading(true);
-        const success = await onRecoverInitiate(recEmail);
+        const exists = await onRecoverInitiate(email);
         setIsLoading(false);
-        if (success) setRecoveryStep('code');
+        if (exists) {
+            setRecoveryStep('code');
+        }
         
     } else if (recoveryStep === 'code') {
-        const success = onRecoverVerify(recCode);
-        if (success) setRecoveryStep('reset');
+        const code = recCode.trim();
+        if (code.length < 6) {
+            setValidationError('El código debe tener 6 dígitos.');
+            return;
+        }
+        const isValid = onRecoverVerify(code);
+        if (isValid) setRecoveryStep('reset');
         
     } else if (recoveryStep === 'reset') {
         if (recPass1.length < 6) {
-            setValidationError('La contraseña debe tener al menos 6 caracteres.');
+            setValidationError('La nueva contraseña debe tener al menos 6 caracteres.');
             return;
         }
         if (recPass1 !== recPass2) {
             setValidationError('Las contraseñas no coinciden.');
             return;
         }
-        onRecoverReset(recPass1);
+        setIsLoading(true);
+        await onRecoverReset(recPass1.trim());
+        setIsLoading(false);
         setRecoveryStep('none');
     }
   };
@@ -134,14 +151,35 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
              <div className="animate-slideDown w-full max-w-md mx-auto">
                 <header className="mb-8 text-center">
                     <h3 className="text-2xl font-black text-slate-800">Recuperación de Cuenta</h3>
+                    <p className="text-slate-400 text-xs mt-2 font-bold uppercase tracking-widest">
+                        {recoveryStep === 'email' ? 'Paso 1: Ingrese su correo' : recoveryStep === 'code' ? 'Paso 2: Verifique el código' : 'Paso 3: Nueva contraseña'}
+                    </p>
                 </header>
                 <form onSubmit={handleRecSubmit} className="space-y-6">
                     {recoveryStep === 'email' && (
                         <Input label="Correo Electrónico Registrado" value={recEmail} onChange={setRecEmail} type="email" required placeholder="ejemplo@empresa.com" />
                     )}
+                    {recoveryStep === 'code' && (
+                        <Input label="Código de 6 dígitos" value={recCode} onChange={setRecCode} type="text" required placeholder="123456" />
+                    )}
+                    {recoveryStep === 'reset' && (
+                        <>
+                            <Input label="Nueva Contraseña" value={recPass1} onChange={setRecPass1} type="password" required />
+                            <Input label="Confirmar Contraseña" value={recPass2} onChange={setRecPass2} type="password" required />
+                        </>
+                    )}
+                    
+                    {displayError && (
+                        <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold border border-rose-100 animate-shake">
+                            {displayError}
+                        </div>
+                    )}
+
                     <div className="pt-2 space-y-3">
-                        <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition uppercase tracking-widest text-xs">
-                            {isLoading ? 'Cargando...' : 'Enviar'}
+                        <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                            {isLoading ? (
+                                <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Procesando...</>
+                            ) : recoveryStep === 'email' ? 'Enviar Código' : recoveryStep === 'code' ? 'Verificar' : 'Actualizar Clave'}
                         </button>
                         <button type="button" onClick={cancelRecovery} className="w-full text-slate-400 font-bold text-xs uppercase tracking-widest">Cancelar</button>
                     </div>
@@ -159,10 +197,10 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                     {displayError && (
                         <div className="p-4 bg-rose-50 border-2 border-rose-200 text-rose-700 rounded-2xl flex items-center gap-4 animate-shake mb-6 shadow-md">
                             <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                             </div>
                             <div className="flex-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest leading-none">Error del Sistema</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest leading-none">Aviso del Sistema</p>
                                 <p className="text-xs font-bold mt-1">{displayError}</p>
                             </div>
                         </div>
@@ -185,7 +223,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                             <div className="flex justify-between px-1">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contraseña de Acceso</label>
                                 {mode === 'login' && (
-                                    <button type="button" onClick={() => setRecoveryStep('email')} className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline">
+                                    <button type="button" onClick={startRecovery} className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline">
                                         ¿Olvidaste tu clave?
                                     </button>
                                 )}
