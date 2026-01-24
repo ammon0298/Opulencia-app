@@ -213,7 +213,7 @@ const userToDb = (u: User) => ({
   status: u.status
 });
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   // Data States
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
