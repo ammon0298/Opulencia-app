@@ -67,8 +67,9 @@ export interface Credit {
   totalPaid: number; 
   frequency: 'Daily' | 'Weekly' | 'Monthly';
   startDate: string;
+  firstPaymentDate: string; // Nueva propiedad fundamental para proyecciones
   isOverdue: boolean;
-  status: CreditStatus; // Nuevo campo para controlar el estado del ciclo de vida
+  status: CreditStatus; 
 }
 
 export interface Payment {

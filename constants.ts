@@ -1,7 +1,8 @@
 
 import { User, UserRole, Route, Client, Credit, Expense, Payment, RouteTransaction } from './types';
 
-export const TODAY_STR = '2026-01-21'; // Miércoles
+// Fecha dinámica real para producción
+export const TODAY_STR = new Date().toISOString().split('T')[0];
 const B_ID = 'business_001'; 
 
 // Base de datos de países global
@@ -158,45 +159,45 @@ export const MOCK_CLIENTS: Client[] = [
   { id: 'c6', businessId: B_ID, dni: '44556', name: 'Patricia Fernandez', alias: 'Peliteñida', address: 'Apto 202 Norte', phone: '318333', routeId: '2', order: 3, status: 'Active' }
 ];
 
-// RECALIBRACIÓN DE CRÉDITOS PARA FECHA ACTUAL: 2026-01-21
+// RECALIBRACIÓN DE CRÉDITOS PARA FECHA ACTUAL
 export const MOCK_CREDITS: Credit[] = [
   // --- RUTA NORTE (Juan) ---
 
   // CR1: Crédito Normal / Sano. Inicio Ene 10. Aprox 10 días hábiles. Pagado 9. Al día.
-  { id: 'cr1', businessId: B_ID, clientId: 'c1', capital: 1000, totalToPay: 1200, installmentValue: 50, totalInstallments: 24, paidInstallments: 9, totalPaid: 450, frequency: 'Daily', startDate: '2026-01-10', isOverdue: false, status: 'Active' }, 
+  { id: 'cr1', businessId: B_ID, clientId: 'c1', capital: 1000, totalToPay: 1200, installmentValue: 50, totalInstallments: 24, paidInstallments: 9, totalPaid: 450, frequency: 'Daily', startDate: '2026-01-10', firstPaymentDate: '2026-01-10', isOverdue: false, status: 'Active' }, 
   
   // CR2: MORA (PÚRPURA). Semanal. Inicio 1 Dic 2025. Debería llevar ~7 cuotas. Solo lleva 1.
-  { id: 'cr2', businessId: B_ID, clientId: 'c2', capital: 500, totalToPay: 600, installmentValue: 30, totalInstallments: 20, paidInstallments: 1, totalPaid: 30, frequency: 'Weekly', startDate: '2025-12-01', isOverdue: true, status: 'Active' }, 
+  { id: 'cr2', businessId: B_ID, clientId: 'c2', capital: 500, totalToPay: 600, installmentValue: 30, totalInstallments: 20, paidInstallments: 1, totalPaid: 30, frequency: 'Weekly', startDate: '2025-12-01', firstPaymentDate: '2025-12-08', isOverdue: true, status: 'Active' }, 
   
   // CR3: MORA CRÍTICA (PÚRPURA). Diario. Inicio 1 Dic 2025. Han pasado ~43 días hábiles. Solo ha pagado 5.
-  { id: 'cr3', businessId: B_ID, clientId: 'c3', capital: 2000, totalToPay: 2400, installmentValue: 100, totalInstallments: 24, paidInstallments: 5, totalPaid: 500, frequency: 'Daily', startDate: '2025-12-01', isOverdue: true, status: 'Active' }, 
+  { id: 'cr3', businessId: B_ID, clientId: 'c3', capital: 2000, totalToPay: 2400, installmentValue: 100, totalInstallments: 24, paidInstallments: 5, totalPaid: 500, frequency: 'Daily', startDate: '2025-12-01', firstPaymentDate: '2025-12-01', isOverdue: true, status: 'Active' }, 
   
   // CR7: LIQUIDADO (ESMERALDA). Pagó todo.
-  { id: 'cr7', businessId: B_ID, clientId: 'c7', capital: 800, totalToPay: 1000, installmentValue: 50, totalInstallments: 20, paidInstallments: 20, totalPaid: 1000, frequency: 'Daily', startDate: '2025-11-01', isOverdue: false, status: 'Completed' }, 
+  { id: 'cr7', businessId: B_ID, clientId: 'c7', capital: 800, totalToPay: 1000, installmentValue: 50, totalInstallments: 20, paidInstallments: 20, totalPaid: 1000, frequency: 'Daily', startDate: '2025-11-01', firstPaymentDate: '2025-11-01', isOverdue: false, status: 'Completed' }, 
   
   // CR8: FALTA 1 (ROSA). Inicio 7 Ene. ~12 días hábiles hasta 21 Ene. Total 12 cuotas. Pagó 11. Le falta 1.
-  { id: 'cr8', businessId: B_ID, clientId: 'c8', capital: 1000, totalToPay: 1200, installmentValue: 100, totalInstallments: 12, paidInstallments: 11, totalPaid: 1100, frequency: 'Daily', startDate: '2026-01-07', isOverdue: false, status: 'Active' }, 
+  { id: 'cr8', businessId: B_ID, clientId: 'c8', capital: 1000, totalToPay: 1200, installmentValue: 100, totalInstallments: 12, paidInstallments: 11, totalPaid: 1100, frequency: 'Daily', startDate: '2026-01-07', firstPaymentDate: '2026-01-07', isOverdue: false, status: 'Active' }, 
 
   // --- RUTA SUR (Jairo) ---
 
   // CR4: FALTA 3 (ÁMBAR). Inicio 2 Ene. ~16 días hábiles. Total 18 cuotas. Pagó 15. Le faltan 3.
-  { id: 'cr4', businessId: B_ID, clientId: 'c4', capital: 1500, totalToPay: 1800, installmentValue: 100, totalInstallments: 18, paidInstallments: 15, totalPaid: 1500, frequency: 'Daily', startDate: '2026-01-02', isOverdue: false, status: 'Active' }, 
+  { id: 'cr4', businessId: B_ID, clientId: 'c4', capital: 1500, totalToPay: 1800, installmentValue: 100, totalInstallments: 18, paidInstallments: 15, totalPaid: 1500, frequency: 'Daily', startDate: '2026-01-02', firstPaymentDate: '2026-01-02', isOverdue: false, status: 'Active' }, 
   
   // CR5: MORA CRÍTICA (PÚRPURA). Inicio 2 Ene. Debería llevar ~16 cuotas. Solo lleva 2.
-  { id: 'cr5', businessId: B_ID, clientId: 'c5', capital: 3000, totalToPay: 3600, installmentValue: 150, totalInstallments: 24, paidInstallments: 2, totalPaid: 300, frequency: 'Daily', startDate: '2026-01-02', isOverdue: true, status: 'Active' }, 
+  { id: 'cr5', businessId: B_ID, clientId: 'c5', capital: 3000, totalToPay: 3600, installmentValue: 150, totalInstallments: 24, paidInstallments: 2, totalPaid: 300, frequency: 'Daily', startDate: '2026-01-02', firstPaymentDate: '2026-01-02', isOverdue: true, status: 'Active' }, 
   
   // CR6: LIQUIDADO (ESMERALDA).
-  { id: 'cr6', businessId: B_ID, clientId: 'c6', capital: 500, totalToPay: 600, installmentValue: 60, totalInstallments: 10, paidInstallments: 10, totalPaid: 600, frequency: 'Weekly', startDate: '2025-11-01', isOverdue: false, status: 'Completed' }  
+  { id: 'cr6', businessId: B_ID, clientId: 'c6', capital: 500, totalToPay: 600, installmentValue: 60, totalInstallments: 10, paidInstallments: 10, totalPaid: 600, frequency: 'Weekly', startDate: '2025-11-01', firstPaymentDate: '2025-11-08', isOverdue: false, status: 'Completed' }  
 ];
 
-// GASTOS DEL DÍA HOY (2026-01-21)
+// GASTOS DEL DÍA HOY
 export const MOCK_EXPENSES: Expense[] = [
-  { id: 'e1', businessId: B_ID, date: '2026-01-21', routeId: '1', value: 30, name: 'Gasolina Juan', type: 'Operational', concept: 'Tanqueo diario Ruta Norte' },
-  { id: 'e2', businessId: B_ID, date: '2026-01-21', routeId: '2', value: 25, name: 'Almuerzo Jairo', type: 'Operational', concept: 'Viáticos Ruta Sur' }
+  { id: 'e1', businessId: B_ID, date: TODAY_STR, routeId: '1', value: 30, name: 'Gasolina Juan', type: 'Operational', concept: 'Tanqueo diario Ruta Norte' },
+  { id: 'e2', businessId: B_ID, date: TODAY_STR, routeId: '2', value: 25, name: 'Almuerzo Jairo', type: 'Operational', concept: 'Viáticos Ruta Sur' }
 ];
 
 export const MOCK_PAYMENTS: Payment[] = [
-  // --- PAGOS HISTÓRICOS Y DE HOY 2026-01-21 ---
+  // --- PAGOS HISTÓRICOS Y DE HOY ---
   
   // CR1 (Carlos): Total pagado 450 (9 cuotas de 50).
   // Pagos desde Ene 10. Último pago HOY (21 Ene).
@@ -208,7 +209,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   { id: 'p_cr1_6', businessId: B_ID, creditId: 'cr1', date: '2026-01-16', amount: 50 },
   { id: 'p_cr1_7', businessId: B_ID, creditId: 'cr1', date: '2026-01-17', amount: 50 },
   { id: 'p_cr1_8', businessId: B_ID, creditId: 'cr1', date: '2026-01-20', amount: 50 },
-  { id: 'p_cr1_now', businessId: B_ID, creditId: 'cr1', date: '2026-01-21', amount: 50 }, // PAGO DE HOY
+  { id: 'p_cr1_now', businessId: B_ID, creditId: 'cr1', date: TODAY_STR, amount: 50 }, // PAGO DE HOY
 
   // CR2 (Maria - MORA): Total pagado 30 (1 cuota). Pagó la primera hace mucho.
   { id: 'p_cr2_1', businessId: B_ID, creditId: 'cr2', date: '2025-12-08', amount: 30 },
@@ -235,7 +236,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   { id: 'p_cr8_8', businessId: B_ID, creditId: 'cr8', date: '2026-01-15', amount: 100 },
   { id: 'p_cr8_9', businessId: B_ID, creditId: 'cr8', date: '2026-01-16', amount: 100 },
   { id: 'p_cr8_10', businessId: B_ID, creditId: 'cr8', date: '2026-01-20', amount: 100 }, // Ayer
-  { id: 'p_cr8_now', businessId: B_ID, creditId: 'cr8', date: '2026-01-21', amount: 100 }, // PAGO DE HOY
+  { id: 'p_cr8_now', businessId: B_ID, creditId: 'cr8', date: TODAY_STR, amount: 100 }, // PAGO DE HOY
 
   // CR4 (Beatriz - FALTA 3): Total pagado 1500 (15 cuotas de 100).
   // Start Ene 2.
@@ -253,7 +254,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   { id: 'p_cr4_12', businessId: B_ID, creditId: 'cr4', date: '2026-01-15', amount: 100 },
   { id: 'p_cr4_13', businessId: B_ID, creditId: 'cr4', date: '2026-01-16', amount: 100 },
   { id: 'p_cr4_14', businessId: B_ID, creditId: 'cr4', date: '2026-01-20', amount: 100 },
-  { id: 'p_cr4_now', businessId: B_ID, creditId: 'cr4', date: '2026-01-21', amount: 100 }, // PAGO DE HOY
+  { id: 'p_cr4_now', businessId: B_ID, creditId: 'cr4', date: TODAY_STR, amount: 100 }, // PAGO DE HOY
 
   // CR5 (Armando): Total pagado 300.
   { id: 'p_cr5_1', businessId: B_ID, creditId: 'cr5', date: '2026-01-02', amount: 150 },

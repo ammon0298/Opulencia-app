@@ -16,12 +16,12 @@ interface LiquidationProps {
 const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits, expenses, payments, clients, routes, transactions }) => {
   const [dateRange, setDateRange] = useState({ start: TODAY_STR, end: TODAY_STR });
 
-  const minDate = useMemo(() => {
+  const minDateLimit = useMemo(() => {
     if (credits.length === 0) return '2025-01-01';
-    return credits.reduce((min, cr) => cr.startDate < min ? cr.startDate : min, credits[0].startDate);
+    const dates = credits.map(cr => cr.startDate);
+    dates.sort();
+    return dates[0] || '2025-01-01';
   }, [credits]);
-
-  // --- FILTRADO DE DATOS POR RUTA Y RANGO ---
 
   const filterByRoute = (itemRouteId: string) => selectedRouteId === 'all' || itemRouteId === selectedRouteId;
   const filterByDateRange = (dateStr: string) => {
@@ -33,7 +33,7 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
     return d < dateRange.start;
   };
 
-  // 1. Datos DENTRO del rango seleccionado (para las tablas detalle)
+  // 1. Datos DENTRO del rango
   const rangePayments = useMemo(() => 
     payments.filter(p => {
       const credit = credits.find(c => c.id === p.creditId);
@@ -57,59 +57,42 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
     transactions.filter(t => filterByRoute(t.routeId) && filterByDateRange(t.date) && t.type !== 'INITIAL_BASE'), 
   [transactions, selectedRouteId, dateRange]);
 
-
-  // 2. CÁLCULO DEL FONDO INICIAL (Dinámico al StartDate)
-  // Fórmula: BaseInicial = (Sumas Históricas INICIALES + Sumas Históricas ENTRADAS) - (Sumas Históricas SALIDAS) antes de StartDate
+  // 2. Cálculo Base Histórica Dinámica
   const calculatedStartBase = useMemo(() => {
     let base = 0;
-
-    // A. Transacciones de Capital (Iniciales + Inyecciones - Retiros) ANTES del rango
     transactions.forEach(t => {
-      if (filterByRoute(t.routeId) && (t.date < dateRange.start || t.type === 'INITIAL_BASE' && t.date <= dateRange.start)) { // Initial base always counts if <= start
+      if (filterByRoute(t.routeId) && (t.date < dateRange.start || (t.type === 'INITIAL_BASE' && t.date <= dateRange.start))) {
          if (t.type === 'INITIAL_BASE' || t.type === 'INJECTION') base += t.amount;
          if (t.type === 'WITHDRAWAL') base -= t.amount;
       }
     });
 
-    // B. (+) Recaudos Históricos ANTES del rango
     payments.forEach(p => {
         const credit = credits.find(c => c.id === p.creditId);
         const client = credit ? clients.find(c => c.id === credit.clientId) : null;
-        if (client && filterByRoute(client.routeId) && filterBeforeStart(p.date)) {
-            base += p.amount;
-        }
+        if (client && filterByRoute(client.routeId) && filterBeforeStart(p.date)) base += p.amount;
     });
 
-    // C. (-) Gastos Históricos ANTES del rango
     expenses.forEach(e => {
-        if (filterByRoute(e.routeId) && filterBeforeStart(e.date)) {
-            base -= e.value;
-        }
+        if (filterByRoute(e.routeId) && filterBeforeStart(e.date)) base -= e.value;
     });
 
-    // D. (-) Préstamos Entregados (Capital) ANTES del rango
     credits.forEach(cr => {
         const client = clients.find(c => c.id === cr.clientId);
-        if (client && filterByRoute(client.routeId) && filterBeforeStart(cr.startDate)) {
-            base -= cr.capital;
-        }
+        if (client && filterByRoute(client.routeId) && filterBeforeStart(cr.startDate)) base -= cr.capital;
     });
 
     return base;
   }, [transactions, payments, expenses, credits, clients, selectedRouteId, dateRange.start]);
 
-
-  // 3. Totales del Rango
   const totalCollected = rangePayments.reduce((acc, p) => acc + p.amount, 0);
   const totalExpensesValue = rangeExpenses.reduce((acc, curr) => acc + curr.value, 0);
   const totalNewLoans = rangeCredits.reduce((acc, cr) => acc + cr.capital, 0);
   const totalInjections = rangeTransactions.filter(t => t.type === 'INJECTION').reduce((acc, t) => acc + t.amount, 0);
   const totalWithdrawals = rangeTransactions.filter(t => t.type === 'WITHDRAWAL').reduce((acc, t) => acc + t.amount, 0);
 
-  // 4. Resultado Final (Efectivo a Entregar al final del rango)
   const realDelivery = (calculatedStartBase + totalCollected + totalInjections) - (totalExpensesValue + totalNewLoans + totalWithdrawals);
 
-  // Obtener nombre de la ruta seleccionada para mostrarlo
   const currentRouteName = selectedRouteId === 'all' 
     ? 'Todas las Rutas' 
     : routes.find(r => r.id === selectedRouteId)?.name || 'Ruta Seleccionada';
@@ -132,7 +115,7 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
              <div className="w-full">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Desde</label>
                 <input 
-                  type="date" min={minDate} max={TODAY_STR} value={dateRange.start}
+                  type="date" max={TODAY_STR} value={dateRange.start}
                   onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
                 />
@@ -150,7 +133,6 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         </div>
       </header>
 
-      {/* Tabla Maestra de Cálculo */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden animate-fadeIn">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-100">
@@ -163,7 +145,6 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
             <Row label="FONDO ACUMULADO (AL INICIO DEL PERIODO)" value={calculatedStartBase} highlight="text-indigo-600" />
             <Row label="TOTAL RECAUDOS (ENTRADAS)" value={totalCollected} highlight="text-emerald-600" />
             <Row label="INYECCIONES DE CAPITAL (ENTRADAS)" value={totalInjections} highlight="text-emerald-600" />
-            
             <Row label="TOTAL GASTOS OPERATIVOS (SALIDAS)" value={-totalExpensesValue} highlight="text-rose-600" isDeductible />
             <Row label="CAPITAL COLOCADO / PRÉSTAMOS (SALIDAS)" value={-totalNewLoans} highlight="text-rose-600" isDeductible />
             <Row label="RETIROS DE GANANCIAS (SALIDAS)" value={-totalWithdrawals} highlight="text-rose-600" isDeductible />
@@ -201,7 +182,7 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                     {rangeExpenses.map(exp => (
                       <tr key={exp.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4">
-                           <p className="font-bold text-slate-700">{exp.name} <span className="text-[9px] text-slate-400 uppercase ml-2">Gasto</span></p>
+                           <p className="font-bold text-slate-700">{exp.name}</p>
                            <p className="text-[9px] text-slate-400 uppercase">{exp.date}</p>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-rose-600">-${exp.value.toLocaleString()}</td>
@@ -210,15 +191,12 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                     {rangeTransactions.filter(t => t.type === 'WITHDRAWAL').map(tx => (
                       <tr key={tx.id} className="hover:bg-slate-50 bg-rose-50/30">
                         <td className="px-6 py-4">
-                           <p className="font-bold text-rose-800">{tx.description} <span className="text-[9px] text-rose-400 uppercase ml-2 font-black">Retiro</span></p>
+                           <p className="font-bold text-rose-800">{tx.description}</p>
                            <p className="text-[9px] text-rose-400 uppercase">{tx.date}</p>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-rose-600">-${tx.amount.toLocaleString()}</td>
                       </tr>
                     ))}
-                    {rangeExpenses.length === 0 && rangeTransactions.filter(t => t.type === 'WITHDRAWAL').length === 0 && (
-                        <tr><td colSpan={2} className="px-6 py-8 text-center text-slate-300 italic text-[10px] uppercase">Sin salidas registradas</td></tr>
-                    )}
                  </tbody>
               </table>
            </div>
@@ -244,7 +222,7 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                         return (
                             <tr key={pay.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4">
-                                <p className="font-bold text-slate-700">{cl?.name || 'Cliente'} <span className="text-[9px] text-slate-400 uppercase ml-2">Abono</span></p>
+                                <p className="font-bold text-slate-700">{cl?.name || 'Cliente'}</p>
                                 <p className="text-[9px] text-slate-400 uppercase">{pay.date} • CR#{pay.creditId.slice(-4)}</p>
                                 </td>
                                 <td className="px-6 py-4 text-right font-black text-emerald-600">+${pay.amount.toLocaleString()}</td>
@@ -254,58 +232,46 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                     {rangeTransactions.filter(t => t.type === 'INJECTION').map(tx => (
                       <tr key={tx.id} className="hover:bg-slate-50 bg-emerald-50/30">
                         <td className="px-6 py-4">
-                           <p className="font-bold text-emerald-800">{tx.description} <span className="text-[9px] text-emerald-500 uppercase ml-2 font-black">Inyección</span></p>
+                           <p className="font-bold text-emerald-800">{tx.description}</p>
                            <p className="text-[9px] text-emerald-500 uppercase">{tx.date}</p>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-emerald-600">+${tx.amount.toLocaleString()}</td>
                       </tr>
                     ))}
-                    {rangePayments.length === 0 && rangeTransactions.filter(t => t.type === 'INJECTION').length === 0 && (
-                        <tr><td colSpan={2} className="px-6 py-8 text-center text-slate-300 italic text-[10px] uppercase">Sin entradas registradas</td></tr>
-                    )}
                  </tbody>
               </table>
            </div>
         </section>
       </div>
 
-      {/* Detalle Préstamos */}
       <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.25em]">Nuevos Préstamos (Salida de Capital)</h3>
+              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.25em]">Nuevos Préstamos</h3>
            </div>
            <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full text-left text-xs">
                  <thead className="bg-slate-900 text-white">
                     <tr>
                        <th className="px-8 py-5 uppercase font-black tracking-widest">Cliente</th>
-                       <th className="px-8 py-5 uppercase font-black tracking-widest text-center">ID Crédito</th>
-                       <th className="px-8 py-5 uppercase font-black tracking-widest text-right">Capital Entregado</th>
+                       <th className="px-8 py-5 uppercase font-black tracking-widest text-right">Capital</th>
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
-                    {rangeCredits.length > 0 ? rangeCredits.map(cr => {
+                    {rangeCredits.map(cr => {
                       const client = clients.find(c => c.id === cr.clientId);
                       return (
-                        <tr key={cr.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={cr.id} className="hover:bg-slate-50">
                           <td className="px-8 py-5">
                              <p className="font-black text-slate-700 uppercase">{client?.name || '---'}</p>
-                             <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Fecha: {cr.startDate}</p>
+                             <p className="text-[9px] text-slate-400 font-bold uppercase">ID: #{cr.id.slice(-6)}</p>
                           </td>
-                          <td className="px-8 py-5 text-center">
-                             <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100 shadow-sm">
-                               #{cr.id.slice(-6).toUpperCase()}
-                             </span>
-                          </td>
-                          <td className="px-8 py-5 text-right font-black text-rose-600 font-mono text-base">
+                          <td className="px-8 py-5 text-right font-black text-rose-600 text-base">
                              -${cr.capital.toLocaleString()}
                           </td>
                         </tr>
                       );
-                    }) : (
-                      <tr><td colSpan={3} className="px-8 py-16 text-center text-slate-300 italic font-black uppercase tracking-widest text-sm bg-slate-50/30">No se entregaron créditos en este periodo</td></tr>
-                    )}
+                    })}
                  </tbody>
               </table>
            </div>

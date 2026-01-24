@@ -21,6 +21,8 @@ CREATE TABLE users (
   dni TEXT NOT NULL,
   phone TEXT,
   address TEXT,
+  country TEXT,
+  city TEXT,
   role TEXT CHECK (role IN ('ADMIN', 'COLLECTOR')),
   route_ids TEXT[], 
   status TEXT CHECK (status IN ('Active', 'Inactive')) DEFAULT 'Active',
@@ -63,6 +65,7 @@ CREATE TABLE credits (
   total_paid NUMERIC DEFAULT 0,
   frequency TEXT CHECK (frequency IN ('Daily', 'Weekly', 'Monthly')),
   start_date DATE DEFAULT CURRENT_DATE,
+  first_payment_date DATE, -- Campo fundamental agregado
   status TEXT CHECK (status IN ('Active', 'Completed', 'Lost')) DEFAULT 'Active',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
