@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, addBusinessDays } from '../constants';
@@ -16,8 +15,10 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, credit, payments,
 
   if (!client || !credit) return null;
 
-  const totalPaid = credit.totalPaid || 0;
-  const currentBalance = Math.max(0, credit.totalToPay - totalPaid);
+  // CORRECCIÓN 3: Recalcular Total Pagado basado en pagos reales (para actualización inmediata)
+  const realTotalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  
+  const currentBalance = Math.max(0, credit.totalToPay - realTotalPaid);
   const instVal = Math.max(1, credit.installmentValue);
   const pendingInstallments = Math.max(0, credit.totalInstallments - credit.paidInstallments);
   
@@ -27,7 +28,6 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, credit, payments,
   const capitalRatio = credit.capital / credit.totalToPay;
   const interestRatio = (credit.totalToPay - credit.capital) / credit.totalToPay;
   const capitalLoss = currentBalance * capitalRatio;
-  const interestLoss = currentBalance * interestRatio;
 
   const history = useMemo(() => {
     const sortedPayments = [...payments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -128,9 +128,10 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, credit, payments,
         </header>
 
         <div className={`rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden border shadow-2xl ${credit.status === 'Lost' ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-100'}`}>
-          <div className="py-12 md:py-16 text-center relative">
+          <div className="py-10 md:py-12 text-center relative">
             <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.5em] text-indigo-400 mb-2">CAPITAL TOTAL RECAUDADO</p>
-            <p className="text-7xl md:text-9xl font-black text-indigo-600 tracking-tighter leading-none">${totalPaid.toLocaleString()}</p>
+            {/* CORRECCIÓN 3: Reducción de tamaño de fuente para evitar desbordamiento */}
+            <p className="text-5xl md:text-7xl font-black text-indigo-600 tracking-tighter leading-none">${realTotalPaid.toLocaleString()}</p>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-t border-slate-200 bg-white">
@@ -276,11 +277,12 @@ const InfoBox = ({ label, value, highlight = 'text-slate-800', label2, value2, h
   <div className="p-6 md:p-12 flex flex-col gap-6 md:gap-12 text-center transition-all hover:bg-slate-50/50">
     <div className="space-y-1 md:space-y-2">
       <p className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-[0.1em] md:tracking-[0.25em]">{label}</p>
-      <p className={`text-xl md:text-4xl font-black ${highlight} tracking-tighter leading-none`}>{value}</p>
+      {/* CORRECCIÓN 3: Reducción de tamaños en InfoBox */}
+      <p className={`text-2xl md:text-3xl font-black ${highlight} tracking-tighter leading-none`}>{value}</p>
     </div>
     <div className="space-y-1 md:space-y-2">
       <p className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-[0.1em] md:tracking-[0.25em]">{label2}</p>
-      <p className={`text-xl md:text-4xl font-black ${highlight2} tracking-tighter leading-none`}>{value2}</p>
+      <p className={`text-2xl md:text-3xl font-black ${highlight2} tracking-tighter leading-none`}>{value2}</p>
     </div>
   </div>
 );

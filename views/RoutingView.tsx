@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
@@ -29,23 +28,26 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
        return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
     }
 
-    if (checkDate <= startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
+    // CORRECCIÓN: Permitir que aparezca si la fecha es IGUAL a la de inicio (hoy)
+    // Antes era checkDate <= startDate, lo que bloqueaba el día actual
+    if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
 
     let isInstallmentDay = false;
     let installmentNum = 0;
 
     if (credit.frequency === 'Daily') {
       isInstallmentDay = true;
-      // Usamos countBusinessDays para saber qué número de cuota toca hoy
-      installmentNum = countBusinessDays(credit.startDate, dateStr);
+      // CORRECCIÓN: Sumar 1 porque countBusinessDays retorna la diferencia de días. 
+      // El día de inicio debe ser la cuota #1.
+      installmentNum = countBusinessDays(credit.startDate, dateStr) + 1;
     } else if (credit.frequency === 'Weekly') {
       const diffDays = Math.round((checkDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
       isInstallmentDay = diffDays % 7 === 0;
-      installmentNum = Math.floor(diffDays / 7);
+      installmentNum = Math.floor(diffDays / 7) + 1; // Base 1
     } else if (credit.frequency === 'Monthly') {
       isInstallmentDay = checkDate.getDate() === startDate.getDate();
       const diffDays = Math.round((checkDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      installmentNum = Math.floor(diffDays / 30);
+      installmentNum = Math.floor(diffDays / 30) + 1; // Base 1
     }
 
     // Si ya pasamos el total de cuotas y no debe nada, no mostrar

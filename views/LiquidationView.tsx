@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Credit, Expense, Payment, Client, Route, RouteTransaction } from '../types';
 import { TODAY_STR } from '../constants';
 
@@ -16,12 +15,44 @@ interface LiquidationProps {
 const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits, expenses, payments, clients, routes, transactions }) => {
   const [dateRange, setDateRange] = useState({ start: TODAY_STR, end: TODAY_STR });
 
-  const minDateLimit = useMemo(() => {
-    if (credits.length === 0) return '2025-01-01';
-    const dates = credits.map(cr => cr.startDate);
-    dates.sort();
-    return dates[0] || '2025-01-01';
-  }, [credits]);
+  // 1. Calcular la fecha mínima permitida basada en la creación de la ruta
+  const effectiveMinDate = useMemo(() => {
+    let minT = '2025-01-01';
+    let found = false;
+
+    // Buscar la transacción de tipo INITIAL_BASE de la ruta seleccionada
+    const routeTransactions = transactions.filter(t => 
+      selectedRouteId === 'all' || t.routeId === selectedRouteId
+    );
+
+    if (routeTransactions.length > 0) {
+        // Ordenar ascendente para encontrar la primera
+        routeTransactions.sort((a,b) => a.date.localeCompare(b.date));
+        minT = routeTransactions[0].date;
+        found = true;
+    } 
+    
+    // Si no hay transacciones, buscar el primer crédito
+    if (!found) {
+        const routeCredits = credits.filter(c => {
+            const cl = clients.find(cl => cl.id === c.clientId);
+            return cl && (selectedRouteId === 'all' || cl.routeId === selectedRouteId);
+        });
+        if (routeCredits.length > 0) {
+            routeCredits.sort((a,b) => a.startDate.localeCompare(b.startDate));
+            minT = routeCredits[0].startDate;
+        }
+    }
+
+    return minT;
+  }, [selectedRouteId, transactions, credits, clients]);
+
+  // Efecto para ajustar el rango si cambia la ruta y la fecha actual es menor al mínimo
+  useEffect(() => {
+    if (dateRange.start < effectiveMinDate) {
+        setDateRange(prev => ({ ...prev, start: effectiveMinDate }));
+    }
+  }, [effectiveMinDate, dateRange.start]);
 
   const filterByRoute = (itemRouteId: string) => selectedRouteId === 'all' || itemRouteId === selectedRouteId;
   const filterByDateRange = (dateStr: string) => {
@@ -60,10 +91,19 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
   // 2. Cálculo Base Histórica Dinámica
   const calculatedStartBase = useMemo(() => {
     let base = 0;
+    
+    // Sumar TODO lo anterior a la fecha de inicio seleccionada
     transactions.forEach(t => {
-      if (filterByRoute(t.routeId) && (t.date < dateRange.start || (t.type === 'INITIAL_BASE' && t.date <= dateRange.start))) {
-         if (t.type === 'INITIAL_BASE' || t.type === 'INJECTION') base += t.amount;
-         if (t.type === 'WITHDRAWAL') base -= t.amount;
+      // Si la transacción es la INITIAL_BASE, se suma si su fecha es <= start (incluso si es el mismo día, es la base)
+      // Pero si es INJECTION/WITHDRAWAL, solo si es estrictamente anterior
+      if (filterByRoute(t.routeId)) {
+          const isInitialAndValid = t.type === 'INITIAL_BASE' && t.date <= dateRange.start;
+          const isOtherAndPrior = t.type !== 'INITIAL_BASE' && t.date < dateRange.start;
+
+          if (isInitialAndValid || isOtherAndPrior) {
+             if (t.type === 'INITIAL_BASE' || t.type === 'INJECTION') base += t.amount;
+             if (t.type === 'WITHDRAWAL') base -= t.amount;
+          }
       }
     });
 
@@ -115,7 +155,10 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
              <div className="w-full">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Desde</label>
                 <input 
-                  type="date" max={TODAY_STR} value={dateRange.start}
+                  type="date" 
+                  min={effectiveMinDate} // Bloqueo de fechas anteriores
+                  max={TODAY_STR} 
+                  value={dateRange.start}
                   onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
                 />

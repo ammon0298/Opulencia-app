@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole } from './types';
 import Layout from './components/Layout';
@@ -163,7 +162,7 @@ const creditToDb = (c: Credit) => ({
   total_to_pay: c.totalToPay,
   installment_value: c.installmentValue,
   total_installments: c.totalInstallments,
-  paid_installments: c.paid_installments ?? 0,
+  paid_installments: c.paidInstallments ?? 0,
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
   start_date: c.startDate,
@@ -281,6 +280,12 @@ const App: React.FC = () => {
           const user = JSON.parse(savedUser);
           setCurrentUser(user);
           await loadBusinessData(user.businessId);
+          
+          // Si es cobrador, forzar selección de su ruta
+          if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
+             setSelectedRouteId(user.routeIds[0]);
+          }
+          
           setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
         } catch (e) {
           localStorage.removeItem('op_user');
@@ -322,6 +327,14 @@ const App: React.FC = () => {
         setCurrentUser(mappedUser);
         localStorage.setItem('op_user', JSON.stringify(mappedUser));
         await loadBusinessData(mappedUser.businessId);
+        
+        // CORRECCIÓN 1: Si es cobrador, preseleccionar su primera ruta
+        if (mappedUser.role === UserRole.COLLECTOR && mappedUser.routeIds.length > 0) {
+            setSelectedRouteId(mappedUser.routeIds[0]);
+        } else {
+            setSelectedRouteId('all');
+        }
+
         setCurrentView(mappedUser.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
       } else {
         setAuthError('Contraseña incorrecta.');
@@ -345,7 +358,24 @@ const App: React.FC = () => {
   };
 
   const filteredData = useMemo(() => {
-    const routeFilter = (id: string) => selectedRouteId === 'all' || id === selectedRouteId;
+    if (!currentUser) return { clients: [], credits: [], expenses: [], payments: [] };
+
+    // CORRECCIÓN 1: Lógica de filtrado estricta para cobradores
+    // Si es cobrador, solo puede ver sus rutas asignadas.
+    const allowedRouteIds = currentUser.role === UserRole.COLLECTOR 
+        ? currentUser.routeIds 
+        : routes.map(r => r.id); // Admin ve todas (o filtradas por UI)
+
+    const routeFilter = (id: string) => {
+        // 1. Verificar si el usuario tiene permiso para esta ruta
+        const hasPermission = allowedRouteIds.includes(id);
+        if (!hasPermission && currentUser.role === UserRole.COLLECTOR) return false;
+
+        // 2. Aplicar filtro de UI (dropdown)
+        if (selectedRouteId === 'all') return true;
+        return id === selectedRouteId;
+    };
+
     return {
       clients: clients
         .filter((c) => routeFilter(c.routeId))
@@ -361,7 +391,7 @@ const App: React.FC = () => {
         return !!(c && routeFilter(c.routeId));
       })
     };
-  }, [clients, credits, expenses, payments, selectedRouteId]);
+  }, [clients, credits, expenses, payments, selectedRouteId, currentUser, routes]);
 
   const handleSaveClientBulk = async (updatedClients: Client[]) => {
     if (!currentUser) return;
@@ -426,7 +456,26 @@ const App: React.FC = () => {
       case 'routes_mgmt':
         return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={persistRoutesFromSetter} onAddTransaction={persistRouteTransaction} />;
       case 'profile':
-        return <UserProfile user={currentUser} users={users} onUpdate={(u) => setCurrentUser(u)} />;
+        return (
+          <UserProfile 
+            user={currentUser} 
+            users={users} 
+            onUpdate={async (u) => {
+                // CORRECCIÓN 2: Persistencia Real del Perfil
+                const payload = userToDb(u);
+                // Si hay password (hash), lo enviamos
+                if ((u as any).password) { (payload as any).password_hash = (u as any).password; }
+                
+                const { error } = await supabase.from('users').update(payload).eq('id', u.id);
+                if (!error) {
+                    setCurrentUser(u);
+                    localStorage.setItem('op_user', JSON.stringify(u));
+                    // Recargar datos globales para que el Admin vea el cambio
+                    await loadBusinessData(u.businessId);
+                }
+            }} 
+          />
+        );
       case 'credit_details': {
         const crDetails = credits.find((c) => c.id === selectedCreditId);
         const clDetails = crDetails ? clients.find((c) => c.id === crDetails.clientId) : undefined;
@@ -455,7 +504,6 @@ const App: React.FC = () => {
 
   if (!currentUser) {
     if (currentView === 'auth' || currentView === 'register') {
-      // Fix: Added missing onClearError prop as required by AuthViewProps interface to clear authentication errors
       return <AuthView mode={currentView === 'register' ? 'register' : 'login'} error={authError} onLogin={handleLogin} onRegister={() => {}} onBack={() => { setAuthError(null); setCurrentView('landing'); }} onSwitchMode={(m) => { setAuthError(null); setCurrentView(m); }} onRecoverInitiate={async () => true} onRecoverVerify={() => true} onRecoverReset={() => {}} onClearError={() => setAuthError(null)} />;
     }
     return <LandingPage onLogin={() => setCurrentView('auth')} onRegister={() => setCurrentView('register')} />;

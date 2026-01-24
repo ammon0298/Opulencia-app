@@ -319,9 +319,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
 
             <div className="mt-auto pt-6 border-t border-slate-50 flex justify-between items-center">
                 <div className="flex -space-x-2">
-                    {c.routeIds.length > 0 ? c.routeIds.map(rid => (
-                        <div key={rid} className="w-8 h-8 rounded-lg bg-indigo-50 border-2 border-white flex items-center justify-center text-[8px] font-black text-indigo-500" title={routes.find(r => r.id === rid)?.name}>R</div>
-                    )) : <span className="text-[8px] font-black text-slate-300 uppercase">Sin rutas</span>}
+                    {/* CORRECCIÓN 4: Mostrar NOMBRE de la ruta en lugar del ID */}
+                    {c.routeIds.length > 0 ? c.routeIds.map(rid => {
+                        const routeName = routes.find(r => r.id === rid)?.name || 'Desconocida';
+                        return (
+                            <div key={rid} className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[8px] font-black text-indigo-600 uppercase" title={routeName}>
+                                {routeName.length > 10 ? routeName.slice(0, 10) + '...' : routeName}
+                            </div>
+                        );
+                    }) : <span className="text-[8px] font-black text-slate-300 uppercase">Sin rutas</span>}
                 </div>
                 <button 
                   onClick={() => handleStartEdit(c)}
