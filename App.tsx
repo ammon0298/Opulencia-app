@@ -213,7 +213,7 @@ const userToDb = (u: User) => ({
   status: u.status
 });
 
-export const App: React.FC = () => {
+const App: React.FC = () => {
   // Data States
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -805,3 +805,5 @@ export const App: React.FC = () => {
     </Layout>
   );
 };
+
+export default App;
