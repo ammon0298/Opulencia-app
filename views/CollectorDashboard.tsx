@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { User, Route, Credit, Expense, Client } from '../types';
+import { User, Route, Credit, Expense, Client, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
 
 interface DashboardProps {
@@ -12,6 +12,7 @@ interface DashboardProps {
     clients: Client[];
     credits: Credit[];
     expenses: Expense[];
+    payments?: Payment[];
   };
 }
 
@@ -116,28 +117,48 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     let totalPendingToCollect = 0;
     let totalLostCapital = 0;
 
+    // Use detailed payment data if available
+    if (stats.payments && stats.payments.length > 0) {
+        // Distribute proportionally for metrics
+        stats.credits.forEach(cr => {
+            const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
+            const capitalRatio = cr.capital / cr.totalToPay;
+            const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
+            
+            totalRecoveredCapital += creditPayments * capitalRatio;
+            totalRealizedProfit += creditPayments * profitRatio;
+        });
+    } else {
+        // Fallback
+        stats.credits.forEach(cr => {
+            const capitalRatio = cr.capital / cr.totalToPay;
+            const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
+            totalRecoveredCapital += cr.totalPaid * capitalRatio;
+            totalRealizedProfit += cr.totalPaid * profitRatio;
+        });
+    }
+
     stats.credits.forEach(cr => {
       const totalToPay = cr.totalToPay;
       const capital = cr.capital;
-      const profitRatio = (totalToPay - capital) / totalToPay;
       const capitalRatio = capital / totalToPay;
       
       if (cr.status === 'Lost') {
-        // Cálculo de Pérdida Real: Capital Prestado - (Lo que pagó * %Capital de cada cuota)
-        const capitalRecoveredInPayments = cr.totalPaid * capitalRatio;
+        const creditPayments = stats.payments ? stats.payments.filter(p => p.creditId === cr.id).reduce((s,p)=>s+p.amount,0) : cr.totalPaid;
+        const capitalRecoveredInPayments = creditPayments * capitalRatio;
         totalLostCapital += (capital - capitalRecoveredInPayments);
       } else {
         totalInvested += capital;
         totalInterestExpected += (totalToPay - capital);
-        totalRecoveredCapital += cr.totalPaid * capitalRatio;
-        totalRealizedProfit += cr.totalPaid * profitRatio;
-        totalPendingToCollect += (totalToPay - cr.totalPaid);
+        
+        const creditPayments = stats.payments ? stats.payments.filter(p => p.creditId === cr.id).reduce((s,p)=>s+p.amount,0) : cr.totalPaid;
+        totalPendingToCollect += (totalToPay - creditPayments);
 
         const { installmentNum } = getInstallmentStatusForDate(cr, todayDate);
         const shouldHavePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
-        const debt = Math.max(0, shouldHavePaid - cr.totalPaid);
+        const debt = Math.max(0, shouldHavePaid - creditPayments);
         if (cr.isOverdue || debt > 0) {
-            const finalDebt = cr.totalToPay - cr.totalPaid;
+            const finalDebt = cr.totalToPay - creditPayments;
             overdueAmount += (installmentNum > cr.totalInstallments) ? finalDebt : Math.max(debt, cr.installmentValue);
         }
       }
@@ -149,7 +170,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       recoveryRate: totalInvested > 0 ? (totalRecoveredCapital / totalInvested) * 100 : 0,
       profitRate: totalInterestExpected > 0 ? (totalRealizedProfit / totalInterestExpected) * 100 : 0
     };
-  }, [stats.credits]);
+  }, [stats]);
 
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
