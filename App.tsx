@@ -113,7 +113,7 @@ const dbToExpense = (e: any): Expense => ({
 
 const dbToTx = (t: any): RouteTransaction => ({
   id: t.id,
-  business_id: t.business_id,
+  businessId: t.business_id,
   routeId: t.route_id,
   date: t.transaction_date ?? t.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   amount: Number(t.amount),
@@ -123,7 +123,7 @@ const dbToTx = (t: any): RouteTransaction => ({
 
 const dbToUser = (u: any): User => ({
   id: u.id,
-  business_id: u.business_id,
+  businessId: u.business_id,
   username: u.username,
   name: u.name,
   dni: u.dni,
@@ -175,7 +175,7 @@ const creditToDb = (c: Credit) => ({
   total_to_pay: c.totalToPay,
   installment_value: c.installmentValue,
   total_installments: c.totalInstallments,
-  paid_installments: c.paidInstallments ?? 0,
+  paid_installments: c.paid_installments ?? 0,
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
   start_date: c.startDate,
@@ -463,21 +463,7 @@ const AppContent: React.FC = () => {
       case 'credits':
         return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
       case 'client_management':
-        return (
-          <ClientManagement 
-            clients={filteredData.clients} 
-            allClients={clients} 
-            routes={routes} 
-            user={currentUser} 
-            credits={filteredData.credits} 
-            payments={filteredData.payments}
-            selectedRouteId={selectedRouteId} 
-            onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} 
-            onDeleteClient={() => {}} 
-            onNewClient={() => setCurrentView('new_client')} 
-            onUpdateClients={handleSaveClientBulk} 
-          />
-        );
+        return <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
       case 'edit_client': {
         const clientToEdit = clients.find((c) => c.id === selectedClientId);
         const activeCredit = credits.find((c) => c.clientId === selectedClientId && c.status === 'Active');
