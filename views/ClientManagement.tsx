@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Client, Route, User, Credit, Payment } from '../types';
 import { useGlobal } from '../contexts/GlobalContext';
@@ -49,6 +48,14 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ clients, allClients
         const updatedOther = { ...otherClient, order: newOtherOrder };
         onUpdateClients([updatedSelf, updatedOther]);
     }
+  };
+
+  // Helper para obtener solo el número local (sin indicativo)
+  const getLocalPhone = (fullPhone: string) => {
+    if (!fullPhone) return '';
+    // Asume formato "+57 3001234567" -> split por espacio y toma el resto
+    const parts = fullPhone.split(' ');
+    return parts.length > 1 ? parts.slice(1).join('') : fullPhone;
   };
 
   return (
@@ -153,13 +160,20 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ clients, allClients
                             <p className="text-[10px] text-slate-400 font-medium truncate max-w-[200px]">{client.address}</p>
                         </td>
                         <td className="px-8 py-5">
-                            <div className="flex items-center justify-center">
-                            <button 
-                                onClick={() => onEditClient(client.id)} 
-                                className="px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 transition-all shadow-sm uppercase tracking-widest"
-                            >
-                                EDITAR
-                            </button>
+                            <div className="flex items-center justify-center gap-2">
+                                <a 
+                                    href={`tel:${getLocalPhone(client.phone)}`}
+                                    className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-800 shadow-sm hover:scale-105 transition-transform"
+                                    title="Llamar"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
+                                </a>
+                                <button 
+                                    onClick={() => onEditClient(client.id)} 
+                                    className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 transition-all shadow-sm uppercase tracking-widest"
+                                >
+                                    EDITAR
+                                </button>
                             </div>
                         </td>
                         </tr>

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
@@ -16,6 +15,13 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   const [targetDate, setTargetDate] = useState(TODAY_STR); 
   const isAllSelected = selectedRouteId === 'all';
   const todayObj = new Date(TODAY_STR + 'T00:00:00');
+
+  // Helper para obtener solo el número local (sin indicativo)
+  const getLocalPhone = (fullPhone: string) => {
+    if (!fullPhone) return '';
+    const parts = fullPhone.split(' ');
+    return parts.length > 1 ? parts.slice(1).join('') : fullPhone;
+  };
 
   const getVisitDetailsForCredit = (credit: Credit, dateStr: string) => {
     // Si el crédito está perdido, no aparece en ruta
@@ -280,6 +286,15 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                                  </button>
                                )}
+
+                               {/* BOTÓN LLAMAR MOVIL */}
+                               <a
+                                   href={`tel:${getLocalPhone(item.phone)}`}
+                                   className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-800 active:scale-95"
+                                   title="Llamar Cliente"
+                               >
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
+                               </a>
                             </div>
                         </div>
                     </div>
@@ -306,6 +321,15 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                              MAPA
                            </button>
                         )}
+
+                        {/* BOTÓN LLAMAR ESCRITORIO */}
+                        <a
+                            href={`tel:${getLocalPhone(item.phone)}`}
+                            className="ml-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
+                            LLAMAR
+                        </a>
                       </div>
                       <div className="space-y-1.5 md:space-y-0 md:flex md:flex-wrap md:items-center md:gap-4 lg:gap-6">
                          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-300">
