@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { useGlobal } from '../contexts/GlobalContext';
@@ -17,7 +16,13 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
   const mapInstance = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const { theme, t } = useGlobal();
-  const [selectedClient, setSelectedClient] = useState<{client: Client, credit?: Credit, balance: number, paid: number} | null>(null);
+  const [selectedClient, setSelectedClient] = useState<{
+      client: Client, 
+      credit?: Credit, 
+      balance: number, 
+      paid: number,
+      coords: { lat: number, lng: number }
+  } | null>(null);
 
   // Función para obtener datos financieros del cliente
   const getClientFinancials = (client: Client) => {
@@ -27,12 +32,15 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
     // Calcular pagado REAL desde la tabla de pagos
     const realPaid = payments.filter(p => p.creditId === activeCredit.id).reduce((acc, curr) => acc + curr.amount, 0);
     const balance = Math.max(0, activeCredit.totalToPay - realPaid);
+    const remaining = Math.max(0, activeCredit.totalInstallments - activeCredit.paidInstallments);
     
-    // Determinar estado para el color
-    let statusColor = '#6366f1'; // Indigo (Normal)
+    // Determinar estado para el color (Sincronizado con Semáforo de Créditos)
+    let statusColor = '#6366f1'; // Indigo (Normal/Activo)
+    
     if (activeCredit.isOverdue) statusColor = '#9333ea'; // Purple (Mora)
-    else if (balance <= 0) statusColor = '#10b981'; // Green (Pagado)
-    else if ((activeCredit.totalInstallments - activeCredit.paidInstallments) <= 3) statusColor = '#f59e0b'; // Amber (Faltan pocos)
+    else if (balance <= 0) statusColor = '#10b981'; // Emerald (Pagado)
+    else if (remaining === 1) statusColor = '#e11d48'; // Rose (Falta 1)
+    else if (remaining <= 3) statusColor = '#f59e0b'; // Amber (Faltan <= 3)
 
     return { credit: activeCredit, paid: realPaid, balance, color: statusColor };
   };
@@ -95,7 +103,7 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
       
       const financials = getClientFinancials(client);
       const coords = getClientCoords(client);
-      const color = financials ? financials.color : '#94a3b8';
+      const color = financials ? financials.color : '#94a3b8'; // Slate-400 si no hay crédito
 
       // Guardar punto para bounds
       points.push([coords.lat, coords.lng]);
@@ -115,7 +123,8 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
                 client,
                 credit: financials?.credit,
                 balance: financials?.balance || 0,
-                paid: financials?.paid || 0
+                paid: financials?.paid || 0,
+                coords: coords
             });
             mapInstance.current.setView([coords.lat, coords.lng], 16, { animate: true });
         });
@@ -175,7 +184,7 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
             )}
 
             <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${selectedClient.client.coordinates?.lat || 0},${selectedClient.client.coordinates?.lng || 0}`} 
+                href={`https://www.google.com/maps/search/?api=1&query=${selectedClient.coords.lat},${selectedClient.coords.lng}`} 
                 target="_blank" 
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-lg transition active:scale-95 uppercase tracking-widest text-[10px]"
