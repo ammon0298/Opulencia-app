@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Client, Route, User } from '../types';
 import { COUNTRY_DATA } from '../constants';
@@ -32,7 +33,6 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  // Use ReturnType<typeof setTimeout> to correspond to the environment (browser vs node) without relying on global NodeJS namespace
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inicializar Mapa para Picking
@@ -62,7 +62,6 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
         setFormData(prev => ({ ...prev, coordinates: { lat: e.latlng.lat, lng: e.latlng.lng } }));
     });
 
-    // Fix map render using ResizeObserver for robustness
     const resizeObserver = new ResizeObserver(() => {
         if (mapInstance.current) {
             mapInstance.current.invalidateSize();
@@ -73,17 +72,18 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Lógica de Geocodificación Automática
+  // Lógica de Geocodificación Automática (Incluyendo Dirección)
   useEffect(() => {
     const { address, city, country } = formData;
     
-    // Solo buscar si hay datos suficientes
+    // Solo buscar si hay datos suficientes (Ciudad y País mínimos)
     if (!city || !country || city.length < 3) return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(async () => {
         try {
+            // Construir query más precisa: "Calle 123, Ciudad, Pais"
             const query = `${address ? address + ', ' : ''}${city}, ${country}`;
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
             const data = await response.json();
@@ -103,12 +103,12 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
         } catch (error) {
             console.error("Error geocodificando dirección:", error);
         }
-    }, 1500); // Esperar 1.5s después de que el usuario deje de escribir
+    }, 1500); // Debounce de 1.5s
 
     return () => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [formData.address, formData.city, formData.country]);
+  }, [formData.address, formData.city, formData.country]); // Escuchar cambios en ADDRESS
 
   const activeRouteClients = useMemo(() => {
     return clients
@@ -143,8 +143,6 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
       id: 'c' + Date.now(),
       businessId: currentUser.businessId,
       ...formData,
-      // Concatenar indicativo visualmente o guardarlo separado
-      // Aquí guardamos el teléfono completo en `phone` para simplificar lógica existente de llamadas
       phone: `${formData.phoneCode} ${formData.phone}`,
       phoneCode: formData.phoneCode,
       order: newOrder,
@@ -161,14 +159,14 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn pb-20">
       <header className="flex items-center gap-4">
-        <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-600">
+        <button onClick={onCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-600 dark:text-slate-300">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </button>
         <div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Registro de Cliente</h2>
-          <p className="text-slate-500 font-medium">Complete la información de ubicación precisa</p>
+          <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Registro de Cliente</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Complete la información de ubicación precisa</p>
         </div>
       </header>
 
@@ -184,11 +182,11 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
         </div>
       )}
 
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
         <form onSubmit={handleSubmit} className="p-10 space-y-10">
           
           <section className="space-y-6">
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest text-sm border-b pb-2">1. Identidad y Contacto</h3>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm border-b dark:border-slate-800 pb-2">1. Identidad y Contacto</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Número de Identificación (DNI)</label>
@@ -196,7 +194,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                   type="text" 
                   value={formData.dni} 
                   onChange={e => setFormData({...formData, dni: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                   required
                 />
               </div>
@@ -206,7 +204,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                   type="text" 
                   value={formData.name} 
                   onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                   required
                 />
               </div>
@@ -216,7 +214,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                     <select 
                         value={formData.phoneCode}
                         onChange={(e) => setFormData({...formData, phoneCode: e.target.value})}
-                        className="w-24 bg-slate-50 border border-slate-200 rounded-2xl px-2 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700 text-xs"
+                        className="w-24 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-2 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white text-xs"
                     >
                         {COUNTRY_DATA.map(c => <option key={c.code} value={c.dial_code}>{c.flag} {c.dial_code}</option>)}
                     </select>
@@ -224,7 +222,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                         type="text" 
                         value={formData.phone} 
                         onChange={e => setFormData({...formData, phone: e.target.value})}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                        className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                         required
                     />
                 </div>
@@ -235,7 +233,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                   type="text" 
                   value={formData.alias} 
                   onChange={e => setFormData({...formData, alias: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                   required
                 />
               </div>
@@ -243,7 +241,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
           </section>
 
           <section className="space-y-6">
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest text-sm border-b pb-2">2. Ubicación Geográfica</h3>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm border-b dark:border-slate-800 pb-2">2. Ubicación Geográfica</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-1">
@@ -251,7 +249,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                     <select 
                         value={formData.country}
                         onChange={(e) => setFormData({...formData, country: e.target.value})}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                     >
                         {COUNTRY_DATA.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
                     </select>
@@ -263,7 +261,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                         value={formData.city} 
                         onChange={e => setFormData({...formData, city: e.target.value})}
                         placeholder="Ej: Manizales"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                         required
                     />
                 </div>
@@ -274,7 +272,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                         value={formData.address} 
                         onChange={e => setFormData({...formData, address: e.target.value})}
                         placeholder="Ej: Carrera 23 # 45-10"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                         required
                     />
                 </div>
@@ -283,7 +281,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
             {/* MAPA PICKER */}
             <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ajuste Fino de Ubicación (El pin se mueve automáticamente)</label>
-                <div className="w-full h-64 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner relative z-0">
+                <div className="w-full h-64 rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-inner relative z-0">
                     <div ref={mapRef} className="w-full h-full" />
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">Lat: {formData.coordinates.lat.toFixed(6)}, Lng: {formData.coordinates.lng.toFixed(6)}</p>
@@ -291,14 +289,14 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
           </section>
 
           <section className="space-y-6">
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest text-sm border-b pb-2">3. Asignación de Ruta</h3>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm border-b dark:border-slate-800 pb-2">3. Asignación de Ruta</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ruta</label>
                 <select 
                   value={formData.routeId}
                   onChange={e => setFormData({...formData, routeId: e.target.value, insertPosition: 'last'})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                   required
                 >
                   {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -309,7 +307,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                 <select 
                     value={formData.insertPosition}
                     onChange={e => setFormData({...formData, insertPosition: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
                 >
                     <option value="last">AL FINAL (Orden: {activeRouteClients.length + 1})</option>
                     {activeRouteClients.map((c, idx) => (
@@ -330,7 +328,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
             <button 
               type="button"
               onClick={onCancel}
-              className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-8 py-5 rounded-3xl transition transform active:scale-95 uppercase tracking-widest text-xs"
+              className="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-black px-8 py-5 rounded-3xl transition transform active:scale-95 uppercase tracking-widest text-xs"
             >
               Cancelar
             </button>

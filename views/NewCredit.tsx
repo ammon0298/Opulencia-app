@@ -86,7 +86,6 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
     return { balance, routeName: route?.name || 'Ruta Desconocida' };
   }, [selectedClient, allTransactions, allPayments, allExpenses, allCredits, clients, routes]);
 
-  // CORRECCIÓN 1: Búsqueda robusta y visible
   const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchTerm(term);
@@ -103,7 +102,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         c.dni.includes(term) || 
         c.name.toLowerCase().includes(lowerTerm) || 
         c.alias.toLowerCase().includes(lowerTerm)
-    ).slice(0, 8); // Mostrar hasta 8 resultados
+    ).slice(0, 8); 
 
     setSearchResults(matches);
     setShowDropdown(true);
@@ -113,7 +112,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
     setSelectedClient(client);
     setSearchTerm(client.name);
     setShowDropdown(false);
-    setCalc(null); // Resetear cálculo si cambia cliente
+    setCalc(null); 
   };
 
   const handleGenerate = () => {
@@ -188,8 +187,8 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
     <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn pb-24">
       <header className="flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
-            <span className="bg-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Gestión de Activos</span>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight mt-2">Nueva Colocación</h2>
+            <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Gestión de Activos</span>
+            <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight mt-2">Nueva Colocación</h2>
         </div>
       </header>
 
@@ -205,9 +204,9 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         </div>
       )}
 
-      {/* CORRECCIÓN 1: Se eliminó 'overflow-hidden' para que el dropdown se vea en mobile */}
-      <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 relative">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-t-[2.5rem]"></div>
+      {/* FIX: Added overflow-hidden to clip the decorative bar */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
         
         <div className="p-8 md:p-10 space-y-10">
             {/* Buscador */}
@@ -223,29 +222,28 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         onChange={handleSearchInput} 
                         onFocus={() => { if(searchTerm) setShowDropdown(true); }}
                         placeholder="Escriba nombre o cédula..." 
-                        className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 text-lg shadow-inner placeholder:text-slate-300" 
+                        className="w-full bg-slate-50/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 dark:text-white text-lg shadow-inner placeholder:text-slate-300" 
                     />
                     
-                    {/* Dropdown de Sugerencias con z-index alto */}
                     {showDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-[99] animate-fadeIn max-h-[300px] overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[99] animate-fadeIn max-h-[300px] overflow-y-auto">
                             {searchResults.length > 0 ? (
                                 <>
-                                    <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 sticky top-0">
+                                    <div className="bg-slate-50 dark:bg-slate-700 px-6 py-3 border-b border-slate-100 dark:border-slate-600 sticky top-0">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Coincidencias encontradas</p>
                                     </div>
                                     {searchResults.map(c => (
                                         <button 
                                             key={c.id} 
                                             onClick={() => handleSelectClient(c)}
-                                            className="w-full text-left px-6 py-4 hover:bg-indigo-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
+                                            className="w-full text-left px-6 py-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-700 last:border-0 flex items-center justify-between group transition-colors"
                                         >
                                             <div>
-                                                <p className="font-bold text-slate-800 group-hover:text-indigo-700">{c.name}</p>
-                                                <p className="text-xs text-slate-400 mt-0.5">{c.alias} • <span className="font-mono bg-slate-100 px-1 rounded">{c.dni}</span></p>
+                                                <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400">{c.name}</p>
+                                                <p className="text-xs text-slate-400 mt-0.5">{c.alias} • <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded">{c.dni}</span></p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase group-hover:bg-white group-hover:text-indigo-500">Seleccionar</span>
+                                                <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded uppercase group-hover:bg-white group-hover:text-indigo-500">Seleccionar</span>
                                             </div>
                                         </button>
                                     ))}
@@ -262,21 +260,20 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
 
             {selectedClient && (
                 <div className="animate-slideDown">
-                    {/* Alerta de Caja */}
                     {routeFinancials && (
-                        <div className={`mb-8 p-6 rounded-3xl border-2 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm ${routeFinancials.balance < 500 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                        <div className={`mb-8 p-6 rounded-3xl border-2 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm ${routeFinancials.balance < 500 ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800' : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'}`}>
                             <div className="flex items-center gap-4">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md ${routeFinancials.balance < 500 ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </div>
                                 <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-widest ${routeFinancials.balance < 500 ? 'text-amber-700' : 'text-emerald-700'}`}>Disponibilidad en Caja</p>
-                                    <p className={`text-2xl font-black ${routeFinancials.balance < 500 ? 'text-amber-800' : 'text-emerald-800'}`}>${routeFinancials.balance.toLocaleString()}</p>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${routeFinancials.balance < 500 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>Disponibilidad en Caja</p>
+                                    <p className={`text-2xl font-black ${routeFinancials.balance < 500 ? 'text-amber-800 dark:text-amber-300' : 'text-emerald-800 dark:text-emerald-300'}`}>${routeFinancials.balance.toLocaleString()}</p>
                                     <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Ruta: {routeFinancials.routeName}</p>
                                 </div>
                             </div>
                             {routeFinancials.balance < formData.capital && (
-                                <span className="bg-white text-rose-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-rose-100 shadow-sm animate-pulse">
+                                <span className="bg-white dark:bg-slate-800 text-rose-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-rose-100 dark:border-rose-900 shadow-sm animate-pulse">
                                     ⚠️ Fondos Insuficientes
                                 </span>
                             )}
@@ -289,26 +286,26 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Monto a Prestar</label>
                                 <div className="relative">
                                     <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-slate-400 text-lg">$</span>
-                                    <input type="number" onKeyDown={blockInvalidChar} value={formData.capital || ''} onChange={e => setFormData({...formData, capital: parseFloat(e.target.value) || 0})} className="w-full bg-slate-50 border-2 rounded-2xl pl-10 pr-5 py-5 font-black text-slate-800 text-2xl shadow-inner border-slate-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all outline-none" placeholder="0" />
+                                    <input type="number" onKeyDown={blockInvalidChar} value={formData.capital || ''} onChange={e => setFormData({...formData, capital: parseFloat(e.target.value) || 0})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl pl-10 pr-5 py-5 font-black text-slate-800 dark:text-white text-2xl shadow-inner border-slate-100 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 transition-all outline-none" placeholder="0" />
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Interés (%)</label>
                                 <div className="relative">
-                                    <input type="number" onKeyDown={blockInvalidChar} value={formData.interestRate} onChange={e => setFormData({...formData, interestRate: parseFloat(e.target.value) || 0})} className="w-full bg-indigo-50 border-2 border-indigo-100 rounded-2xl px-5 py-5 font-black text-indigo-700 text-2xl shadow-inner focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all outline-none" />
+                                    <input type="number" onKeyDown={blockInvalidChar} value={formData.interestRate} onChange={e => setFormData({...formData, interestRate: parseFloat(e.target.value) || 0})} className="w-full bg-indigo-50 dark:bg-indigo-900/10 border-2 border-indigo-100 dark:border-indigo-900 rounded-2xl px-5 py-5 font-black text-indigo-700 dark:text-indigo-400 text-2xl shadow-inner focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all outline-none" />
                                     <span className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-indigo-300 text-lg">%</span>
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Número de Cuotas</label>
-                                <input type="number" value={formData.installments} onChange={e => setFormData({...formData, installments: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-5 font-black text-slate-800 text-2xl shadow-inner focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all outline-none" />
+                                <input type="number" value={formData.installments} onChange={e => setFormData({...formData, installments: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-5 font-black text-slate-800 dark:text-white text-2xl shadow-inner focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all outline-none" />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Frecuencia de Pago</label>
-                                <select value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-black text-slate-700 shadow-inner focus:border-indigo-500 outline-none h-[72px]">
+                                <select value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 font-black text-slate-700 dark:text-white shadow-inner focus:border-indigo-500 outline-none h-[72px]">
                                     <option value="Daily">DIARIO (Lunes a Sábado)</option>
                                     <option value="Weekly">SEMANAL</option>
                                     <option value="Monthly">MENSUAL</option>
@@ -316,22 +313,22 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Fecha Entrega Dinero</label>
-                                <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-black text-slate-700 shadow-inner focus:border-indigo-500 outline-none h-[72px]" />
+                                <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 font-black text-slate-700 dark:text-white shadow-inner focus:border-indigo-500 outline-none h-[72px]" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Inicio de Cobros</label>
-                                <input type="date" value={formData.firstPaymentDate} onChange={e => setFormData({...formData, firstPaymentDate: e.target.value})} className="w-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl px-6 py-5 font-black text-indigo-800 shadow-inner focus:border-indigo-500 outline-none h-[72px]" />
+                                <input type="date" value={formData.firstPaymentDate} onChange={e => setFormData({...formData, firstPaymentDate: e.target.value})} className="w-full bg-indigo-50 dark:bg-indigo-900/10 border-2 border-indigo-200 dark:border-indigo-900 rounded-2xl px-6 py-5 font-black text-indigo-800 dark:text-indigo-300 shadow-inner focus:border-indigo-500 outline-none h-[72px]" />
                             </div>
                         </div>
 
                         <div className="text-center pt-6">
-                            <button type="button" onClick={handleGenerate} className="w-full md:w-auto bg-slate-900 hover:bg-indigo-600 text-white font-black px-16 py-5 rounded-3xl shadow-2xl transition transform active:scale-95 uppercase tracking-widest text-xs border-b-4 border-slate-950 hover:border-indigo-900">
+                            <button type="button" onClick={handleGenerate} className="w-full md:w-auto bg-slate-900 dark:bg-indigo-600 hover:bg-indigo-600 hover:dark:bg-indigo-500 text-white font-black px-16 py-5 rounded-3xl shadow-2xl transition transform active:scale-95 uppercase tracking-widest text-xs border-b-4 border-slate-950 dark:border-indigo-900 hover:border-indigo-900">
                                 Calcular Proyección
                             </button>
                         </div>
 
                         {calc && (
-                            <div className="mt-14 p-8 md:p-10 bg-slate-900 text-white rounded-[3rem] shadow-2xl space-y-10 animate-slideDown border-4 border-indigo-500/20">
+                            <div className="mt-14 p-8 md:p-10 bg-slate-900 dark:bg-black text-white rounded-[3rem] shadow-2xl space-y-10 animate-slideDown border-4 border-indigo-500/20">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                                     <div className="text-center p-4 bg-white/5 rounded-2xl border border-white/5">
                                         <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Total a Pagar</p>

@@ -9,8 +9,8 @@ interface ClientManagementProps {
   allClients: Client[]; 
   routes: Route[];
   user: User;
-  credits?: Credit[]; // Opcional, pero necesario para el mapa
-  payments?: Payment[]; // Opcional, necesario para el mapa
+  credits?: Credit[]; 
+  payments?: Payment[]; 
   selectedRouteId: string;
   onEditClient: (clientId: string) => void;
   onDeleteClient: (clientId: string) => void;
@@ -53,17 +53,17 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ clients, allClients
 
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
+      <header className="flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="w-full md:w-auto text-center md:text-left">
           <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('clients')}</h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Administración del orden de ruta y geolocalización</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-             <button onClick={() => setViewMode('list')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto flex-wrap justify-center md:justify-end">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl w-full sm:w-auto">
+             <button onClick={() => setViewMode('list')} className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
                 {t('view_list')}
              </button>
-             <button onClick={() => setViewMode('map')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+             <button onClick={() => setViewMode('map')} className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
                 {t('view_map')}
              </button>
           </div>
@@ -76,7 +76,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ clients, allClients
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           )}
-          <button onClick={onNewClient} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black px-8 py-3.5 rounded-2xl shadow-xl transition active:scale-95 flex items-center gap-2">
+          <button onClick={onNewClient} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black px-8 py-3.5 rounded-2xl shadow-xl transition active:scale-95 flex items-center justify-center gap-2">
             +
           </button>
         </div>

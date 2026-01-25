@@ -317,12 +317,16 @@ const App: React.FC = () => {
 
   const handleUpdateProfile = async (u: User) => {
       const payload: any = userToDb(u);
+      // Hash password if present (handled in UserProfile but ensure key matches DB)
       if ((u as any).password) payload.password_hash = (u as any).password;
+      
       const { error } = await supabase.from('users').update(payload).eq('id', u.id);
       if (!error) {
           setCurrentUser(u);
           localStorage.setItem('op_user', JSON.stringify(u));
           await loadBusinessData(u.businessId);
+      } else {
+          console.error("Failed to update profile:", error);
       }
   };
 
@@ -353,7 +357,6 @@ const App: React.FC = () => {
     return <LandingPage onLogin={() => setCurrentView('auth')} onRegister={() => setCurrentView('register')} />;
   }
 
-  // IMPORTANTE: Envolver en GlobalProvider para evitar crash
   return (
     <GlobalProvider>
         <Layout user={currentUser} onLogout={() => {localStorage.removeItem('op_user'); setCurrentUser(null); setCurrentView('landing');}} navigateTo={setCurrentView} currentView={currentView} routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}>

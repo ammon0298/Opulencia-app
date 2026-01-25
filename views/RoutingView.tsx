@@ -148,25 +148,25 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      <header className="bg-white p-6 md:p-8 rounded-[2rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+      <header className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="w-full md:flex-1 text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Rutero Inteligente</h2>
-          <p className="text-slate-500 font-medium text-sm">El orden de visita depende de la configuración de clientes</p>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight">Rutero Inteligente</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">El orden de visita depende de la configuración de clientes</p>
         </div>
 
         {!isAllSelected && (
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-             <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1 w-full sm:w-auto">
-                <button onClick={() => quickFilter(0)} className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${targetDate === TODAY_STR ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Hoy</button>
-                <button onClick={() => quickFilter(1)} className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${targetDate === new Date(new Date(TODAY_STR + 'T00:00:00').getTime() + 86400000).toISOString().split('T')[0] ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Mañana</button>
+             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 gap-1 w-full sm:w-auto">
+                <button onClick={() => quickFilter(0)} className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${targetDate === TODAY_STR ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400'}`}>Hoy</button>
+                <button onClick={() => quickFilter(1)} className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${targetDate === new Date(new Date(TODAY_STR + 'T00:00:00').getTime() + 86400000).toISOString().split('T')[0] ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400'}`}>Mañana</button>
              </div>
-             <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full sm:w-auto bg-white border border-slate-200 rounded-2xl px-5 py-3 font-black text-slate-700 focus:ring-4 focus:ring-indigo-50 shadow-sm text-sm" />
+             <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full sm:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 font-black text-slate-700 dark:text-white focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 shadow-sm text-sm outline-none" />
           </div>
         )}
       </header>
 
       {!isAllSelected && (
-        <div className="bg-slate-900 text-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden animate-slideDown">
+        <div className="bg-slate-900 dark:bg-black text-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden animate-slideDown border border-slate-800">
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-10">
              <div className="flex items-center gap-4 md:gap-6">
                 <div className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-[2rem] flex items-center justify-center shadow-lg backdrop-blur-md ${stats.collected >= stats.total && stats.total > 0 ? 'bg-emerald-500 text-white' : 'bg-white/10 text-emerald-400'}`}>
@@ -200,13 +200,13 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
         </div>
       )}
 
-      <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-sm border border-slate-200 p-4 md:p-8 min-h-[400px]">
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] md:rounded-[3rem] shadow-sm border border-slate-200 dark:border-slate-800 p-4 md:p-8 min-h-[400px]">
         {isAllSelected ? (
           <div className="flex flex-col items-center justify-center text-center py-20">
-             <div className="w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 shadow-inner border border-amber-100">
+             <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/10 rounded-full flex items-center justify-center text-amber-500 mb-6 shadow-inner border border-amber-100 dark:border-amber-800">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              </div>
-             <h3 className="text-xl font-black text-slate-800 mb-2 uppercase tracking-tight">Seleccionar Ruta</h3>
+             <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2 uppercase tracking-tight">Seleccionar Ruta</h3>
              <p className="text-slate-400 max-w-xs text-sm font-medium">Por favor elija una zona para gestionar el rutero operativo.</p>
           </div>
         ) : (
@@ -216,16 +216,16 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                   <div className="w-1.5 h-6 md:h-8 bg-indigo-600 rounded-full"></div>
                   <span className="text-indigo-600 font-black text-xl md:text-2xl uppercase tracking-tight">Hoja de Ruta</span>
                </div>
-               <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 flex items-center justify-between md:justify-end gap-4">
+               <div className="bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between md:justify-end gap-4">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FECHA:</p>
-                  <span className="text-slate-700 font-black text-xs md:text-sm">{new Date(targetDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-black text-xs md:text-sm">{new Date(targetDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                </div>
             </div>
 
             <div className="space-y-4 max-w-5xl mx-auto w-full">
               {visitsForDate.length > 0 ? (
                 visitsForDate.map((item, index) => (
-                  <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)}`}>
+                  <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)} dark:border-opacity-10`}>
                     
                     {/* Badge Superior Derecho según Estado */}
                     <div className="absolute top-0 right-0">
@@ -245,12 +245,12 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                           {item.order}
                         </div>
                         <div className="flex-1 min-w-0 md:hidden">
-                            <h4 className="font-black text-lg text-slate-800 truncate">{item.name}</h4>
+                            <h4 className="font-black text-lg text-slate-800 dark:text-white truncate">{item.name}</h4>
                             <div className="flex items-center gap-2 mt-0.5">
                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{item.alias}</span>
                                <button 
                                 onClick={() => onGoToCredit(item.credit.id)}
-                                className="bg-slate-800 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest shadow-sm"
+                                className="bg-slate-800 dark:bg-slate-700 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest shadow-sm"
                                >
                                 #{item.credit.id.slice(-6).toUpperCase()}
                                </button>
@@ -260,27 +260,27 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
                     <div className="flex-1 min-w-0 w-full">
                       <div className="hidden md:flex items-center gap-3 mb-1.5">
-                        <h4 className="font-black text-xl lg:text-2xl truncate text-slate-800">{item.name}</h4>
-                        <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 border-slate-200 text-slate-500">{item.alias}</span>
+                        <h4 className="font-black text-xl lg:text-2xl truncate text-slate-800 dark:text-white">{item.name}</h4>
+                        <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">{item.alias}</span>
                         <button 
                           onClick={() => onGoToCredit(item.credit.id)}
-                          className="ml-2 bg-slate-800 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-1.5"
+                          className="ml-2 bg-slate-800 dark:bg-slate-700 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-all active:scale-95 flex items-center gap-1.5"
                         >
                           #{item.credit.id.slice(-6).toUpperCase()}
                         </button>
                       </div>
                       <div className="space-y-1.5 md:space-y-0 md:flex md:flex-wrap md:items-center md:gap-4 lg:gap-6">
-                         <div className="flex items-center gap-2 text-slate-500">
+                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                             <p className="text-xs font-bold md:truncate md:max-w-[200px] lg:max-w-[300px] leading-tight">{item.address}</p>
                          </div>
                          <div className="pt-1 md:pt-0 flex gap-2">
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white border-slate-200 text-slate-500`}>
+                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400`}>
                              {item.reason}
                            </span>
                            {/* CORRECCIÓN 2: Etiqueta AL DÍA si el cliente no debe nada acumulado */}
                            {item.isPaid && (
-                               <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-indigo-50 border-indigo-200 text-indigo-700">
+                               <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
                                    ESTADO: AL DÍA
                                </span>
                            )}
@@ -288,10 +288,10 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                       </div>
                     </div>
 
-                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-black/5">
+                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-black/5 dark:border-white/5">
                        <div className="flex flex-col items-start md:items-end min-w-[100px] md:min-w-[140px]">
                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 whitespace-nowrap">{item.realAmount > 0 ? 'Recibido' : 'Cuota Sugerida'}</p>
-                          <p className={`text-xl md:text-3xl font-black ${item.realAmount > 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
+                          <p className={`text-xl md:text-3xl font-black ${item.realAmount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-white'}`}>
                             ${item.amount.toLocaleString()}
                           </p>
                        </div>
@@ -299,11 +299,11 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                   </div>
                 )
               )) : (
-                <div className="py-24 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
-                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 shadow-inner">
+                <div className="py-24 text-center bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
+                   <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-500 shadow-inner">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
                    </div>
-                   <h4 className="text-xl font-black text-slate-300 uppercase tracking-widest italic">
+                   <h4 className="text-xl font-black text-slate-300 dark:text-slate-500 uppercase tracking-widest italic">
                      {new Date(targetDate + 'T00:00:00').getDay() === 0 ? 'Domingo - Día No Laboral' : 'Sin Cobros Pendientes'}
                    </h4>
                    <p className="text-xs text-slate-400 mt-2 font-medium">

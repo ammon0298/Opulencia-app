@@ -132,16 +132,16 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
     <div className="space-y-12 animate-fadeIn pb-20">
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
         <div>
-          <h2 className="text-4xl font-black text-slate-800 tracking-tight">Cierre de Caja</h2>
+          <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">Cierre de Caja</h2>
           <div className="flex items-center gap-2 mt-1">
-             <p className="text-slate-500 font-medium italic">Historial operativo: </p>
-             <span className="bg-indigo-50 text-indigo-700 px-3 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+             <p className="text-slate-500 dark:text-slate-400 font-medium italic">Historial operativo: </p>
+             <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">
                {currentRouteName}
              </span>
           </div>
         </div>
         
-        <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-6">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center gap-6">
           <div className="flex items-center gap-2 w-full md:w-auto">
              <div className="w-full">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Desde</label>
@@ -151,7 +151,7 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                   max={TODAY_STR} 
                   value={dateRange.start}
                   onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-white text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
                 />
              </div>
              <div className="pt-5 text-slate-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg></div>
@@ -160,32 +160,32 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                 <input 
                   type="date" min={dateRange.start} max={TODAY_STR} value={dateRange.end}
                   onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-white text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
                 />
              </div>
           </div>
         </div>
       </header>
 
-      {/* CORRECCIÓN 3: Tabla resumen responsive */}
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden animate-fadeIn">
+      {/* Tabla resumen responsive */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden animate-fadeIn">
         <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[350px]">
-            <thead className="bg-slate-50 border-b border-slate-100">
+            <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                 <tr>
                 <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">Concepto Contable</th>
                 <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-                <Row label="FONDO ACUMULADO (INICIO)" value={calculatedStartBase} highlight="text-indigo-600" />
-                <Row label="TOTAL RECAUDOS" value={totalCollected} highlight="text-emerald-600" />
-                <Row label="INYECCIONES CAPITAL" value={totalInjections} highlight="text-emerald-600" />
-                <Row label="GASTOS OPERATIVOS" value={-totalExpensesValue} highlight="text-rose-600" isDeductible />
-                <Row label="NUEVOS PRÉSTAMOS" value={-totalNewLoans} highlight="text-rose-600" isDeductible />
-                <Row label="RETIROS GANANCIAS" value={-totalWithdrawals} highlight="text-rose-600" isDeductible />
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                <Row label="FONDO ACUMULADO (INICIO)" value={calculatedStartBase} highlight="text-indigo-600 dark:text-indigo-400" />
+                <Row label="TOTAL RECAUDOS" value={totalCollected} highlight="text-emerald-600 dark:text-emerald-400" />
+                <Row label="INYECCIONES CAPITAL" value={totalInjections} highlight="text-emerald-600 dark:text-emerald-400" />
+                <Row label="GASTOS OPERATIVOS" value={-totalExpensesValue} highlight="text-rose-600 dark:text-rose-400" isDeductible />
+                <Row label="NUEVOS PRÉSTAMOS" value={-totalNewLoans} highlight="text-rose-600 dark:text-rose-400" isDeductible />
+                <Row label="RETIROS GANANCIAS" value={-totalWithdrawals} highlight="text-rose-600 dark:text-rose-400" isDeductible />
                 
-                <tr className="bg-slate-900 text-white">
+                <tr className="bg-slate-900 dark:bg-black text-white">
                 <td className="px-4 md:px-8 py-6 md:py-10">
                     <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">Total Caja</p>
                     <p className="text-xl md:text-2xl font-black">EFECTIVO CIERRE</p>
@@ -205,34 +205,34 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-rose-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.25em]">Salidas: Gastos & Retiros</h3>
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">Salidas: Gastos & Retiros</h3>
            </div>
-           <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs min-w-[300px]">
-                    <thead className="bg-slate-100 text-slate-500">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         <tr>
                         <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Concepto</th>
                         <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Valor</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                         {rangeExpenses.map(exp => (
-                        <tr key={exp.id} className="hover:bg-slate-50">
+                        <tr key={exp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                             <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
-                            <p className="font-bold text-slate-700">{exp.name}</p>
+                            <p className="font-bold text-slate-700 dark:text-slate-200">{exp.name}</p>
                             <p className="text-[9px] text-slate-400 uppercase">{exp.date}</p>
                             </td>
-                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600">-${exp.value.toLocaleString()}</td>
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600 dark:text-rose-400">-${exp.value.toLocaleString()}</td>
                         </tr>
                         ))}
                         {rangeTransactions.filter(t => t.type === 'WITHDRAWAL').map(tx => (
-                        <tr key={tx.id} className="hover:bg-slate-50 bg-rose-50/30">
+                        <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 bg-rose-50/30 dark:bg-rose-900/10">
                             <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
-                            <p className="font-bold text-rose-800">{tx.description}</p>
+                            <p className="font-bold text-rose-800 dark:text-rose-300">{tx.description}</p>
                             <p className="text-[9px] text-rose-400 uppercase">{tx.date}</p>
                             </td>
-                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600">-${tx.amount.toLocaleString()}</td>
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600 dark:text-rose-400">-${tx.amount.toLocaleString()}</td>
                         </tr>
                         ))}
                     </tbody>
@@ -244,38 +244,38 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-emerald-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.25em]">Entradas: Recaudos & Inyecciones</h3>
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">Entradas: Recaudos & Inyecciones</h3>
            </div>
-           <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs min-w-[300px]">
-                    <thead className="bg-slate-100 text-slate-500">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         <tr>
                         <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Origen</th>
                         <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Valor</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                         {rangePayments.map(pay => {
                             const cr = credits.find(c => c.id === pay.creditId);
                             const cl = cr ? clients.find(c => c.id === cr.clientId) : null;
                             return (
-                                <tr key={pay.id} className="hover:bg-slate-50">
+                                <tr key={pay.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                                     <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
-                                    <p className="font-bold text-slate-700">{cl?.name || 'Cliente'}</p>
+                                    <p className="font-bold text-slate-700 dark:text-slate-200">{cl?.name || 'Cliente'}</p>
                                     <p className="text-[9px] text-slate-400 uppercase">{pay.date.split('T')[0]} • CR#{pay.creditId.slice(-4)}</p>
                                     </td>
-                                    <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-emerald-600">+${pay.amount.toLocaleString()}</td>
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-emerald-600 dark:text-emerald-400">+${pay.amount.toLocaleString()}</td>
                                 </tr>
                             )
                         })}
                         {rangeTransactions.filter(t => t.type === 'INJECTION').map(tx => (
-                        <tr key={tx.id} className="hover:bg-slate-50 bg-emerald-50/30">
+                        <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 bg-emerald-50/30 dark:bg-emerald-900/10">
                             <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
-                            <p className="font-bold text-emerald-800">{tx.description}</p>
+                            <p className="font-bold text-emerald-800 dark:text-emerald-300">{tx.description}</p>
                             <p className="text-[9px] text-emerald-500 uppercase">{tx.date}</p>
                             </td>
-                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-emerald-600">+${tx.amount.toLocaleString()}</td>
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-emerald-600 dark:text-emerald-400">+${tx.amount.toLocaleString()}</td>
                         </tr>
                         ))}
                     </tbody>
@@ -288,28 +288,28 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
       <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.25em]">Nuevos Préstamos</h3>
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">Nuevos Préstamos</h3>
            </div>
-           {/* CORRECCIÓN 3: Tabla Nuevos Préstamos con diseño consistente */}
-           <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+           {/* Tabla Nuevos Préstamos */}
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs min-w-[300px]">
-                    <thead className="bg-slate-100 text-slate-500">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         <tr>
                         <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Cliente</th>
                         <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Capital</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                         {rangeCredits.map(cr => {
                         const client = clients.find(c => c.id === cr.clientId);
                         return (
-                            <tr key={cr.id} className="hover:bg-slate-50">
+                            <tr key={cr.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                             <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
-                                <p className="font-bold text-slate-700 uppercase">{client?.name || '---'}</p>
+                                <p className="font-bold text-slate-700 dark:text-slate-200 uppercase">{client?.name || '---'}</p>
                                 <p className="text-[9px] text-slate-400 font-bold uppercase">{cr.startDate} • ID: #{cr.id.slice(-6)}</p>
                             </td>
-                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600 text-sm">
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600 dark:text-rose-400 text-sm">
                                 -${cr.capital.toLocaleString()}
                             </td>
                             </tr>
@@ -324,9 +324,9 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
   );
 };
 
-const Row = ({ label, value, highlight = 'text-slate-800', isDeductible = false }: any) => (
-  <tr className="hover:bg-slate-50/50 transition-colors">
-    <td className="px-4 md:px-8 py-3 md:py-5 text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-tight whitespace-normal">{label}</td>
+const Row = ({ label, value, highlight = 'text-slate-800 dark:text-white', isDeductible = false }: any) => (
+  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+    <td className="px-4 md:px-8 py-3 md:py-5 text-[10px] md:text-sm font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight whitespace-normal">{label}</td>
     <td className={`px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-black text-right ${highlight}`}>
       {isDeductible ? `- $${Math.abs(value).toLocaleString()}` : `$${value.toLocaleString()}`}
     </td>

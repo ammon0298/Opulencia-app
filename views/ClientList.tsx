@@ -173,7 +173,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     if (status === 'mora') return 'bg-purple-100 border-purple-500 shadow-md shadow-purple-100/50';
     if (status === 'falta1') return 'bg-rose-100 border-rose-500 shadow-md shadow-rose-100/50';
     if (status === 'falta3') return 'bg-amber-100 border-amber-500 shadow-md shadow-amber-100/50';
-    return 'bg-white border-slate-200 hover:border-indigo-300';
+    return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
   };
 
   return (
@@ -181,14 +181,14 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
       <div className="space-y-6 animate-fadeIn pb-10">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión de Créditos</h2>
-            <p className="text-slate-500 font-medium">Historial completo por obligación financiera</p>
+            <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Gestión de Créditos</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Historial completo por obligación financiera</p>
           </div>
           <div className="relative">
             <input 
               type="text" 
               placeholder="Buscar por nombre, DNI o ID..." 
-              className="pl-12 pr-12 py-3.5 bg-white border border-slate-200 rounded-2xl w-full md:w-80 shadow-sm focus:ring-4 focus:ring-indigo-50 outline-none font-bold text-slate-700 transition-all"
+              className="pl-12 pr-12 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full md:w-80 shadow-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none font-bold text-slate-700 dark:text-slate-200 transition-all"
               value={searchTerm}
               onChange={handleSearchInput}
             />
@@ -208,7 +208,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
             <section className="space-y-4">
             <div className="flex items-center gap-3 px-2">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Obligaciones Pendientes</h3>
-                <div className="flex-1 h-px bg-slate-100"></div>
+                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 {activeCreditItems.map((item) => (
@@ -293,7 +293,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 };
 
 const FilterBadge = ({ color, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all shadow-sm ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all shadow-sm ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300'}`}>
     <div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : color}`} />
     <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
   </button>
@@ -350,20 +350,20 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
             e.stopPropagation();
             onEditClient(client.id);
           }} 
-          className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-all border border-slate-100 shrink-0 relative z-10"
+          className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-600 shrink-0 relative z-10"
         >
            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
         </button>
         <div className="truncate">
           <div className="flex items-center gap-3 mb-1">
-            <h4 className="font-black text-slate-900 text-lg md:text-xl truncate">{client.name}</h4>
-            <span className="bg-white/80 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-500 border border-slate-200 uppercase tracking-tighter shadow-xs">{client.alias}</span>
+            <h4 className="font-black text-slate-900 dark:text-white text-lg md:text-xl truncate">{client.name}</h4>
+            <span className="bg-white/80 dark:bg-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600 uppercase tracking-tighter shadow-xs">{client.alias}</span>
             {isLost && <span className="bg-rose-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">PERDIDO</span>}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <p className="text-[10px] font-bold text-slate-600/70 uppercase tracking-widest">DNI: <span className="text-slate-800">{client.dni}</span></p>
-            <div className="w-1.5 h-1.5 bg-black/10 rounded-full"></div>
-            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">ID: <span className="text-slate-700">#{credit.id.slice(-6).toUpperCase()}</span></p>
+            <p className="text-[10px] font-bold text-slate-600/70 dark:text-slate-400 uppercase tracking-widest">DNI: <span className="text-slate-800 dark:text-slate-200">{client.dni}</span></p>
+            <div className="w-1.5 h-1.5 bg-black/10 dark:bg-white/10 rounded-full"></div>
+            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">ID: <span className="text-slate-700 dark:text-slate-300">#{credit.id.slice(-6).toUpperCase()}</span></p>
           </div>
         </div>
       </div>
@@ -372,42 +372,42 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
       <div className="flex-1 min-w-0 relative" onClick={e => e.stopPropagation()}>
          {!info.isFinished && !isLost ? (
             successFeedback ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-emerald-50 rounded-2xl border border-emerald-100 animate-slideUp z-20 shadow-sm">
+                <div className="absolute inset-0 flex items-center justify-center bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-800 animate-slideUp z-20 shadow-sm">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg animate-bounce">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                         </div>
-                        <p className="text-emerald-700 font-black uppercase text-[10px] tracking-widest">{successFeedback}</p>
+                        <p className="text-emerald-700 dark:text-emerald-400 font-black uppercase text-[10px] tracking-widest">{successFeedback}</p>
                     </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 transition-opacity duration-300">
                     <button 
                         onClick={() => handleAction(0, 'Visita Registrada')}
-                        className="flex flex-col items-center justify-center p-2 bg-slate-50 border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 rounded-xl transition-all group/btn"
+                        className="flex flex-col items-center justify-center p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-xl transition-all group/btn"
                     >
-                        <span className="text-[8px] font-black uppercase text-slate-400 group-hover/btn:text-indigo-500">NO PAGA</span>
-                        <span className="text-sm font-black text-slate-700 group-hover/btn:text-indigo-700">$0</span>
+                        <span className="text-[8px] font-black uppercase text-slate-400 group-hover/btn:text-indigo-500 dark:group-hover/btn:text-indigo-300">NO PAGA</span>
+                        <span className="text-sm font-black text-slate-700 dark:text-slate-200 group-hover/btn:text-indigo-700 dark:group-hover/btn:text-indigo-300">$0</span>
                     </button>
 
                     <button 
                         onClick={() => handleAction(debeCuotaActual, 'Pago Recibido')}
-                        className="flex flex-col items-center justify-center p-2 bg-indigo-50 border border-indigo-100 hover:bg-indigo-600 hover:border-indigo-600 rounded-xl transition-all group/btn"
+                        className="flex flex-col items-center justify-center p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-600 hover:border-indigo-600 rounded-xl transition-all group/btn"
                     >
                         <span className="text-[8px] font-black uppercase text-indigo-400 group-hover/btn:text-indigo-200">CUOTA</span>
-                        <span className="text-sm font-black text-indigo-700 group-hover/btn:text-white">${debeCuotaActual.toLocaleString()}</span>
+                        <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 group-hover/btn:text-white">${debeCuotaActual.toLocaleString()}</span>
                     </button>
 
                     {debeMora > 0 ? (
                         <button 
                             onClick={() => handleAction(debeMora, 'Mora Saldada')}
-                            className="flex flex-col items-center justify-center p-2 bg-rose-50 border border-rose-100 hover:bg-rose-600 hover:border-rose-600 rounded-xl transition-all group/btn"
+                            className="flex flex-col items-center justify-center p-2 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 hover:bg-rose-600 hover:border-rose-600 rounded-xl transition-all group/btn"
                         >
                             <span className="text-[8px] font-black uppercase text-rose-400 group-hover/btn:text-rose-200">MORA</span>
-                            <span className="text-sm font-black text-rose-700 group-hover/btn:text-white">${debeMora.toLocaleString()}</span>
+                            <span className="text-sm font-black text-rose-700 dark:text-rose-300 group-hover/btn:text-white">${debeMora.toLocaleString()}</span>
                         </button>
                     ) : (
-                        <div className="flex flex-col items-center justify-center p-2 bg-slate-50/50 border border-transparent rounded-xl opacity-50 cursor-default">
+                        <div className="flex flex-col items-center justify-center p-2 bg-slate-50/50 dark:bg-slate-800/50 border border-transparent rounded-xl opacity-50 cursor-default">
                             <span className="text-[8px] font-black uppercase text-slate-300">AL DÍA</span>
                             <span className="text-sm font-black text-slate-300">--</span>
                         </div>
@@ -415,15 +415,15 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
 
                     <button 
                         onClick={() => handleAction(saldoTotal, 'Crédito Finalizado')}
-                        className="flex flex-col items-center justify-center p-2 bg-emerald-50 border border-emerald-100 hover:bg-emerald-600 hover:border-emerald-600 rounded-xl transition-all group/btn"
+                        className="flex flex-col items-center justify-center p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 hover:bg-emerald-600 hover:border-emerald-600 rounded-xl transition-all group/btn"
                     >
                         <span className="text-[8px] font-black uppercase text-emerald-500 group-hover/btn:text-emerald-200">SALDO TOTAL</span>
-                        <span className="text-sm font-black text-emerald-700 group-hover/btn:text-white">${saldoTotal.toLocaleString()}</span>
+                        <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 group-hover/btn:text-white">${saldoTotal.toLocaleString()}</span>
                     </button>
                 </div>
             )
          ) : (
-            <div className="h-full flex items-center justify-center bg-slate-50/50 rounded-2xl border border-slate-100">
+            <div className="h-full flex items-center justify-center bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                     {isLost ? 'CRÉDITO CASTIGADO - GESTIÓN BLOQUEADA' : 'CRÉDITO FINALIZADO - PAZ Y SALVO'}
                 </span>
@@ -439,7 +439,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
               e.stopPropagation();
               onOpenModal(client, credit);
             }} 
-            className="flex-1 xl:flex-none bg-slate-900 hover:bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black transition shadow-lg active:scale-95 uppercase tracking-widest"
+            className="flex-1 xl:flex-none bg-slate-900 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl text-xs font-black transition shadow-lg active:scale-95 uppercase tracking-widest"
           >
             Abonar
           </button>
@@ -449,7 +449,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
             e.stopPropagation();
             onViewVisits(credit.id);
           }} 
-          className="flex-1 xl:flex-none bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 px-6 py-3 rounded-2xl text-xs font-black transition shadow-sm active:scale-95 uppercase tracking-widest"
+          className="flex-1 xl:flex-none bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-6 py-3 rounded-2xl text-xs font-black transition shadow-sm active:scale-95 uppercase tracking-widest"
         >
           Detalle
         </button>
@@ -463,8 +463,8 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }:
 
   return (
     <div className="fixed inset-0 w-full h-full bg-slate-900/90 flex items-center justify-center p-4 z-[9999] backdrop-blur-md animate-fadeIn">
-      <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl border border-white animate-slideUp flex flex-col overflow-hidden">
-        <header className="bg-slate-900 p-6 text-center relative shrink-0">
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm shadow-2xl border border-white dark:border-slate-700 animate-slideUp flex flex-col overflow-hidden">
+        <header className="bg-slate-900 dark:bg-slate-800 p-6 text-center relative shrink-0">
           <button onClick={onClose} className="absolute right-5 top-5 text-slate-500 hover:text-white transition">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -479,7 +479,7 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }:
           <div className="space-y-3">
              <div className="flex justify-between items-end px-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Valor a Ingresar</label>
-                <p className="text-[10px] font-black text-indigo-600 uppercase">Debe: ${saldoTotal.toLocaleString()}</p>
+                <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase">Debe: ${saldoTotal.toLocaleString()}</p>
              </div>
              <div className="relative group">
                 <div className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300 group-focus-within:text-indigo-500 transition-colors">$</div>
@@ -490,7 +490,7 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }:
                   autoFocus 
                   value={amount || ''}
                   onChange={(e) => setAmount(Math.max(0, Math.min(saldoTotal, parseFloat(e.target.value) || 0)))}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] pl-12 pr-6 py-6 font-black text-slate-800 text-4xl outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-50 transition-all shadow-inner text-center"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] pl-12 pr-6 py-6 font-black text-slate-800 dark:text-white text-4xl outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-50 dark:focus:ring-indigo-900 transition-all shadow-inner text-center"
                   placeholder="0.00"
                 />
              </div>
@@ -504,7 +504,7 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }:
             >
               Registrar Abono
             </button>
-            <button onClick={onClose} className="w-full bg-white hover:bg-slate-50 text-slate-400 font-black py-4 rounded-2xl transition uppercase tracking-widest text-[9px] border border-slate-200">Cancelar</button>
+            <button onClick={onClose} className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 font-black py-4 rounded-2xl transition uppercase tracking-widest text-[9px] border border-slate-200 dark:border-slate-700">Cancelar</button>
           </div>
         </div>
       </div>

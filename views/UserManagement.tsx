@@ -158,12 +158,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
           <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Personal de Campo</h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Gestión integral de colaboradores y rastreo GPS.</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-                <button onClick={() => setViewMode('list')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-wrap justify-center md:justify-end">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl w-full sm:w-auto">
+                <button onClick={() => setViewMode('list')} className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
                     Lista
                 </button>
-                <button onClick={() => setViewMode('map')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+                <button onClick={() => setViewMode('map')} className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
                     Mapa GPS
                 </button>
             </div>
@@ -173,7 +173,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
                 else { resetFormData(); setEditingId(null); setShowForm(true); setViewMode('list'); }
                 setNotification(null); 
             }} 
-            className={`px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all ${showForm ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+            className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all ${showForm ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
             >
             {showForm ? 'Cerrar Formulario' : 'Vincular Cobrador'}
             </button>
