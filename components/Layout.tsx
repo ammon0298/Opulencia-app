@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { User, UserRole, Route } from '../types';
+import { useGlobal } from '../contexts/GlobalContext';
+import { Language } from '../utils/i18n';
 
 interface LayoutProps {
   user: User;
@@ -15,24 +17,20 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView, routes, selectedRouteId, onRouteSelect, children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { theme, toggleTheme, language, setLanguage, t } = useGlobal();
 
   const isAdmin = user.role === UserRole.ADMIN;
-  
-  // El selector se muestra si es Admin o si es Cobrador con más de 1 ruta
   const showSelector = isAdmin || (user.role === UserRole.COLLECTOR && user.routeIds.length > 1);
-  
-  // Las rutas disponibles en el selector
-  const availableRoutes = isAdmin 
-    ? routes 
-    : routes.filter(r => user.routeIds.includes(r.id));
-
+  const availableRoutes = isAdmin ? routes : routes.filter(r => user.routeIds.includes(r.id));
   const currentRouteName = routes.find(r => r.id === selectedRouteId)?.name || 'Todas las Rutas';
 
   const NavItem = ({ view, label, icon }: { view: string, label: string, icon: React.ReactNode }) => (
     <button
       onClick={() => { navigateTo(view); setIsSidebarOpen(false); }}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-        currentView === view ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-600'
+        currentView === view 
+        ? 'bg-indigo-600 text-white shadow-md' 
+        : 'text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400'
       }`}
     >
       {icon}
@@ -41,27 +39,15 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
   );
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-inter">
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 dark:bg-slate-950 font-inter text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+      <div className="md:hidden bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <h1 className="font-black text-xl text-indigo-600 tracking-tight">Opulencia</h1>
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          {showSelector && (
-             <div className="relative max-w-[200px] flex-1 flex justify-end">
-                <select 
-                  value={selectedRouteId}
-                  onChange={(e) => onRouteSelect(e.target.value)}
-                  className="bg-slate-100 border-none rounded-lg text-xs font-black uppercase px-3 py-2 pr-8 appearance-none text-slate-700 w-full truncate focus:ring-2 focus:ring-indigo-100 outline-none"
-                >
-                  {isAdmin && <option value="all">TODAS LAS RUTAS</option>}
-                  {availableRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                </div>
-             </div>
-          )}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0">
+          <button onClick={toggleTheme} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+             {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
@@ -71,7 +57,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform duration-300 md:relative md:translate-x-0
+        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r dark:border-slate-800 transform transition-transform duration-300 md:relative md:translate-x-0
         ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
       `}>
         <div className="h-full flex flex-col p-6">
@@ -80,54 +66,75 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-xs">O</div>
               Opulencia
             </h1>
-            <div className="mt-2 text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-100 inline-block shadow-sm">
+            <div className="mt-2 text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800 inline-block shadow-sm">
               {isAdmin ? currentRouteName : (user.routeIds.length > 1 ? currentRouteName : routes.find(r => r.id === user.routeIds[0])?.name || 'Mi Ruta')}
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1">
+          <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-4">Menu Principal</p>
-            <NavItem view={isAdmin ? 'admin_dashboard' : 'collector_dashboard'} label="Inicio" icon={<IconHome />} />
-            <NavItem view="credits" label="Créditos" icon={<IconCash />} />
+            <NavItem view={isAdmin ? 'admin_dashboard' : 'collector_dashboard'} label={t('dashboard')} icon={<IconHome />} />
+            <NavItem view="credits" label={t('credits')} icon={<IconCash />} />
             <NavItem view="new_credit" label="Nuevo Crédito" icon={<IconPlus />} />
             
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 px-4">Gestión</p>
-            <NavItem view="client_management" label="Clientes" icon={<IconUsers />} />
-            <NavItem view="routing" label="Enrutamiento" icon={<IconRoute />} />
-            <NavItem view="expenses" label="Gastos" icon={<IconReceipt />} />
-            <NavItem view="liquidation" label="Liquidación" icon={<IconChart />} />
+            <NavItem view="client_management" label={t('clients')} icon={<IconUsers />} />
+            <NavItem view="routing" label={t('routing')} icon={<IconRoute />} />
+            <NavItem view="expenses" label={t('expenses')} icon={<IconReceipt />} />
+            <NavItem view="liquidation" label={t('liquidation')} icon={<IconChart />} />
             
             {isAdmin && (
               <>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 px-4">Configuración</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 px-4">{t('config')}</p>
                 <NavItem view="routes_mgmt" label="Rutas" icon={<IconMap />} />
                 <NavItem view="users" label="Cobradores" icon={<IconShield />} />
               </>
             )}
           </nav>
 
-          <div className="mt-auto pt-6 border-t space-y-2">
+          <div className="mt-auto pt-6 border-t dark:border-slate-800 space-y-4">
+            
+            {/* Controles de Configuración */}
+            <div className="flex items-center gap-2 px-2">
+                <button 
+                    onClick={toggleTheme} 
+                    className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                >
+                    <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
+                    <span className="text-[10px] uppercase">{theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
+                </button>
+                <select 
+                    value={language} 
+                    onChange={(e) => setLanguage(e.target.value as Language)}
+                    className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase text-center outline-none border-none cursor-pointer"
+                >
+                    <option value="es">ESP</option>
+                    <option value="en">ENG</option>
+                    <option value="pt">POR</option>
+                    <option value="fr">FRA</option>
+                </select>
+            </div>
+
             {/* User Profile Trigger */}
             <div 
               onClick={() => { navigateTo('profile'); setIsSidebarOpen(false); }}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors group"
+              className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors group"
             >
-              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold uppercase group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold uppercase group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
                 {user.name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{user.name}</p>
-                <p className="text-xs text-slate-500 capitalize">{user.role === UserRole.ADMIN ? 'Administrador' : 'Cobrador'}</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors">{user.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{user.role === UserRole.ADMIN ? 'Administrador' : 'Cobrador'}</p>
               </div>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-300 group-hover:text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" /></svg>
             </div>
 
             <button 
               onClick={onLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all font-medium text-sm"
+              className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all font-medium text-sm"
             >
               <IconLogout />
-              Cerrar Sesión
+              {t('logout')}
             </button>
           </div>
         </div>
@@ -138,13 +145,13 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
         <div className="max-w-6xl mx-auto">
           <div className="hidden md:flex justify-end mb-8">
             {showSelector ? (
-               <div className="bg-white px-6 py-2 rounded-2xl shadow-sm border flex items-center gap-4 animate-fadeIn">
+               <div className="bg-white dark:bg-slate-900 px-6 py-2 rounded-2xl shadow-sm border dark:border-slate-800 flex items-center gap-4 animate-fadeIn">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Filtrar Ruta</span>
                   <div className="relative">
                     <select 
                       value={selectedRouteId}
                       onChange={(e) => onRouteSelect(e.target.value)}
-                      className="bg-indigo-50 border-none rounded-xl text-sm font-black text-indigo-700 py-2 pl-4 pr-10 appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner min-w-[200px]"
+                      className="bg-indigo-50 dark:bg-indigo-900/30 border-none rounded-xl text-sm font-black text-indigo-700 dark:text-indigo-400 py-2 pl-4 pr-10 appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner min-w-[200px]"
                     >
                       {isAdmin && <option value="all">Todas las Rutas</option>}
                       {availableRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -155,9 +162,9 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
                   </div>
                </div>
             ) : (
-               <div className="bg-emerald-50 px-6 py-3 rounded-2xl border border-emerald-100 flex items-center gap-3 shadow-sm animate-fadeIn">
+               <div className="bg-emerald-50 dark:bg-emerald-900/20 px-6 py-3 rounded-2xl border border-emerald-100 dark:border-emerald-800 flex items-center gap-3 shadow-sm animate-fadeIn">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">
+                  <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
                     Ruta Activa: {routes.find(r => r.id === user.routeIds[0])?.name || 'Mi Ruta'}
                   </span>
                </div>

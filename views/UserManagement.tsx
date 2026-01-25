@@ -1,8 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { User, UserRole, Route, AccountStatus } from '../types';
 import { COUNTRY_DATA } from '../constants';
 import { hashPassword } from '../utils/security';
 import { supabase } from '../lib/supabase';
+import CollectorMap from './CollectorMap';
+import { useGlobal } from '../contexts/GlobalContext';
 
 interface UserManagementProps {
   users: User[];
@@ -14,7 +17,9 @@ interface UserManagementProps {
 const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentUser, onSave }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const { t } = useGlobal();
   
   const [formData, setFormData] = useState({
     name: '', 
@@ -39,11 +44,22 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
     return groups;
   }, []);
 
+  const handleStatusChange = (newStatus: AccountStatus) => {
+    setNotification(null);
+    if (newStatus === 'Inactive' && formData.routeIds.length > 0) {
+        setNotification({ 
+            type: 'error', 
+            message: `⚠️ ACCIÓN BLOQUEADA: Este cobrador tiene ${formData.routeIds.length} ruta(s) asignada(s). Debe desvincular las rutas antes de inactivarlo.` 
+        });
+        return;
+    }
+    setFormData({ ...formData, status: newStatus });
+  };
+
   const handleAddOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setNotification(null);
 
-    // Validación de inactivación: Si tiene rutas asignadas no se puede inactivar
     if (formData.status === 'Inactive' && formData.routeIds.length > 0) {
         setNotification({ 
             type: 'error', 
@@ -69,7 +85,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
             status: formData.status
         };
 
-        // Solo actualizar contraseña si el admin escribió algo
         if (formData.password.trim()) {
             payload.password_hash = hashPassword(formData.password.trim());
         } else if (!editingId) {
@@ -106,7 +121,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
 
   const handleStartEdit = (u: User) => {
     setEditingId(u.id);
-    
     let pCode = '+57';
     let pNum = u.phone;
     if (u.phone.includes(' ')) {
@@ -126,7 +140,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
         address: u.address,
         country: u.country || 'Colombia',
         city: u.city || '',
-        password: '', // Se deja vacío para no cambiarla a menos que se escriba
+        password: '',
         routeIds: u.routeIds,
         status: u.status
     });
@@ -139,21 +153,31 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      <header className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-[2rem] border shadow-sm gap-4">
+      <header className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Personal de Campo</h2>
-          <p className="text-slate-500 font-medium">Gestión integral de colaboradores, ubicaciones y accesos.</p>
+          <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Personal de Campo</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Gestión integral de colaboradores y rastreo GPS.</p>
         </div>
-        <button 
-          onClick={() => { 
-            if(showForm) { setShowForm(false); setEditingId(null); }
-            else { resetFormData(); setEditingId(null); setShowForm(true); }
-            setNotification(null); 
-          }} 
-          className={`px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all ${showForm ? 'bg-slate-200 text-slate-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-        >
-          {showForm ? 'Cerrar Formulario' : 'Vincular Nuevo Cobrador'}
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+                <button onClick={() => setViewMode('list')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+                    Lista
+                </button>
+                <button onClick={() => setViewMode('map')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+                    Mapa GPS
+                </button>
+            </div>
+            <button 
+            onClick={() => { 
+                if(showForm) { setShowForm(false); setEditingId(null); }
+                else { resetFormData(); setEditingId(null); setShowForm(true); setViewMode('list'); }
+                setNotification(null); 
+            }} 
+            className={`px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all ${showForm ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+            >
+            {showForm ? 'Cerrar Formulario' : 'Vincular Cobrador'}
+            </button>
+        </div>
       </header>
 
       {notification && (
@@ -164,12 +188,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
       )}
 
       {showForm && (
-        <form onSubmit={handleAddOrUpdate} className="bg-white p-10 rounded-[2.5rem] border shadow-2xl space-y-10 border-t-[12px] border-indigo-600 animate-slideDown max-w-6xl mx-auto">
+        <form onSubmit={handleAddOrUpdate} className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl space-y-10 border-t-[12px] border-indigo-600 animate-slideDown max-w-6xl mx-auto">
            
            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Columna 1: Identidad y Acceso */}
               <div className="space-y-6">
-                <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] border-b pb-2">1. Identidad de Usuario</h4>
+                <h4 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] border-b dark:border-slate-800 pb-2">1. Identidad de Usuario</h4>
                 <Input label="Nombre Completo" value={formData.name} onChange={v => setFormData({...formData, name: v})} required />
                 <Input label="Identificación (DNI)" value={formData.dni} onChange={v => setFormData({...formData, dni: v})} required />
                 <Input label="Email / Usuario Acceso" value={formData.username} onChange={v => setFormData({...formData, username: v})} type="email" required />
@@ -183,7 +207,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
                      value={formData.password} 
                      onChange={e => setFormData({...formData, password: e.target.value})} 
                      placeholder={editingId ? "Dejar vacío para no cambiar" : "*******"}
-                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-800 shadow-inner"
+                     className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-800 dark:text-white shadow-inner"
                      required={!editingId}
                    />
                 </div>
@@ -191,7 +215,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
 
               {/* Columna 2: Ubicación y Contacto */}
               <div className="space-y-6">
-                <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] border-b pb-2">2. Localización y Contacto</h4>
+                <h4 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] border-b dark:border-slate-800 pb-2">2. Localización y Contacto</h4>
                 
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Teléfono Móvil</label>
@@ -199,7 +223,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
                         <select 
                             value={formData.phoneCode}
                             onChange={(e) => setFormData({...formData, phoneCode: e.target.value})}
-                            className="w-24 bg-slate-50 border-2 border-slate-100 rounded-2xl pl-2 pr-2 py-4 appearance-none font-bold text-slate-800 text-xs focus:ring-4 focus:ring-indigo-50 outline-none transition cursor-pointer shadow-inner"
+                            className="w-24 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-2 pr-2 py-4 appearance-none font-bold text-slate-800 dark:text-white text-xs focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition cursor-pointer shadow-inner"
                         >
                             {COUNTRY_DATA.map(c => (
                                 <option key={c.code} value={c.dial_code}>{c.flag} {c.dial_code}</option>
@@ -209,7 +233,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
                             value={formData.phoneNumber} 
                             onChange={e => setFormData({...formData, phoneNumber: e.target.value})} 
                             placeholder="3101234567"
-                            className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-800 text-sm shadow-inner"
+                            className="flex-1 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-800 dark:text-white text-sm shadow-inner"
                             required 
                         />
                     </div>
@@ -221,12 +245,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
                         <select 
                             value={formData.country}
                             onChange={(e) => setFormData({...formData, country: e.target.value})}
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 appearance-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-indigo-50 outline-none transition cursor-pointer shadow-inner"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-4 appearance-none font-bold text-slate-800 dark:text-white text-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition cursor-pointer shadow-inner"
                             required
                         >
                             {Object.entries(countriesByContinent).map(([continent, countries]) => (
-                                <optgroup key={continent} label={continent} className="font-bold text-indigo-900">
-                                    {countries.map(c => (
+                                <optgroup key={continent} label={continent} className="font-bold text-indigo-900 dark:text-indigo-400">
+                                    {(countries as typeof COUNTRY_DATA).map(c => (
                                         <option key={c.code} value={c.name}>{c.name}</option>
                                     ))}
                                 </optgroup>
@@ -241,40 +265,56 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
 
               {/* Columna 3: Operativa y Estado */}
               <div className="space-y-6">
-                <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] border-b pb-2">3. Configuración Operativa</h4>
+                <h4 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] border-b dark:border-slate-800 pb-2">3. Configuración Operativa</h4>
                 
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Estado de la Cuenta</label>
-                    <div className="flex bg-slate-100 p-1.5 rounded-2xl border gap-1 shadow-inner">
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 gap-1 shadow-inner">
                         <button 
                             type="button" 
-                            onClick={() => setFormData({...formData, status: 'Active'})}
-                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.status === 'Active' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/50'}`}
+                            onClick={() => handleStatusChange('Active')}
+                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.status === 'Active' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/50 dark:hover:bg-slate-700'}`}
                         >
                             Activo
                         </button>
                         <button 
                             type="button" 
-                            onClick={() => setFormData({...formData, status: 'Inactive'})}
-                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.status === 'Inactive' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/50'}`}
+                            onClick={() => handleStatusChange('Inactive')}
+                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all 
+                                ${formData.status === 'Inactive' 
+                                    ? 'bg-rose-600 text-white shadow-lg' 
+                                    : (formData.routeIds.length > 0 ? 'text-rose-300 cursor-not-allowed opacity-60' : 'text-slate-400 hover:bg-white/50 dark:hover:bg-slate-700')
+                                }`}
                         >
-                            Inactivo
+                            {formData.status === 'Inactive' ? 'Inactivo' : 'Inactivar'}
                         </button>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Rutas Asignadas (Multiselección)</label>
-                    <div className="flex flex-wrap gap-2 bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner max-h-[160px] overflow-y-auto">
+                    <div className="flex flex-wrap gap-2 bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-inner max-h-[160px] overflow-y-auto">
                         {routes.length > 0 ? routes.map(r => (
                         <button
                             key={r.id}
                             type="button"
                             onClick={() => {
                                 const exists = formData.routeIds.includes(r.id);
-                                setFormData({...formData, routeIds: exists ? formData.routeIds.filter(id => id !== r.id) : [...formData.routeIds, r.id]});
+                                if (!exists && formData.status === 'Inactive') {
+                                    setFormData(prev => ({
+                                        ...prev, 
+                                        routeIds: [...prev.routeIds, r.id],
+                                        status: 'Active'
+                                    }));
+                                    setNotification({type:'success', message: 'Usuario reactivado automáticamente al asignar ruta.'});
+                                } else {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        routeIds: exists ? prev.routeIds.filter(id => id !== r.id) : [...prev.routeIds, r.id]
+                                    }));
+                                }
                             }}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.routeIds.includes(r.id) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white border border-slate-200 text-slate-400'}`}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.routeIds.includes(r.id) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-400'}`}
                         >
                             {r.name}
                         </button>
@@ -284,61 +324,64 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
               </div>
            </div>
 
-           <div className="pt-6 border-t flex flex-col md:flex-row gap-4">
+           <div className="pt-6 border-t dark:border-slate-800 flex flex-col md:flex-row gap-4">
                <button type="submit" className="flex-1 bg-slate-900 hover:bg-indigo-600 text-white py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-2xl active:scale-95 transition-all">
                  {editingId ? 'Confirmar Actualización de Perfil' : 'Vincular Colaborador al Sistema'}
                </button>
-               <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:w-48 bg-slate-100 text-slate-400 py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs">
+               <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:w-48 bg-slate-100 dark:bg-slate-800 text-slate-400 py-6 rounded-[2rem] font-black uppercase tracking-widest text-xs">
                    Cancelar
                </button>
            </div>
         </form>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {collectors.map(c => (
-          <div key={c.id} className={`bg-white p-8 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all group relative ${c.status === 'Inactive' ? 'opacity-60 grayscale' : ''}`}>
-            <div className="flex justify-between items-start mb-6">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl transition-colors ${c.status === 'Active' ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white' : 'bg-slate-200 text-slate-500'}`}>
-                  {c.name.charAt(0)}
+      {viewMode === 'map' ? (
+        <CollectorMap users={users} routes={routes} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {collectors.map(c => (
+            <div key={c.id} className={`bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group relative ${c.status === 'Inactive' ? 'opacity-60 grayscale' : ''}`}>
+                <div className="flex justify-between items-start mb-6">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl transition-colors ${c.status === 'Active' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                    {c.name.charAt(0)}
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${c.status === 'Active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
+                            {c.status === 'Active' ? 'Activo' : 'Inactivo'}
+                        </span>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{c.country || 'Sin país'}</p>
+                    </div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${c.status === 'Active' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                        {c.status === 'Active' ? 'Activo' : 'Inactivo'}
-                    </span>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{c.country || 'Sin país'}</p>
+                <h3 className="font-black text-slate-800 dark:text-white text-xl truncate">{c.name}</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-2">{c.username}</p>
+                
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                    <span className="text-[10px] font-bold truncate">{c.city || 'Ubicación no registrada'}</span>
                 </div>
-            </div>
-            <h3 className="font-black text-slate-800 text-xl truncate">{c.name}</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mb-2">{c.username}</p>
-            
-            <div className="flex items-center gap-2 text-slate-500 mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
-                <span className="text-[10px] font-bold truncate">{c.city || 'Ubicación no registrada'}</span>
-            </div>
 
-            <div className="mt-auto pt-6 border-t border-slate-50 flex justify-between items-center">
-                <div className="flex -space-x-2">
-                    {/* CORRECCIÓN 4: Mostrar NOMBRE de la ruta en lugar del ID */}
-                    {c.routeIds.length > 0 ? c.routeIds.map(rid => {
-                        const routeName = routes.find(r => r.id === rid)?.name || 'Desconocida';
-                        return (
-                            <div key={rid} className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[8px] font-black text-indigo-600 uppercase" title={routeName}>
-                                {routeName.length > 10 ? routeName.slice(0, 10) + '...' : routeName}
-                            </div>
-                        );
-                    }) : <span className="text-[8px] font-black text-slate-300 uppercase">Sin rutas</span>}
+                <div className="mt-auto pt-6 border-t border-slate-50 dark:border-slate-800 flex justify-between items-center">
+                    <div className="flex -space-x-2">
+                        {c.routeIds.length > 0 ? c.routeIds.map(rid => {
+                            const routeName = routes.find(r => r.id === rid)?.name || 'Desconocida';
+                            return (
+                                <div key={rid} className="px-2 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase" title={routeName}>
+                                    {routeName.length > 10 ? routeName.slice(0, 10) + '...' : routeName}
+                                </div>
+                            );
+                        }) : <span className="text-[8px] font-black text-slate-300 uppercase">Sin rutas</span>}
+                    </div>
+                    <button 
+                    onClick={() => handleStartEdit(c)}
+                    className="bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 transition-colors p-2 rounded-xl shadow-sm"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                    </button>
                 </div>
-                <button 
-                  onClick={() => handleStartEdit(c)}
-                  className="bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 p-2 rounded-xl transition-colors shadow-sm"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                </button>
             </div>
-          </div>
-        ))}
-      </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -351,7 +394,7 @@ const Input = ({ label, value, onChange, type = 'text', required, placeholder, d
       value={value} 
       onChange={e => onChange(e.target.value)} 
       placeholder={placeholder}
-      className={`w-full border-2 border-slate-100 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-800 shadow-inner ${disabled ? 'bg-slate-200 cursor-not-allowed opacity-50' : 'bg-slate-50'}`}
+      className={`w-full border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-800 dark:text-white shadow-inner ${disabled ? 'bg-slate-200 dark:bg-slate-800 cursor-not-allowed opacity-50' : 'bg-slate-50 dark:bg-slate-800'}`}
       required={required}
       disabled={disabled}
     />

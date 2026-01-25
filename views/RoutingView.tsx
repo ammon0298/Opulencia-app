@@ -58,10 +58,9 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     const amountPaidToday = paymentToday ? paymentToday.amount : 0;
     
     // CORRECCIÓN 5: Lógica de estado de pago para colores
+    // Si pagó hoy la cuota completa o más, es verde.
     const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
     const isPartialPaymentToday = amountPaidToday > 0 && amountPaidToday < credit.installmentValue;
-    // Si pagó 0 es "Pending" visualmente si no ha pasado el día, pero si ya hay registro de 0 es "No Pago"
-    // Aquí asumimos que si amountPaidToday > 0 es un pago. Si es 0, depende si se visitó.
     
     const shouldShow = isInstallmentDay || (credit.isOverdue && !isPaidTotal) || (amountPaidToday > 0); // Mostrar si pagó adelantado
 
@@ -110,14 +109,9 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   }, [clients, credits, payments, selectedRouteId, targetDate]);
 
   const stats = useMemo(() => {
-    // CORRECCIÓN 5: Meta basada en lo que DEBERÍA recaudarse hoy (Sanos)
-    // Filtramos los que NO son mora para la meta "Sana"
     const healthyVisits = visitsForDate.filter(v => v.reason !== 'Mora Pendiente');
     
-    // Meta del día: Suma de cuotas esperadas de clientes sanos que tocan hoy
     const totalToCollectToday = healthyVisits.reduce((acc, curr) => {
-        // Si ya pagó, sumamos lo que pagó (para que la meta no sea menor a lo recaudado si abonó extra)
-        // Si no ha pagado, sumamos la cuota esperada
         return acc + (curr.realAmount > 0 ? Math.max(curr.realAmount, curr.credit.installmentValue) : curr.credit.installmentValue);
     }, 0);
 
@@ -137,21 +131,16 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
   // Función auxiliar para determinar el color de la tarjeta
   const getCardColorClass = (item: any) => {
-      // Prioridad 1: Mora (Siempre MORADO si está en mora y no se ha puesto al día hoy)
+      // CORRECCIÓN 2: Si pagó hoy (completo o más), VERDE prioridad
+      if (item.isFullPaymentToday) return 'bg-emerald-50 border-emerald-200 shadow-emerald-100';
+
+      // Prioridad: Mora (MORADO) si está en mora y NO pagó hoy suficiente para salir
       if (item.credit.isOverdue && !item.isPaid) return 'bg-purple-50 border-purple-200 shadow-purple-100';
       
-      // Prioridad 2: Pago Completo / Abono Mayor (VERDE)
-      if (item.isFullPaymentToday) return 'bg-emerald-50 border-emerald-200 shadow-emerald-100';
-      
-      // Prioridad 3: Pago Parcial (NARANJA)
+      // Prioridad: Pago Parcial (NARANJA)
       if (item.isPartialPaymentToday) return 'bg-orange-50 border-orange-200 shadow-orange-100';
       
-      // Prioridad 4: No Pago (ROJIZO) - Asumimos que si aparece en la lista y realAmount es 0, está pendiente o no pagó
-      // Aquí el usuario pide "Rojizo si no pagó 0 esa visita". 
-      // Visualmente, si es pendiente (futuro/hoy sin gestión) solemos dejarlo blanco. 
-      // Pero si queremos marcar "No Pago", necesitaríamos saber si ya se visitó.
-      // Como no tenemos flag de "Visitado", usaremos Blanco para pendiente y Rojo solo si explícitamente queremos alertar (por ahora Blanco/Gris es estándar para pendiente).
-      // Sin embargo, para cumplir la solicitud de colores, dejaremos el default en blanco pero si es fecha pasada y 0, rojo.
+      // Prioridad: No Pago (ROJIZO) solo si es pasado
       if (targetDate < TODAY_STR && item.realAmount === 0) return 'bg-rose-50 border-rose-200 shadow-rose-100';
 
       return 'bg-white border-slate-100';
@@ -189,7 +178,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                 </div>
                 <div>
                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Meta Pendiente (Sanos)</p>
-                   {/* CORRECCIÓN 5: Lógica de barra de progreso ajustada */}
                    <h3 className="text-2xl md:text-4xl font-black">${Math.max(0, stats.total - stats.collected).toLocaleString()} <span className="text-xs md:text-lg text-slate-500 font-bold">/ ${stats.total.toLocaleString()}</span></h3>
                 </div>
              </div>
@@ -229,7 +217,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                   <span className="text-indigo-600 font-black text-xl md:text-2xl uppercase tracking-tight">Hoja de Ruta</span>
                </div>
                <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 flex items-center justify-between md:justify-end gap-4">
-                  {/* CORRECCIÓN 5: Cambio de Label 'HOY' a 'FECHA' */}
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FECHA:</p>
                   <span className="text-slate-700 font-black text-xs md:text-sm">{new Date(targetDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                </div>
@@ -243,7 +230,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                     {/* Badge Superior Derecho según Estado */}
                     <div className="absolute top-0 right-0">
                        {item.isFullPaymentToday ? (
-                          <div className="bg-emerald-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">CUOTA COMPLETA</div>
+                          <div className="bg-emerald-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">PAGO REGISTRADO</div>
                        ) : item.isPartialPaymentToday ? (
                           <div className="bg-orange-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">ABONO PARCIAL</div>
                        ) : item.credit.isOverdue && !item.isPaid ? (
@@ -287,10 +274,16 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                             <p className="text-xs font-bold md:truncate md:max-w-[200px] lg:max-w-[300px] leading-tight">{item.address}</p>
                          </div>
-                         <div className="pt-1 md:pt-0">
+                         <div className="pt-1 md:pt-0 flex gap-2">
                            <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white border-slate-200 text-slate-500`}>
                              {item.reason}
                            </span>
+                           {/* CORRECCIÓN 2: Etiqueta AL DÍA si el cliente no debe nada acumulado */}
+                           {item.isPaid && (
+                               <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-indigo-50 border-indigo-200 text-indigo-700">
+                                   ESTADO: AL DÍA
+                               </span>
+                           )}
                          </div>
                       </div>
                     </div>

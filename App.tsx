@@ -20,6 +20,7 @@ import UserProfile from './views/UserProfile';
 import ClientList from './views/ClientList';
 import { supabase } from './lib/supabase';
 import { verifyPassword } from './utils/security';
+import { GlobalProvider } from './contexts/GlobalContext';
 
 /**
  * =========================================================
@@ -27,12 +28,15 @@ import { verifyPassword } from './utils/security';
  * =========================================================
  */
 
+// UUID v4 check (suficiente para nuestro caso)
 const isUuid = (v: string) =>
   typeof v === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
+// Genera UUID (browser)
 const newUuid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
+// Mapea IDs “temporales” (c123, r123, tx_123) a UUID reales
 const useTempIdMap = () => {
   const mapRef = useRef<Map<string, string>>(new Map());
 
@@ -68,7 +72,8 @@ const dbToClient = (c: any): Client => ({
   address: c.address ?? '',
   phone: c.phone ?? '',
   order: c.visit_order ?? 0,
-  status: c.status
+  status: c.status,
+  coordinates: c.lat && c.lng ? { lat: c.lat, lng: c.lng } : undefined
 });
 
 const dbToCredit = (c: any): Credit => ({
@@ -119,6 +124,7 @@ const dbToTx = (t: any): RouteTransaction => ({
   description: t.description ?? ''
 });
 
+// ACTUALIZACIÓN DE MAPPER USUARIO: Soporte lat/lng
 const dbToUser = (u: any): User => ({
   id: u.id,
   businessId: u.business_id,
@@ -132,7 +138,12 @@ const dbToUser = (u: any): User => ({
   status: u.status,
   businessName: u.business_name ?? '',
   country: u.country ?? '',
-  city: u.city ?? ''
+  city: u.city ?? '',
+  currentLocation: u.lat && u.lng ? { 
+      lat: u.lat, 
+      lng: u.lng, 
+      timestamp: u.last_location_at || new Date().toISOString() 
+  } : undefined
 });
 
 // ---- App -> DB ----
@@ -152,7 +163,9 @@ const clientToDb = (c: Client) => ({
   address: c.address || null,
   phone: c.phone || null,
   visit_order: c.order ?? 0,
-  status: c.status
+  status: c.status,
+  lat: c.coordinates?.lat || null,
+  lng: c.coordinates?.lng || null
 });
 
 const creditToDb = (c: Credit) => ({
@@ -200,6 +213,7 @@ const txToDb = (t: RouteTransaction) => ({
   transaction_date: t.date
 });
 
+// ACTUALIZACIÓN MAPPER DB: Soporte lat/lng
 const userToDb = (u: User) => ({
   id: u.id,
   business_id: u.businessId,
@@ -213,11 +227,13 @@ const userToDb = (u: User) => ({
   status: u.status,
   business_name: u.businessName || null,
   country: u.country || null,
-  city: u.city || null
+  city: u.city || null,
+  lat: u.currentLocation?.lat || null,
+  lng: u.currentLocation?.lng || null,
+  last_location_at: u.currentLocation?.timestamp || null
 });
 
-const App: React.FC = () => {
-  // Data States
+const AppContent: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [credits, setCredits] = useState<Credit[]>([]);
@@ -226,19 +242,19 @@ const App: React.FC = () => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [transactions, setTransactions] = useState<RouteTransaction[]>([]);
 
-  // UI State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState('landing');
   const [selectedRouteId, setSelectedRouteId] = useState<string>('all');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Selection State
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const [creditsFilter, setCreditsFilter] = useState<string>('');
 
   const { normalizeId } = useTempIdMap();
+  const locationWatchId = useRef<number | null>(null);
+  const lastLocationUpdate = useRef<number>(0);
 
   const loadBusinessData = async (businessId: string) => {
     try {
@@ -280,12 +296,9 @@ const App: React.FC = () => {
           const user = JSON.parse(savedUser);
           setCurrentUser(user);
           await loadBusinessData(user.businessId);
-          
-          // Si es cobrador, forzar selección de su ruta
           if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
              setSelectedRouteId(user.routeIds[0]);
           }
-          
           setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
         } catch (e) {
           localStorage.removeItem('op_user');
@@ -295,6 +308,52 @@ const App: React.FC = () => {
     };
     checkSession();
   }, []);
+
+  // --------------- LÓGICA DE RASTREO GPS (COLLECTOR) ---------------
+  useEffect(() => {
+    if (currentUser?.role === UserRole.COLLECTOR && 'geolocation' in navigator) {
+        
+        // Función para actualizar DB
+        const updateLocationInDb = async (lat: number, lng: number) => {
+            const now = Date.now();
+            // Throttling: Actualizar máximo cada 30 segundos para no saturar DB
+            if (now - lastLocationUpdate.current > 30000) {
+                lastLocationUpdate.current = now;
+                try {
+                    await supabase.from('users').update({
+                        lat,
+                        lng,
+                        last_location_at: new Date().toISOString()
+                    }).eq('id', currentUser.id);
+                } catch (err) {
+                    console.error("Error updating location:", err);
+                }
+            }
+        };
+
+        const success = (pos: GeolocationPosition) => {
+            updateLocationInDb(pos.coords.latitude, pos.coords.longitude);
+        };
+
+        const error = (err: GeolocationPositionError) => {
+            console.warn(`ERROR(${err.code}): ${err.message}`);
+        };
+
+        // Iniciar Watcher
+        locationWatchId.current = navigator.geolocation.watchPosition(success, error, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        });
+
+        return () => {
+            if (locationWatchId.current !== null) {
+                navigator.geolocation.clearWatch(locationWatchId.current);
+            }
+        };
+    }
+  }, [currentUser]);
+  // ------------------------------------------------------------------
 
   const handleLogin = async (u: string, p: string) => {
     setAuthError(null);
@@ -324,11 +383,19 @@ const App: React.FC = () => {
 
       if (isValid) {
         const mappedUser = dbToUser(dbUser);
+        
+        // SOLICITAR PERMISOS GPS AL INICIAR SESIÓN (SI ES COBRADOR)
+        if (mappedUser.role === UserRole.COLLECTOR && 'geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                () => console.log("GPS Activo"), // Éxito silencioso, el watcher tomará el control
+                (err) => alert("IMPORTANTE: Para gestionar cobros debe permitir el acceso a su ubicación.")
+            );
+        }
+
         setCurrentUser(mappedUser);
         localStorage.setItem('op_user', JSON.stringify(mappedUser));
         await loadBusinessData(mappedUser.businessId);
         
-        // CORRECCIÓN 1: Si es cobrador, preseleccionar su primera ruta
         if (mappedUser.role === UserRole.COLLECTOR && mappedUser.routeIds.length > 0) {
             setSelectedRouteId(mappedUser.routeIds[0]);
         } else {
@@ -347,6 +414,11 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Limpiar Watcher GPS si existe
+    if (locationWatchId.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchId.current);
+        locationWatchId.current = null;
+    }
     localStorage.removeItem('op_user');
     setCurrentUser(null);
     setCurrentView('landing');
@@ -359,27 +431,19 @@ const App: React.FC = () => {
 
   const filteredData = useMemo(() => {
     if (!currentUser) return { clients: [], credits: [], expenses: [], payments: [] };
-
-    // CORRECCIÓN 1: Lógica de filtrado estricta para cobradores
-    // Si es cobrador, solo puede ver sus rutas asignadas.
     const allowedRouteIds = currentUser.role === UserRole.COLLECTOR 
         ? currentUser.routeIds 
-        : routes.map(r => r.id); // Admin ve todas (o filtradas por UI)
+        : routes.map(r => r.id);
 
     const routeFilter = (id: string) => {
-        // 1. Verificar si el usuario tiene permiso para esta ruta
         const hasPermission = allowedRouteIds.includes(id);
         if (!hasPermission && currentUser.role === UserRole.COLLECTOR) return false;
-
-        // 2. Aplicar filtro de UI (dropdown)
         if (selectedRouteId === 'all') return true;
         return id === selectedRouteId;
     };
 
     return {
-      clients: clients
-        .filter((c) => routeFilter(c.routeId))
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+      clients: clients.filter((c) => routeFilter(c.routeId)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
       credits: credits.filter((cr) => {
         const c = clients.find((cl) => cl.id === cr.clientId);
         return c && routeFilter(c.routeId);
@@ -412,17 +476,9 @@ const App: React.FC = () => {
     await loadBusinessData(currentUser.businessId);
   };
 
-  const persistRoutesFromSetter = async () => {
-    if (currentUser) await loadBusinessData(currentUser.businessId);
-  };
-
-  const persistRouteTransaction = async () => {
-    if (currentUser) await loadBusinessData(currentUser.businessId);
-  };
-
-  const persistUsersFromSetter = async () => {
-    if (currentUser) await loadBusinessData(currentUser.businessId);
-  };
+  const persistRoutesFromSetter = async (setter: any) => { if (currentUser) await loadBusinessData(currentUser.businessId); };
+  const persistRouteTransaction = async (t: any) => { if (currentUser) await loadBusinessData(currentUser.businessId); };
+  const persistUsersFromSetter = async (setter: any) => { if (currentUser) await loadBusinessData(currentUser.businessId); };
 
   const renderContent = () => {
     if (!currentUser) return null;
@@ -435,7 +491,8 @@ const App: React.FC = () => {
       case 'credits':
         return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay as Payment)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
       case 'client_management':
-        return <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
+        // Se añade credits y payments para el mapa
+        return <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
       case 'edit_client': {
         const clientToEdit = clients.find((c) => c.id === selectedClientId);
         const activeCredit = credits.find((c) => c.clientId === selectedClientId && c.status === 'Active');
@@ -452,30 +509,11 @@ const App: React.FC = () => {
       case 'liquidation':
         return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions} />;
       case 'users':
-        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={persistUsersFromSetter} />;
+        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={persistUsersFromSetter as any} />;
       case 'routes_mgmt':
-        return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={persistRoutesFromSetter} onAddTransaction={persistRouteTransaction} />;
+        return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={persistRoutesFromSetter as any} onAddTransaction={persistRouteTransaction} />;
       case 'profile':
-        return (
-          <UserProfile 
-            user={currentUser} 
-            users={users} 
-            onUpdate={async (u) => {
-                // CORRECCIÓN 2: Persistencia Real del Perfil
-                const payload = userToDb(u);
-                // Si hay password (hash), lo enviamos
-                if ((u as any).password) { (payload as any).password_hash = (u as any).password; }
-                
-                const { error } = await supabase.from('users').update(payload).eq('id', u.id);
-                if (!error) {
-                    setCurrentUser(u);
-                    localStorage.setItem('op_user', JSON.stringify(u));
-                    // Recargar datos globales para que el Admin vea el cambio
-                    await loadBusinessData(u.businessId);
-                }
-            }} 
-          />
-        );
+        return <UserProfile user={currentUser} users={users} onUpdate={async (u) => { const payload = userToDb(u); if ((u as any).password) { (payload as any).password_hash = (u as any).password; } const { error } = await supabase.from('users').update(payload).eq('id', u.id); if (!error) { setCurrentUser(u); localStorage.setItem('op_user', JSON.stringify(u)); await loadBusinessData(u.businessId); } }} />;
       case 'credit_details': {
         const crDetails = credits.find((c) => c.id === selectedCreditId);
         const clDetails = crDetails ? clients.find((c) => c.id === crDetails.clientId) : undefined;
@@ -510,6 +548,14 @@ const App: React.FC = () => {
   }
 
   return <Layout user={currentUser} onLogout={handleLogout} navigateTo={handleNavigation} currentView={currentView} routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}>{renderContent()}</Layout>;
+};
+
+const App: React.FC = () => {
+  return (
+    <GlobalProvider>
+      <AppContent />
+    </GlobalProvider>
+  );
 };
 
 export default App;

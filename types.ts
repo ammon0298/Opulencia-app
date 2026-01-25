@@ -22,6 +22,12 @@ export interface User {
   businessName?: string;
   country?: string;
   city?: string;
+  // Geolocalización en tiempo real
+  currentLocation?: {
+    lat: number;
+    lng: number;
+    timestamp: string; // ISO String de la última actualización
+  };
 }
 
 export interface Route {
@@ -51,6 +57,8 @@ export interface Client {
   routeId: string;
   order: number;
   status: AccountStatus;
+  // Geo
+  coordinates?: { lat: number; lng: number };
 }
 
 export type CreditStatus = 'Active' | 'Completed' | 'Lost';

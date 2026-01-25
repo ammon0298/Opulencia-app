@@ -167,31 +167,31 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         </div>
       </header>
 
-      {/* CORRECCIÓN 6: overflow-x-auto para tablas responsive */}
+      {/* CORRECCIÓN 3: Tabla resumen responsive */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden animate-fadeIn">
         <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[600px]">
+            <table className="w-full text-left min-w-[350px]">
             <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Concepto Contable</th>
-                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Valor Calculado</th>
+                <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">Concepto Contable</th>
+                <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-                <Row label="FONDO ACUMULADO (AL INICIO DEL PERIODO)" value={calculatedStartBase} highlight="text-indigo-600" />
-                <Row label="TOTAL RECAUDOS (ENTRADAS)" value={totalCollected} highlight="text-emerald-600" />
-                <Row label="INYECCIONES DE CAPITAL (ENTRADAS)" value={totalInjections} highlight="text-emerald-600" />
-                <Row label="TOTAL GASTOS OPERATIVOS (SALIDAS)" value={-totalExpensesValue} highlight="text-rose-600" isDeductible />
-                <Row label="CAPITAL COLOCADO / PRÉSTAMOS (SALIDAS)" value={-totalNewLoans} highlight="text-rose-600" isDeductible />
-                <Row label="RETIROS DE GANANCIAS (SALIDAS)" value={-totalWithdrawals} highlight="text-rose-600" isDeductible />
+                <Row label="FONDO ACUMULADO (INICIO)" value={calculatedStartBase} highlight="text-indigo-600" />
+                <Row label="TOTAL RECAUDOS" value={totalCollected} highlight="text-emerald-600" />
+                <Row label="INYECCIONES CAPITAL" value={totalInjections} highlight="text-emerald-600" />
+                <Row label="GASTOS OPERATIVOS" value={-totalExpensesValue} highlight="text-rose-600" isDeductible />
+                <Row label="NUEVOS PRÉSTAMOS" value={-totalNewLoans} highlight="text-rose-600" isDeductible />
+                <Row label="RETIROS GANANCIAS" value={-totalWithdrawals} highlight="text-rose-600" isDeductible />
                 
                 <tr className="bg-slate-900 text-white">
-                <td className="px-8 py-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-2">Resultado Matemático</p>
-                    <p className="text-2xl font-black">EFECTIVO TOTAL EN CAJA (AL CIERRE)</p>
+                <td className="px-4 md:px-8 py-6 md:py-10">
+                    <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">Total Caja</p>
+                    <p className="text-xl md:text-2xl font-black">EFECTIVO CIERRE</p>
                 </td>
-                <td className="px-8 py-10 text-right">
-                    <p className={`text-4xl md:text-5xl font-black ${realDelivery >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <td className="px-4 md:px-8 py-6 md:py-10 text-right">
+                    <p className={`text-3xl md:text-5xl font-black ${realDelivery >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     ${realDelivery.toLocaleString()}
                     </p>
                 </td>
@@ -212,27 +212,27 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                   <table className="w-full text-left text-xs min-w-[300px]">
                     <thead className="bg-slate-100 text-slate-500">
                         <tr>
-                        <th className="px-6 py-4 uppercase font-black tracking-widest">Concepto</th>
-                        <th className="px-6 py-4 uppercase font-black tracking-widest text-right">Valor</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Concepto</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Valor</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {rangeExpenses.map(exp => (
                         <tr key={exp.id} className="hover:bg-slate-50">
-                            <td className="px-6 py-4">
+                            <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
                             <p className="font-bold text-slate-700">{exp.name}</p>
                             <p className="text-[9px] text-slate-400 uppercase">{exp.date}</p>
                             </td>
-                            <td className="px-6 py-4 text-right font-black text-rose-600">-${exp.value.toLocaleString()}</td>
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600">-${exp.value.toLocaleString()}</td>
                         </tr>
                         ))}
                         {rangeTransactions.filter(t => t.type === 'WITHDRAWAL').map(tx => (
                         <tr key={tx.id} className="hover:bg-slate-50 bg-rose-50/30">
-                            <td className="px-6 py-4">
+                            <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
                             <p className="font-bold text-rose-800">{tx.description}</p>
                             <p className="text-[9px] text-rose-400 uppercase">{tx.date}</p>
                             </td>
-                            <td className="px-6 py-4 text-right font-black text-rose-600">-${tx.amount.toLocaleString()}</td>
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600">-${tx.amount.toLocaleString()}</td>
                         </tr>
                         ))}
                     </tbody>
@@ -251,8 +251,8 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                   <table className="w-full text-left text-xs min-w-[300px]">
                     <thead className="bg-slate-100 text-slate-500">
                         <tr>
-                        <th className="px-6 py-4 uppercase font-black tracking-widest">Origen</th>
-                        <th className="px-6 py-4 uppercase font-black tracking-widest text-right">Valor</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Origen</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Valor</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -261,21 +261,21 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                             const cl = cr ? clients.find(c => c.id === cr.clientId) : null;
                             return (
                                 <tr key={pay.id} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
                                     <p className="font-bold text-slate-700">{cl?.name || 'Cliente'}</p>
-                                    <p className="text-[9px] text-slate-400 uppercase">{pay.date} • CR#{pay.creditId.slice(-4)}</p>
+                                    <p className="text-[9px] text-slate-400 uppercase">{pay.date.split('T')[0]} • CR#{pay.creditId.slice(-4)}</p>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-black text-emerald-600">+${pay.amount.toLocaleString()}</td>
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-emerald-600">+${pay.amount.toLocaleString()}</td>
                                 </tr>
                             )
                         })}
                         {rangeTransactions.filter(t => t.type === 'INJECTION').map(tx => (
                         <tr key={tx.id} className="hover:bg-slate-50 bg-emerald-50/30">
-                            <td className="px-6 py-4">
+                            <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
                             <p className="font-bold text-emerald-800">{tx.description}</p>
                             <p className="text-[9px] text-emerald-500 uppercase">{tx.date}</p>
                             </td>
-                            <td className="px-6 py-4 text-right font-black text-emerald-600">+${tx.amount.toLocaleString()}</td>
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-emerald-600">+${tx.amount.toLocaleString()}</td>
                         </tr>
                         ))}
                     </tbody>
@@ -290,13 +290,14 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
               <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
               <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.25em]">Nuevos Préstamos</h3>
            </div>
+           {/* CORRECCIÓN 3: Tabla Nuevos Préstamos con diseño consistente */}
            <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[600px]">
-                    <thead className="bg-slate-900 text-white">
+                  <table className="w-full text-left text-xs min-w-[300px]">
+                    <thead className="bg-slate-100 text-slate-500">
                         <tr>
-                        <th className="px-8 py-5 uppercase font-black tracking-widest">Cliente</th>
-                        <th className="px-8 py-5 uppercase font-black tracking-widest text-right">Capital</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Cliente</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Capital</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -304,11 +305,11 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                         const client = clients.find(c => c.id === cr.clientId);
                         return (
                             <tr key={cr.id} className="hover:bg-slate-50">
-                            <td className="px-8 py-5">
-                                <p className="font-black text-slate-700 uppercase">{client?.name || '---'}</p>
-                                <p className="text-[9px] text-slate-400 font-bold uppercase">ID: #{cr.id.slice(-6)}</p>
+                            <td className="px-4 md:px-6 py-3 md:py-4 whitespace-normal">
+                                <p className="font-bold text-slate-700 uppercase">{client?.name || '---'}</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase">{cr.startDate} • ID: #{cr.id.slice(-6)}</p>
                             </td>
-                            <td className="px-8 py-5 text-right font-black text-rose-600 text-base">
+                            <td className="px-4 md:px-6 py-3 md:py-4 text-right font-black text-rose-600 text-sm">
                                 -${cr.capital.toLocaleString()}
                             </td>
                             </tr>
@@ -325,8 +326,8 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
 
 const Row = ({ label, value, highlight = 'text-slate-800', isDeductible = false }: any) => (
   <tr className="hover:bg-slate-50/50 transition-colors">
-    <td className="px-8 py-5 text-xs md:text-sm font-black text-slate-600 uppercase tracking-tight">{label}</td>
-    <td className={`px-8 py-5 text-lg md:text-xl font-black text-right ${highlight}`}>
+    <td className="px-4 md:px-8 py-3 md:py-5 text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-tight whitespace-normal">{label}</td>
+    <td className={`px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-black text-right ${highlight}`}>
       {isDeductible ? `- $${Math.abs(value).toLocaleString()}` : `$${value.toLocaleString()}`}
     </td>
   </tr>

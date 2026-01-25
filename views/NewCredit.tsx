@@ -86,11 +86,12 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
     return { balance, routeName: route?.name || 'Ruta Desconocida' };
   }, [selectedClient, allTransactions, allPayments, allExpenses, allCredits, clients, routes]);
 
-  // CORRECCIÓN 3: Búsqueda Interactiva Avanzada
+  // CORRECCIÓN 1: Búsqueda robusta y visible
   const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchTerm(term);
     setNotification(null);
+    
     if (!term.trim()) {
         setSearchResults([]);
         setShowDropdown(false);
@@ -99,11 +100,10 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
 
     const lowerTerm = term.toLowerCase();
     const matches = clients.filter(c => 
-        c.dni.includes(lowerTerm) || 
+        c.dni.includes(term) || 
         c.name.toLowerCase().includes(lowerTerm) || 
-        c.alias.toLowerCase().includes(lowerTerm) ||
-        (c.address && c.address.toLowerCase().includes(lowerTerm))
-    ).slice(0, 5); // Limitar a 5 resultados para UI limpia
+        c.alias.toLowerCase().includes(lowerTerm)
+    ).slice(0, 8); // Mostrar hasta 8 resultados
 
     setSearchResults(matches);
     setShowDropdown(true);
@@ -123,7 +123,6 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
       return;
     }
 
-    // CORRECCIÓN 4: Validación de Caja mejorada visualmente
     if (routeFinancials && formData.capital > routeFinancials.balance) {
         setNotification({ type: 'error', message: `⚠️ FONDO INSUFICIENTE: La ruta ${routeFinancials.routeName} solo tiene $${routeFinancials.balance.toLocaleString()} disponibles.` });
         return;
@@ -206,14 +205,14 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         </div>
       )}
 
-      {/* CORRECCIÓN 4: Diseño Mejorado y Alertas */}
-      <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+      {/* CORRECCIÓN 1: Se eliminó 'overflow-hidden' para que el dropdown se vea en mobile */}
+      <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 relative">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-t-[2.5rem]"></div>
         
         <div className="p-8 md:p-10 space-y-10">
             {/* Buscador */}
             <div className="space-y-4 relative" ref={searchRef}>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Predictivo)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Nombre o DNI)</label>
                 <div className="relative group">
                     <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -223,31 +222,39 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         value={searchTerm} 
                         onChange={handleSearchInput} 
                         onFocus={() => { if(searchTerm) setShowDropdown(true); }}
-                        placeholder="Escriba nombre, cédula o alias..." 
+                        placeholder="Escriba nombre o cédula..." 
                         className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 text-lg shadow-inner placeholder:text-slate-300" 
                     />
                     
-                    {/* Dropdown de Sugerencias */}
-                    {showDropdown && searchResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-fadeIn">
-                            <div className="bg-slate-50 px-6 py-3 border-b border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Coincidencias encontradas</p>
-                            </div>
-                            {searchResults.map(c => (
-                                <button 
-                                    key={c.id} 
-                                    onClick={() => handleSelectClient(c)}
-                                    className="w-full text-left px-6 py-4 hover:bg-indigo-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
-                                >
-                                    <div>
-                                        <p className="font-bold text-slate-800 group-hover:text-indigo-700">{c.name}</p>
-                                        <p className="text-xs text-slate-400 mt-0.5">{c.alias} • <span className="font-mono">{c.dni}</span></p>
+                    {/* Dropdown de Sugerencias con z-index alto */}
+                    {showDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-[99] animate-fadeIn max-h-[300px] overflow-y-auto">
+                            {searchResults.length > 0 ? (
+                                <>
+                                    <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 sticky top-0">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Coincidencias encontradas</p>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase group-hover:bg-white group-hover:text-indigo-500">Seleccionar</span>
-                                    </div>
-                                </button>
-                            ))}
+                                    {searchResults.map(c => (
+                                        <button 
+                                            key={c.id} 
+                                            onClick={() => handleSelectClient(c)}
+                                            className="w-full text-left px-6 py-4 hover:bg-indigo-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
+                                        >
+                                            <div>
+                                                <p className="font-bold text-slate-800 group-hover:text-indigo-700">{c.name}</p>
+                                                <p className="text-xs text-slate-400 mt-0.5">{c.alias} • <span className="font-mono bg-slate-100 px-1 rounded">{c.dni}</span></p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase group-hover:bg-white group-hover:text-indigo-500">Seleccionar</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="p-6 text-center text-slate-400 text-sm">
+                                    No se encontraron clientes con "{searchTerm}"
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -325,7 +332,6 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
 
                         {calc && (
                             <div className="mt-14 p-8 md:p-10 bg-slate-900 text-white rounded-[3rem] shadow-2xl space-y-10 animate-slideDown border-4 border-indigo-500/20">
-                                {/* CORRECCIÓN RESPONSIVE: Grid ajustada para evitar desbordamiento */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                                     <div className="text-center p-4 bg-white/5 rounded-2xl border border-white/5">
                                         <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Total a Pagar</p>
