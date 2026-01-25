@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { COUNTRY_DATA } from '../constants';
 
@@ -13,9 +12,10 @@ interface AuthViewProps {
   onRecoverInitiate: (email: string) => Promise<boolean>;
   onRecoverVerify: (code: string) => boolean;
   onRecoverReset: (newPass: string) => void;
+  onClearError: () => void;
 }
 
-const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogin, onRegister, onBack, onSwitchMode, onRecoverInitiate, onRecoverVerify, onRecoverReset }) => {
+const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogin, onRegister, onBack, onSwitchMode, onRecoverInitiate, onRecoverVerify, onRecoverReset, onClearError }) => {
   const [recoveryStep, setRecoveryStep] = useState<'none' | 'email' | 'code' | 'reset'>('none');
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null); // Local validation error
@@ -63,6 +63,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
   const handleRecSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
+    onClearError();
     
     if (recoveryStep === 'email') {
         setIsLoading(true);
@@ -95,6 +96,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
     setRecPass1('');
     setRecPass2('');
     setValidationError(null);
+    onClearError();
   };
 
   // Combine parent error and local validation error
