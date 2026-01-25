@@ -21,6 +21,7 @@ import ClientList from './views/ClientList';
 import { supabase } from './lib/supabase';
 import { verifyPassword } from './utils/security';
 import { sendLicenseRequestEmail } from './utils/email';
+import { GlobalProvider } from './contexts/GlobalContext';
 
 // UUID helper
 const isUuid = (v: string) =>
@@ -43,12 +44,84 @@ const useTempIdMap = () => {
   return { normalizeId };
 };
 
-// ---- MAPPERS ----
+// ---- MAPPERS (Robustos) ----
+const dbToUser = (u: any): User => ({
+  id: u.id,
+  businessId: u.business_id,
+  username: u.username,
+  name: u.name,
+  dni: u.dni,
+  phone: u.phone ?? '',
+  address: u.address ?? '',
+  role: u.role as UserRole,
+  routeIds: u.route_ids ?? [],
+  status: u.status,
+  businessName: u.business_name ?? '',
+  country: u.country ?? '',
+  city: u.city ?? '',
+  currentLocation: u.lat && u.lng ? { 
+      lat: u.lat, 
+      lng: u.lng, 
+      timestamp: u.last_location_at || new Date().toISOString() 
+  } : undefined
+});
+
+const userToDb = (u: User) => ({
+  id: u.id,
+  business_id: u.businessId,
+  username: u.username,
+  name: u.name,
+  dni: u.dni,
+  phone: u.phone || null,
+  address: u.address || null,
+  role: u.role,
+  route_ids: u.routeIds ?? [],
+  status: u.status,
+  business_name: u.businessName || null,
+  country: u.country || null,
+  city: u.city || null,
+  lat: u.currentLocation?.lat || null,
+  lng: u.currentLocation?.lng || null,
+  last_location_at: u.currentLocation?.timestamp || null
+});
+
+const dbToClient = (c: any): Client => ({
+  id: c.id,
+  businessId: c.business_id,
+  routeId: c.route_id,
+  dni: c.dni,
+  name: c.name,
+  alias: c.alias ?? '',
+  address: c.address ?? '',
+  phone: c.phone ?? '',
+  country: c.country ?? '',
+  city: c.city ?? '',
+  phoneCode: c.phone_code ?? '+57',
+  order: c.visit_order ?? 0,
+  status: c.status,
+  coordinates: c.lat && c.lng ? { lat: c.lat, lng: c.lng } : undefined
+});
+
+const clientToDb = (c: Client) => ({
+  id: c.id,
+  business_id: c.businessId,
+  route_id: c.routeId,
+  dni: c.dni,
+  name: c.name,
+  alias: c.alias || null,
+  address: c.address || null,
+  phone: c.phone || null,
+  country: c.country || null,
+  city: c.city || null,
+  phone_code: c.phoneCode || null,
+  visit_order: c.order ?? 0,
+  status: c.status,
+  lat: c.coordinates?.lat || null,
+  lng: c.coordinates?.lng || null
+});
+
 const dbToRoute = (r: any): Route => ({ id: r.id, businessId: r.business_id, name: r.name });
 const routeToDb = (r: Route) => ({ id: r.id, business_id: r.businessId, name: r.name });
-
-const dbToClient = (c: any): Client => ({ id: c.id, businessId: c.business_id, routeId: c.route_id, dni: c.dni, name: c.name, alias: c.alias ?? '', address: c.address ?? '', phone: c.phone ?? '', order: c.visit_order ?? 0, status: c.status });
-const clientToDb = (c: Client) => ({ id: c.id, business_id: c.businessId, route_id: c.routeId, dni: c.dni, name: c.name, alias: c.alias || null, address: c.address || null, phone: c.phone || null, visit_order: c.order ?? 0, status: c.status });
 
 const dbToCredit = (c: any): Credit => ({ 
   id: c.id, 
@@ -62,7 +135,7 @@ const dbToCredit = (c: any): Credit => ({
   totalPaid: Number(c.total_paid ?? 0), 
   frequency: c.frequency, 
   startDate: c.start_date, 
-  firstPaymentDate: c.first_payment_date || c.start_date, // Critical fix for dashboard
+  firstPaymentDate: c.first_payment_date || c.start_date, 
   isOverdue: false, 
   status: c.status 
 });
@@ -77,8 +150,6 @@ const expenseToDb = (e: Expense) => ({ id: e.id, business_id: e.businessId, rout
 const dbToTx = (t: any): RouteTransaction => ({ id: t.id, businessId: t.business_id, routeId: t.route_id, date: t.transaction_date, amount: Number(t.amount), type: t.type, description: t.description ?? '' });
 const txToDb = (t: RouteTransaction) => ({ id: t.id, business_id: t.businessId, route_id: t.routeId, amount: t.amount, type: t.type, description: t.description || null, transaction_date: t.date });
 
-const dbToUser = (u: any): User => ({ id: u.id, businessId: u.business_id, username: u.username, name: u.name, dni: u.dni, phone: u.phone ?? '', address: u.address ?? '', role: u.role as UserRole, routeIds: u.route_ids ?? [], status: u.status });
-const userToDb = (u: User) => ({ id: u.id, business_id: u.businessId, username: u.username, name: u.name, dni: u.dni, phone: u.phone || null, address: u.address || null, role: u.role, route_ids: u.routeIds ?? [], status: u.status });
 
 const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -135,12 +206,14 @@ const App: React.FC = () => {
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          // Defensive: Ensure routeIds is array to prevent white screen crash
-          if (!Array.isArray(user.routeIds)) {
-             user.routeIds = [];
-          }
+          // Defensive check for routes
+          if (!Array.isArray(user.routeIds)) user.routeIds = [];
+          
           setCurrentUser(user);
           await loadBusinessData(user.businessId);
+          if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
+             setSelectedRouteId(user.routeIds[0]);
+          }
           setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
         } catch (e) {
           localStorage.removeItem('op_user');
@@ -183,6 +256,11 @@ const App: React.FC = () => {
         setCurrentUser(mappedUser);
         localStorage.setItem('op_user', JSON.stringify(mappedUser));
         await loadBusinessData(mappedUser.businessId);
+        
+        if (mappedUser.role === UserRole.COLLECTOR && mappedUser.routeIds.length > 0) {
+             setSelectedRouteId(mappedUser.routeIds[0]);
+        }
+        
         setCurrentView(mappedUser.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
       } else {
         setAuthError('Contraseña incorrecta.');
@@ -224,7 +302,6 @@ const App: React.FC = () => {
     };
   }, [clients, credits, expenses, payments, selectedRouteId]);
 
-  // Funciones de persistencia
   const handleSaveClientBulk = async (updatedClients: Client[]) => {
     if (!currentUser) return;
     const normalized = updatedClients.map((c) => ({ ...c, id: isUuid(c.id) ? c.id : normalizeId(c.id), businessId: currentUser.businessId }));
@@ -237,6 +314,18 @@ const App: React.FC = () => {
     await supabase.from('clients').upsert(payload, { onConflict: 'id' });
     await loadBusinessData(currentUser.businessId);
   };
+
+  const handleUpdateProfile = async (u: User) => {
+      const payload: any = userToDb(u);
+      if ((u as any).password) payload.password_hash = (u as any).password;
+      const { error } = await supabase.from('users').update(payload).eq('id', u.id);
+      if (!error) {
+          setCurrentUser(u);
+          localStorage.setItem('op_user', JSON.stringify(u));
+          await loadBusinessData(u.businessId);
+      }
+  };
+
   const persistRoutesFromSetter = async (setter: any) => { if(currentUser) await loadBusinessData(currentUser.businessId); };
   const persistRouteTransaction = async (t: any) => { if(currentUser) await loadBusinessData(currentUser.businessId); };
   const persistUsersFromSetter = async (setter: any) => { if(currentUser) await loadBusinessData(currentUser.businessId); };
@@ -264,24 +353,27 @@ const App: React.FC = () => {
     return <LandingPage onLogin={() => setCurrentView('auth')} onRegister={() => setCurrentView('register')} />;
   }
 
+  // IMPORTANTE: Envolver en GlobalProvider para evitar crash
   return (
-    <Layout user={currentUser} onLogout={() => {localStorage.removeItem('op_user'); setCurrentUser(null); setCurrentView('landing');}} navigateTo={setCurrentView} currentView={currentView} routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}>
-        {currentView === 'admin_dashboard' && <AdminDashboard navigate={setCurrentView} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{...filteredData, payments: filteredData.payments}} />}
-        {currentView === 'collector_dashboard' && <CollectorDashboard navigate={setCurrentView} user={currentUser} routes={routes} stats={{...filteredData, payments: filteredData.payments}} />}
-        {currentView === 'credits' && <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { await supabase.from('payments').insert(paymentToDb({ id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt })); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_details')}} onViewVisits={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_visits')}} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} />}
-        {currentView === 'client_management' && <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} onDeleteClient={()=>{}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />}
-        {currentView === 'edit_client' && <EditClient client={clients.find(c => c.id === selectedClientId)} allClients={clients} routes={routes} credit={credits.find(c => c.clientId === selectedClientId && c.status === 'Active')} currentUser={currentUser} onSave={(l) => {handleSaveClientBulk(l); setCurrentView('client_management')}} onCancel={() => setCurrentView('client_management')} />}
-        {currentView === 'new_client' && <NewClient routes={routes} clients={clients} currentUser={currentUser} onSave={(l) => {handleSaveClientBulk(l); setCurrentView('client_management')}} onCancel={() => setCurrentView('client_management')} />}
-        {currentView === 'new_credit' && <NewCredit clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={routes} onSave={async (_cl, cr) => { await supabase.from('credits').insert(creditToDb({...cr, businessId: currentUser.businessId})); await loadBusinessData(currentUser.businessId); setCurrentView('credits'); }} />}
-        {currentView === 'expenses' && <ExpensesView expenses={filteredData.expenses} routes={routes} user={currentUser} onAdd={async (e) => { await supabase.from('expenses').insert(expenseToDb({...e, id: newUuid(), businessId: currentUser.businessId})); await loadBusinessData(currentUser.businessId); }} onDelete={async (id) => { await supabase.from('expenses').delete().eq('id', id); setExpenses(p => p.filter(x => x.id !== id)); }} />}
-        {currentView === 'routing' && <RoutingView clients={filteredData.clients} setClients={setClients} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onGoToCredit={(cid) => {setCreditsFilter(cid); setCurrentView('credits')}} />}
-        {currentView === 'liquidation' && <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions} />}
-        {currentView === 'users' && <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={persistUsersFromSetter as any} />}
-        {currentView === 'routes_mgmt' && <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={persistRoutesFromSetter as any} onAddTransaction={persistRouteTransaction} />}
-        {currentView === 'profile' && <UserProfile user={currentUser} users={users} onUpdate={(u) => setCurrentUser(u)} />}
-        {currentView === 'credit_details' && <ClientDetails client={clients.find(c => c.id === credits.find(cr => cr.id === selectedCreditId)?.clientId)} credit={credits.find(cr => cr.id === selectedCreditId)} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onMarkAsLost={async (cid) => { await supabase.from('credits').update({ status: 'Lost' }).eq('id', cid); await loadBusinessData(currentUser.businessId); setCurrentView('credits'); }} />}
-        {currentView === 'credit_visits' && <CreditVisits client={clients.find(c => c.id === credits.find(cr => cr.id === selectedCreditId)?.clientId)} credit={credits.find(cr => cr.id === selectedCreditId)} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onUpdatePayment={async (pid, amt) => { await supabase.from('payments').update({ amount: amt }).eq('id', pid); await loadBusinessData(currentUser.businessId); }} />}
-    </Layout>
+    <GlobalProvider>
+        <Layout user={currentUser} onLogout={() => {localStorage.removeItem('op_user'); setCurrentUser(null); setCurrentView('landing');}} navigateTo={setCurrentView} currentView={currentView} routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}>
+            {currentView === 'admin_dashboard' && <AdminDashboard navigate={setCurrentView} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{...filteredData, payments: filteredData.payments}} />}
+            {currentView === 'collector_dashboard' && <CollectorDashboard navigate={setCurrentView} user={currentUser} routes={routes} stats={{...filteredData, payments: filteredData.payments}} />}
+            {currentView === 'credits' && <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { await supabase.from('payments').insert(paymentToDb({ id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt })); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_details')}} onViewVisits={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_visits')}} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} />}
+            {currentView === 'client_management' && <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} onDeleteClient={()=>{}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />}
+            {currentView === 'edit_client' && <EditClient client={clients.find(c => c.id === selectedClientId)} allClients={clients} routes={routes} credit={credits.find(c => c.clientId === selectedClientId && c.status === 'Active')} currentUser={currentUser} onSave={(l) => {handleSaveClientBulk(l); setCurrentView('client_management')}} onCancel={() => setCurrentView('client_management')} />}
+            {currentView === 'new_client' && <NewClient routes={routes} clients={clients} currentUser={currentUser} onSave={(l) => {handleSaveClientBulk(l); setCurrentView('client_management')}} onCancel={() => setCurrentView('client_management')} />}
+            {currentView === 'new_credit' && <NewCredit clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={routes} onSave={async (_cl, cr) => { await supabase.from('credits').insert(creditToDb({...cr, businessId: currentUser.businessId})); await loadBusinessData(currentUser.businessId); setCurrentView('credits'); }} />}
+            {currentView === 'expenses' && <ExpensesView expenses={filteredData.expenses} routes={routes} user={currentUser} onAdd={async (e) => { await supabase.from('expenses').insert(expenseToDb({...e, id: newUuid(), businessId: currentUser.businessId})); await loadBusinessData(currentUser.businessId); }} onDelete={async (id) => { await supabase.from('expenses').delete().eq('id', id); setExpenses(p => p.filter(x => x.id !== id)); }} />}
+            {currentView === 'routing' && <RoutingView clients={filteredData.clients} setClients={setClients} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onGoToCredit={(cid) => {setCreditsFilter(cid); setCurrentView('credits')}} />}
+            {currentView === 'liquidation' && <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions} />}
+            {currentView === 'users' && <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={persistUsersFromSetter as any} />}
+            {currentView === 'routes_mgmt' && <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={persistRoutesFromSetter as any} onAddTransaction={persistRouteTransaction} />}
+            {currentView === 'profile' && <UserProfile user={currentUser} users={users} onUpdate={handleUpdateProfile} />}
+            {currentView === 'credit_details' && <ClientDetails client={clients.find(c => c.id === credits.find(cr => cr.id === selectedCreditId)?.clientId)} credit={credits.find(cr => cr.id === selectedCreditId)} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onMarkAsLost={async (cid) => { await supabase.from('credits').update({ status: 'Lost' }).eq('id', cid); await loadBusinessData(currentUser.businessId); setCurrentView('credits'); }} />}
+            {currentView === 'credit_visits' && <CreditVisits client={clients.find(c => c.id === credits.find(cr => cr.id === selectedCreditId)?.clientId)} credit={credits.find(cr => cr.id === selectedCreditId)} payments={payments.filter(p => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onUpdatePayment={async (pid, amt) => { await supabase.from('payments').update({ amount: amt }).eq('id', pid); await loadBusinessData(currentUser.businessId); }} />}
+        </Layout>
+    </GlobalProvider>
   );
 };
 

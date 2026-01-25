@@ -7,7 +7,7 @@ interface AuthViewProps {
   error?: string | null; 
   successMessage?: string | null;
   onLogin: (u: string, p: string) => void;
-  onRegister: (data: any) => Promise<boolean>; // Ahora devuelve promesa para feedback
+  onRegister: (data: any) => Promise<boolean>; 
   onBack: () => void;
   onSwitchMode: (mode: 'login' | 'register') => void;
   onRecoverInitiate: (email: string) => Promise<boolean>;
@@ -21,13 +21,11 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   
-  // Estados recuperación
   const [recEmail, setRecEmail] = useState('');
   const [recCode, setRecCode] = useState('');
   const [recPass1, setRecPass1] = useState('');
   const [recPass2, setRecPass2] = useState('');
 
-  // Estados formulario principal
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -63,11 +61,9 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                 setIsLoading(false);
                 return;
             }
-            // Llamada síncrona/rápida para login
             onLogin(formData.email, formData.password);
             setIsLoading(false); 
         } else {
-            // Registro (Solicitud de Licencia)
             const fullData = {
                 ...formData,
                 phone: `${formData.phoneCode} ${formData.phoneNumber}`
@@ -131,7 +127,6 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 md:p-6 selection:bg-indigo-500 selection:text-white font-inter">
       <div className={`w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-fadeIn relative min-h-[600px] transition-all duration-500 ease-in-out ${mode === 'login' ? 'max-w-5xl' : 'max-w-[1600px]'}`}>
         
-        {/* Columna Izquierda (Decorativa / Información) */}
         <div className="col-span-1 lg:col-span-4 flex flex-col justify-between bg-indigo-600 p-8 md:p-12 text-white relative overflow-hidden">
           <div className="relative z-10">
              <button onClick={onBack} className="flex items-center gap-2 text-indigo-200 hover:text-white transition mb-8 lg:mb-12 group">
@@ -150,11 +145,9 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none"></div>
         </div>
 
-        {/* Columna Derecha (Formularios) */}
         <div className="col-span-1 lg:col-span-8 p-8 md:p-12 lg:p-16 flex flex-col justify-center relative">
           
           {recoveryStep !== 'none' ? (
-             // --- VISTA RECUPERACIÓN ---
              <div className="animate-slideDown w-full max-w-md mx-auto">
                 <header className="mb-8 text-center">
                     <h3 className="text-2xl font-black text-slate-800">Recuperación de Cuenta</h3>
@@ -200,7 +193,6 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                 </form>
              </div>
           ) : (
-             // --- VISTA PRINCIPAL (LOGIN / REGISTRO) ---
              <>
                 <header className="mb-8 flex flex-col items-center lg:items-start text-center lg:text-left">
                     <h3 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
