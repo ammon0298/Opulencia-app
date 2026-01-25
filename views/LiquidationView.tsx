@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Credit, Expense, Payment, Client, Route, RouteTransaction } from '../types';
 import { TODAY_STR } from '../constants';
+import { useGlobal } from '../contexts/GlobalContext';
 
 interface LiquidationProps {
   selectedRouteId: string;
@@ -15,6 +15,7 @@ interface LiquidationProps {
 
 const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits, expenses, payments, clients, routes, transactions }) => {
   const [dateRange, setDateRange] = useState({ start: TODAY_STR, end: TODAY_STR });
+  const { t } = useGlobal();
 
   const effectiveMinDate = useMemo(() => {
     let minT = '2025-01-01';
@@ -132,9 +133,9 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
     <div className="space-y-12 animate-fadeIn pb-20">
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
         <div>
-          <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">Cierre de Caja</h2>
+          <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">{t('cash_closing')}</h2>
           <div className="flex items-center gap-2 mt-1">
-             <p className="text-slate-500 dark:text-slate-400 font-medium italic">Historial operativo: </p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium italic">{t('history_op')}: </p>
              <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">
                {currentRouteName}
              </span>
@@ -144,7 +145,6 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center gap-6">
           <div className="flex items-center gap-2 w-full md:w-auto">
              <div className="w-full">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Desde</label>
                 <input 
                   type="date" 
                   min={effectiveMinDate} 
@@ -154,9 +154,8 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-white text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
                 />
              </div>
-             <div className="pt-5 text-slate-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg></div>
+             <div className="pt-0 text-slate-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg></div>
              <div className="w-full">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Hasta</label>
                 <input 
                   type="date" min={dateRange.start} max={TODAY_STR} value={dateRange.end}
                   onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
@@ -173,22 +172,21 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
             <table className="w-full text-left min-w-[350px]">
             <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                 <tr>
-                <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">Concepto Contable</th>
-                <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
+                <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('accounting_concept')}</th>
+                <th className="px-4 md:px-8 py-4 md:py-6 text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">{t('value')}</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                <Row label="FONDO ACUMULADO (INICIO)" value={calculatedStartBase} highlight="text-indigo-600 dark:text-indigo-400" />
-                <Row label="TOTAL RECAUDOS" value={totalCollected} highlight="text-emerald-600 dark:text-emerald-400" />
-                <Row label="INYECCIONES CAPITAL" value={totalInjections} highlight="text-emerald-600 dark:text-emerald-400" />
-                <Row label="GASTOS OPERATIVOS" value={-totalExpensesValue} highlight="text-rose-600 dark:text-rose-400" isDeductible />
-                <Row label="NUEVOS PRÉSTAMOS" value={-totalNewLoans} highlight="text-rose-600 dark:text-rose-400" isDeductible />
-                <Row label="RETIROS GANANCIAS" value={-totalWithdrawals} highlight="text-rose-600 dark:text-rose-400" isDeductible />
+                <Row label={t('initial_base')} value={calculatedStartBase} highlight="text-indigo-600 dark:text-indigo-400" />
+                <Row label={t('total_collected')} value={totalCollected} highlight="text-emerald-600 dark:text-emerald-400" />
+                <Row label={t('capital_injections')} value={totalInjections} highlight="text-emerald-600 dark:text-emerald-400" />
+                <Row label={t('operational_expenses')} value={-totalExpensesValue} highlight="text-rose-600 dark:text-rose-400" isDeductible />
+                <Row label={t('new_loans')} value={-totalNewLoans} highlight="text-rose-600 dark:text-rose-400" isDeductible />
+                <Row label={t('profit_withdrawals')} value={-totalWithdrawals} highlight="text-rose-600 dark:text-rose-400" isDeductible />
                 
                 <tr className="bg-slate-900 dark:bg-black text-white">
                 <td className="px-4 md:px-8 py-6 md:py-10">
-                    <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">Total Caja</p>
-                    <p className="text-xl md:text-2xl font-black">EFECTIVO CIERRE</p>
+                    <p className="text-xl md:text-2xl font-black">{t('cash_on_hand').toUpperCase()}</p>
                 </td>
                 <td className="px-4 md:px-8 py-6 md:py-10 text-right">
                     <p className={`text-3xl md:text-5xl font-black ${realDelivery >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -205,15 +203,15 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-rose-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">Salidas: Gastos & Retiros</h3>
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">{t('outputs')}</h3>
            </div>
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs min-w-[300px]">
                     <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         <tr>
-                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Concepto</th>
-                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Valor</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">{t('expense_concept')}</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">{t('value')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -244,15 +242,15 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
         <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-emerald-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">Entradas: Recaudos & Inyecciones</h3>
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">{t('inputs')}</h3>
            </div>
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs min-w-[300px]">
                     <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         <tr>
-                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Origen</th>
-                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Valor</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">{t('expense_concept')}</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">{t('value')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -288,7 +286,7 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
       <section className="space-y-6">
            <div className="flex items-center gap-3 px-4">
               <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">Nuevos Préstamos</h3>
+              <h3 className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em]">{t('new_loans')}</h3>
            </div>
            {/* Tabla Nuevos Préstamos */}
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -296,8 +294,8 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                   <table className="w-full text-left text-xs min-w-[300px]">
                     <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         <tr>
-                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">Cliente</th>
-                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">Capital</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest">{t('clients')}</th>
+                        <th className="px-4 md:px-6 py-3 md:py-4 uppercase font-black tracking-widest text-right">{t('loan_amount')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">

@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Client, Credit, User, UserRole, Route } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
+import { useGlobal } from '../contexts/GlobalContext';
 
 interface ClientListProps {
   clients: Client[];
@@ -24,6 +24,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; client?: Client; credit?: Credit }>({ isOpen: false });
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const { t } = useGlobal();
 
   useEffect(() => {
     setSearchTerm(initialSearchTerm);
@@ -147,12 +148,11 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
   }).filter((item): item is any => !!item);
 
 
-  // Abre modal para abono manual
   const openPaymentModal = (client: Client, credit: Credit) => {
     if (credit.status === 'Lost') return;
     if (credit.totalPaid >= credit.totalToPay) return;
     setPaymentModal({ isOpen: true, client, credit });
-    setPaymentAmount(0); // Empezar en 0 para que el usuario escriba
+    setPaymentAmount(0); 
   };
 
   const handleConfirmPayment = () => {
@@ -162,7 +162,6 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     }
   };
 
-  // Pago rápido directo desde la tarjeta
   const handleQuickPayment = (creditId: string, amount: number) => {
     onPayment(creditId, amount);
   };
@@ -181,13 +180,13 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
       <div className="space-y-6 animate-fadeIn pb-10">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Gestión de Créditos</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Historial completo por obligación financiera</p>
+            <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('credit_mgmt')}</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">{t('client_list')}</p>
           </div>
           <div className="relative">
             <input 
               type="text" 
-              placeholder="Buscar por nombre, DNI o ID..." 
+              placeholder={t('search')} 
               className="pl-12 pr-12 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full md:w-80 shadow-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none font-bold text-slate-700 dark:text-slate-200 transition-all"
               value={searchTerm}
               onChange={handleSearchInput}
@@ -197,17 +196,16 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         </header>
 
         <div className="flex flex-wrap gap-3 mb-8">
-          <FilterBadge color="bg-indigo-500" label="Activos" active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
-          <FilterBadge color="bg-purple-600" label="En Mora" active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
-          <FilterBadge color="bg-rose-600" label="Falta 1 Cuota" active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
-          <FilterBadge color="bg-amber-500" label="Faltan <= 3 Cuotas" active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
+          <FilterBadge color="bg-indigo-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
+          <FilterBadge color="bg-purple-600" label={t('mora_credits')} active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
+          <FilterBadge color="bg-rose-600" label={t('missing_1')} active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
+          <FilterBadge color="bg-amber-500" label={t('missing_3')} active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
         </div>
 
-        {/* SECCIÓN CRÉDITOS ACTIVOS */}
         {activeFilter !== 'pagados' && activeFilter !== 'perdidos' && (
             <section className="space-y-4">
             <div className="flex items-center gap-3 px-2">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Obligaciones Pendientes</h3>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{t('pending_portfolio')}</h3>
                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
             </div>
             <div className="grid grid-cols-1 gap-4">
@@ -221,6 +219,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
                     onViewVisits={onViewVisits}
                     onEditClient={onEditClient}
                     cardStyle={getCardStyle(false, item.info.status)}
+                    t={t}
                 />
                 ))}
                 {activeCreditItems.length === 0 && <div className="py-10 text-center text-slate-400 italic text-sm">No hay créditos activos para este filtro.</div>}
@@ -228,11 +227,10 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
             </section>
         )}
 
-        {/* SECCIÓN CRÉDITOS LIQUIDADOS */}
         {(activeFilter === 'todos' || activeFilter === 'pagados') && completedCreditItems.length > 0 && (
           <section className="space-y-4 mt-10">
             <div className="flex items-center gap-3 px-2">
-              <h3 className="text-xs font-black text-emerald-600 uppercase tracking-[0.2em]">Créditos Liquidados</h3>
+              <h3 className="text-xs font-black text-emerald-600 uppercase tracking-[0.2em]">{t('settled_credits')}</h3>
               <div className="flex-1 h-px bg-emerald-200"></div>
             </div>
             <div className="grid grid-cols-1 gap-4">
@@ -246,17 +244,17 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
                   onViewVisits={onViewVisits}
                   onEditClient={onEditClient}
                   cardStyle={getCardStyle(true, 'pagados')}
+                  t={t}
                 />
               ))}
             </div>
           </section>
         )}
 
-        {/* SECCIÓN CRÉDITOS PERDIDOS */}
         {(activeFilter === 'todos' || activeFilter === 'perdidos') && lostCreditItems.length > 0 && (
           <section className="space-y-4 mt-10">
             <div className="flex items-center gap-3 px-2">
-              <h3 className="text-xs font-black text-rose-600 uppercase tracking-[0.2em]">Créditos Perdidos (Incobrables)</h3>
+              <h3 className="text-xs font-black text-rose-600 uppercase tracking-[0.2em]">{t('lost_credits')}</h3>
               <div className="flex-1 h-px bg-rose-200"></div>
             </div>
             <div className="grid grid-cols-1 gap-4">
@@ -271,6 +269,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
                   onEditClient={onEditClient}
                   cardStyle={getCardStyle(false, 'perdidos')}
                   isLost
+                  t={t}
                 />
               ))}
             </div>
@@ -286,6 +285,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
           setAmount={setPaymentAmount}
           onClose={() => setPaymentModal({ isOpen: false })}
           onConfirm={handleConfirmPayment}
+          t={t}
         />
       )}
     </>
@@ -299,16 +299,13 @@ const FilterBadge = ({ color, label, active, onClick }: any) => (
   </button>
 );
 
-const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModal, onQuickPayment, onViewDetails, onViewVisits, onEditClient, cardStyle, isLost }: any) => {
-  // Estado local para feedback visual de éxito
+const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModal, onQuickPayment, onViewDetails, onViewVisits, onEditClient, cardStyle, isLost, t }: any) => {
   const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
 
-  // Cálculos para los botones rápidos
   const saldoTotal = Math.max(0, credit.totalToPay - credit.totalPaid);
   const abonoActual = credit.totalPaid % credit.installmentValue;
   const debeCuotaActual = Math.max(0, credit.installmentValue - abonoActual);
 
-  // Cálculo de mora local para el botón
   let expectedInstallments = 0;
   if (credit.frequency === 'Daily') {
      expectedInstallments = countBusinessDays(credit.startDate, TODAY_STR);
@@ -332,7 +329,6 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   const handleAction = (amount: number, label: string) => {
     onQuickPayment(credit.id, amount);
     setSuccessFeedback(label);
-    // Remover feedback después de 3s (antes 1.5s)
     setTimeout(() => {
         setSuccessFeedback(null);
     }, 3000);
@@ -343,7 +339,6 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
       onClick={() => onViewDetails(credit.id)}
       className={`${cardStyle} cursor-pointer p-5 border-2 rounded-[2.5rem] flex flex-col xl:flex-row xl:items-center justify-between gap-6 transition-all hover:translate-x-1 shadow-sm group relative`}
     >
-      {/* Sección Información Cliente */}
       <div className="flex items-center gap-5 min-w-0 xl:w-1/3">
         <button 
           onClick={(e) => {
@@ -358,7 +353,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
           <div className="flex items-center gap-3 mb-1">
             <h4 className="font-black text-slate-900 dark:text-white text-lg md:text-xl truncate">{client.name}</h4>
             <span className="bg-white/80 dark:bg-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600 uppercase tracking-tighter shadow-xs">{client.alias}</span>
-            {isLost && <span className="bg-rose-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">PERDIDO</span>}
+            {isLost && <span className="bg-rose-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">{t('lost_credits')}</span>}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <p className="text-[10px] font-bold text-slate-600/70 dark:text-slate-400 uppercase tracking-widest">DNI: <span className="text-slate-800 dark:text-slate-200">{client.dni}</span></p>
@@ -368,7 +363,6 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
         </div>
       </div>
 
-      {/* Sección Botones Rápidos / Feedback */}
       <div className="flex-1 min-w-0 relative" onClick={e => e.stopPropagation()}>
          {!info.isFinished && !isLost ? (
             successFeedback ? (
@@ -431,7 +425,6 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
          )}
       </div>
 
-      {/* Botones de Gestión */}
       <div className="flex gap-2 shrink-0 z-10 xl:w-auto w-full">
         {!info.isFinished && !isLost && (
           <button 
@@ -441,7 +434,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
             }} 
             className="flex-1 xl:flex-none bg-slate-900 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl text-xs font-black transition shadow-lg active:scale-95 uppercase tracking-widest"
           >
-            Abonar
+            {t('register_payment')}
           </button>
         )}
         <button 
@@ -451,14 +444,14 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
           }} 
           className="flex-1 xl:flex-none bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-6 py-3 rounded-2xl text-xs font-black transition shadow-sm active:scale-95 uppercase tracking-widest"
         >
-          Detalle
+          {t('edit')}
         </button>
       </div>
     </div>
   );
 };
 
-const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }: any) => {
+const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm, t }: any) => {
   const saldoTotal = Math.max(0, credit.totalToPay - credit.totalPaid);
 
   return (
@@ -469,17 +462,17 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }:
              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
           <div className="inline-flex items-center gap-2 bg-indigo-500/20 px-3 py-1 rounded-full mb-3 border border-indigo-500/30">
-            <span className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em]">Crédito #{credit.id.slice(-6).toUpperCase()}</span>
+            <span className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em]">#{credit.id.slice(-6).toUpperCase()}</span>
           </div>
-          <h3 className="text-2xl font-black text-white tracking-tight">Abono Manual</h3>
+          <h3 className="text-2xl font-black text-white tracking-tight">{t('payment_modal')}</h3>
           <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">{client.name}</p>
         </header>
 
         <div className="p-8 space-y-6">
           <div className="space-y-3">
              <div className="flex justify-between items-end px-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Valor a Ingresar</label>
-                <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase">Debe: ${saldoTotal.toLocaleString()}</p>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t('value')}</label>
+                <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase">Total: ${saldoTotal.toLocaleString()}</p>
              </div>
              <div className="relative group">
                 <div className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300 group-focus-within:text-indigo-500 transition-colors">$</div>
@@ -502,9 +495,9 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm }:
               onClick={onConfirm} 
               className="w-full font-black py-5 rounded-[2rem] shadow-2xl transition transform active:scale-95 uppercase tracking-[0.2em] text-xs bg-indigo-600 hover:bg-indigo-700 text-white border-b-4 border-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Registrar Abono
+              {t('register_payment')}
             </button>
-            <button onClick={onClose} className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 font-black py-4 rounded-2xl transition uppercase tracking-widest text-[9px] border border-slate-200 dark:border-slate-700">Cancelar</button>
+            <button onClick={onClose} className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 font-black py-4 rounded-2xl transition uppercase tracking-widest text-[9px] border border-slate-200 dark:border-slate-700">{t('cancel')}</button>
           </div>
         </div>
       </div>

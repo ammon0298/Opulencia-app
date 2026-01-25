@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { User, Route } from '../types';
 import { useGlobal } from '../contexts/GlobalContext';
@@ -127,8 +126,8 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
     <div className="relative w-full h-[600px] rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
       <div ref={mapRef} className="w-full h-full z-0" />
       
-      {/* Leyenda Flotante */}
-      <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-lg z-[500] border border-slate-100 dark:border-slate-700">
+      {/* Leyenda Flotante (Z-Index ajustado a z-20 para no tapar el menú z-50) */}
+      <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-lg z-20 border border-slate-100 dark:border-slate-700">
          <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 bg-indigo-600 rounded-full animate-pulse"></div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Rastreo Activo</p>
@@ -136,9 +135,9 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
          <p className="font-black text-slate-800 dark:text-white text-lg">{activeCollectors.length} Cobradores</p>
       </div>
 
-      {/* Modal Detalle Cobrador */}
+      {/* Modal Detalle Cobrador (Z-Index ajustado a z-30 para estar sobre leyenda pero bajo menú) */}
       {selectedCollector && (
-        <div className="absolute bottom-6 left-6 right-6 md:left-auto md:right-6 md:w-80 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-2xl z-[1000] border border-slate-100 dark:border-slate-700 animate-slideUp">
+        <div className="absolute bottom-6 left-6 right-6 md:left-auto md:right-6 md:w-80 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-2xl z-30 border border-slate-100 dark:border-slate-700 animate-slideUp">
             <button onClick={() => setSelectedCollector(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
@@ -19,7 +18,7 @@ interface DashboardProps {
 }
 
 const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stats, selectedRouteId }) => {
-  const { theme } = useGlobal();
+  const { theme, t } = useGlobal();
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -199,11 +198,11 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     <div className="space-y-8 animate-fadeIn pb-20">
       <header className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
-          <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Panel General</span>
-          <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white tracking-tight mt-2">Visión Global</h2>
+          <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">{t('dashboard')}</span>
+          <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white tracking-tight mt-2">{t('global_vision')}</h2>
         </div>
         <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center">
-             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Periodo:</span>
+             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">{t('date')}:</span>
              <select 
                value={selectedPeriod} 
                onChange={(e) => setSelectedPeriod(e.target.value)} 
@@ -217,37 +216,37 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard title="Recaudado Hoy" value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />
-        <StatCard title="Capital en Calle" value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
-        <StatCard title="Capital Perdido" value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
-        <StatCard title="Utilidad Proyectada" value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
-        <StatCard title="Gastos Totales" value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
-        <StatCard title="Total Clientes" value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
+        <StatCard title={t('collected_today')} value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
+        <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
+        <StatCard title={t('projected_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
+        <StatCard title={t('total_expenses')} value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
+        <StatCard title={t('total_clients')} value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ProgressCard title="Retorno de Capital" label1="Cap. Recuperado" val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2="Utilidad Real" val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
-        <ProgressCard title="Cartera Pendiente" label1="Capital x Cobrar" val1={metrics.totalPendingToCollect} label2="Utilidad x Cobrar" val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
+        <ProgressCard title={t('return_capital')} label1={t('return_capital')} val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2={t('projected_profit')} val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
+        <ProgressCard title={t('pending_portfolio')} label1={t('capital_street')} val1={metrics.totalPendingToCollect} label2={t('projected_profit')} val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ChartBlock title="Cumplimiento de Metas (Sanos)" data={chartData} type="compliance" theme={theme} />
-        <ChartBlock title="Comportamiento de Mora" data={moraChartData} type="mora" theme={theme} />
+        <ChartBlock title={t('compliance_goals')} data={chartData} type="compliance" theme={theme} />
+        <ChartBlock title={t('mora_behavior')} data={moraChartData} type="mora" theme={theme} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 bg-slate-900 dark:bg-black p-10 rounded-[3rem] shadow-2xl border border-slate-800">
-           <h3 className="text-2xl font-black text-white mb-8">Acciones Rápidas</h3>
+           <h3 className="text-2xl font-black text-white mb-8">{t('quick_actions')}</h3>
            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <QuickButton label="Créditos" onClick={() => navigate('credits')} icon={<IconCash />} />
-              <QuickButton label="Nvo. Crédito" onClick={() => navigate('new_credit')} icon={<IconLoan />} />
-              <QuickButton label="Gastos" onClick={() => navigate('expenses')} icon={<IconReceipt />} />
-              <QuickButton label="Clientes" onClick={() => navigate('client_management')} icon={<IconUsers />} />
+              <QuickButton label={t('credits')} onClick={() => navigate('credits')} icon={<IconCash />} />
+              <QuickButton label={t('new_credit')} onClick={() => navigate('new_credit')} icon={<IconLoan />} />
+              <QuickButton label={t('expenses')} onClick={() => navigate('expenses')} icon={<IconReceipt />} />
+              <QuickButton label={t('clients')} onClick={() => navigate('client_management')} icon={<IconUsers />} />
            </div>
         </div>
         <button onClick={() => navigate('liquidation')} className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center items-center text-center gap-6 hover:border-indigo-600 dark:hover:border-indigo-500 transition-all group">
            <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"><IconChart /></div>
-           <h4 className="font-black text-2xl text-slate-800 dark:text-white tracking-tight">Cerrar Caja General</h4>
+           <h4 className="font-black text-2xl text-slate-800 dark:text-white tracking-tight">{t('close_box')}</h4>
         </button>
       </div>
     </div>
