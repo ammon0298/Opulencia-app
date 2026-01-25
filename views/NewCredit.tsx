@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Client, Credit, Route, User, Expense, Payment, RouteTransaction } from '../types';
 import { addBusinessDays } from '../constants';
@@ -213,15 +212,15 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         </div>
       )}
 
-      {/* FIX: Se eliminó 'overflow-hidden' del contenedor principal para que el dropdown de búsqueda no se corte */}
+      {/* Container principal del formulario */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-t-[2.5rem]"></div>
         
         <div className="p-8 md:p-10 space-y-10">
-            {/* Buscador */}
-            <div className="space-y-4 relative" ref={searchRef}>
+            {/* Buscador con Z-Index corregido */}
+            <div className="space-y-4 relative z-[60]" ref={searchRef}>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Nombre, Alias o DNI)</label>
-                <div className="relative group z-30">
+                <div className="relative group">
                     <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
@@ -234,9 +233,9 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         className="w-full bg-slate-50/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 dark:text-white text-lg shadow-inner placeholder:text-slate-300" 
                     />
                     
-                    {/* FIX: Mayor z-index, max-height aumentado y borde visible para evitar cortes visuales */}
+                    {/* Dropdown de resultados */}
                     {showDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-[50] animate-fadeIn max-h-[350px] overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-[70] animate-fadeIn max-h-[350px] overflow-y-auto">
                             {searchResults.length > 0 ? (
                                 <>
                                     <div className="bg-slate-50 dark:bg-slate-800 px-6 py-3 border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10">
@@ -277,7 +276,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
             </div>
 
             {selectedClient && (
-                <div className="animate-slideDown">
+                <div className="animate-slideDown relative z-0">
                     {routeFinancials && (
                         <div className={`mb-8 p-6 rounded-3xl border-2 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm ${routeFinancials.balance < 500 ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800' : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'}`}>
                             <div className="flex items-center gap-4">
@@ -346,26 +345,44 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         </div>
 
                         {calc && (
-                            <div className="mt-14 p-8 md:p-10 bg-slate-900 dark:bg-black text-white rounded-[3rem] shadow-2xl space-y-10 animate-slideDown border-4 border-indigo-500/20">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                                    <div className="text-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                                        <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Total a Pagar</p>
-                                        <p className="text-2xl md:text-3xl font-black text-emerald-400 truncate">${calc.total.toLocaleString()}</p>
+                            <div className="mt-14 p-6 md:p-8 bg-slate-900 dark:bg-black text-white rounded-[2.5rem] shadow-2xl space-y-8 animate-slideDown border-4 border-indigo-500/20">
+                                {/* Encabezado Total - Diseño Vertical para números grandes */}
+                                <div className="text-center space-y-2 border-b border-white/10 pb-6">
+                                    <p className="text-[10px] md:text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Total del Crédito + Intereses</p>
+                                    {/* break-all y texto adaptable para evitar desbordamiento */}
+                                    <p className="text-4xl md:text-5xl lg:text-6xl font-black text-emerald-400 tracking-tighter break-words leading-tight">
+                                        ${calc.total.toLocaleString()}
+                                    </p>
+                                </div>
+
+                                {/* Grilla de Detalles */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                                    {/* Valor Cuota */}
+                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Valor Cuota</p>
+                                        <p className="text-xl md:text-2xl font-black text-amber-400 break-words w-full">
+                                            ${calc.installmentValue.toLocaleString()}
+                                        </p>
                                     </div>
-                                    <div className="text-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                                        <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Valor Cuota</p>
-                                        <p className="text-2xl md:text-3xl font-black text-amber-400 truncate">${calc.installmentValue.toLocaleString()}</p>
+
+                                    {/* Plazo / Días */}
+                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Tiempo Estimado</p>
+                                        <p className="text-xl md:text-2xl font-black text-white">
+                                            {calc.termDays} días
+                                        </p>
                                     </div>
-                                    <div className="text-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                                        <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Días Estimados</p>
-                                        <p className="text-2xl md:text-3xl font-black truncate">{calc.termDays} días</p>
-                                    </div>
-                                    <div className="text-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                                        <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Fecha Fin</p>
-                                        <p className="text-xl md:text-2xl font-black text-white truncate">{calc.endDate}</p>
+
+                                    {/* Fecha Fin */}
+                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Fecha Final</p>
+                                        <p className="text-lg md:text-xl font-black text-indigo-300">
+                                            {calc.endDate}
+                                        </p>
                                     </div>
                                 </div>
-                                <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-5 rounded-[2rem] shadow-xl uppercase tracking-widest text-sm border-b-4 border-emerald-700 active:translate-y-1 active:border-b-0 transition-all">
+
+                                <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-5 rounded-[2rem] shadow-xl uppercase tracking-widest text-sm border-b-4 border-emerald-700 active:translate-y-1 active:border-b-0 transition-all mt-4">
                                     Confirmar y Crear Crédito
                                 </button>
                             </div>
