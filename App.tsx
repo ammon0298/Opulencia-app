@@ -44,7 +44,8 @@ const useTempIdMap = () => {
   return { normalizeId };
 };
 
-// ---- MAPPERS (Robustos) ----
+// ---- MAPPERS (Robustos & Completos) ----
+
 const dbToUser = (u: any): User => ({
   id: u.id,
   businessId: u.business_id,
@@ -77,6 +78,7 @@ const userToDb = (u: User) => ({
   role: u.role,
   route_ids: u.routeIds ?? [],
   status: u.status,
+  // Campos extendidos para perfil
   business_name: u.businessName || null,
   country: u.country || null,
   city: u.city || null,
@@ -116,6 +118,7 @@ const clientToDb = (c: Client) => ({
   phone_code: c.phoneCode || null,
   visit_order: c.order ?? 0,
   status: c.status,
+  // Campos Geo y Ubicación explícitos
   lat: c.coordinates?.lat || null,
   lng: c.coordinates?.lng || null
 });
@@ -206,7 +209,6 @@ const App: React.FC = () => {
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          // Defensive check for routes
           if (!Array.isArray(user.routeIds)) user.routeIds = [];
           
           setCurrentUser(user);
@@ -317,16 +319,14 @@ const App: React.FC = () => {
 
   const handleUpdateProfile = async (u: User) => {
       const payload: any = userToDb(u);
-      // Hash password if present (handled in UserProfile but ensure key matches DB)
       if ((u as any).password) payload.password_hash = (u as any).password;
-      
       const { error } = await supabase.from('users').update(payload).eq('id', u.id);
       if (!error) {
           setCurrentUser(u);
           localStorage.setItem('op_user', JSON.stringify(u));
           await loadBusinessData(u.businessId);
       } else {
-          console.error("Failed to update profile:", error);
+          console.error("Error updating profile:", error);
       }
   };
 

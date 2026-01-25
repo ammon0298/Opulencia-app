@@ -97,11 +97,15 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         return;
     }
 
-    const lowerTerm = term.toLowerCase();
+    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const lowerTerm = normalize(term);
+
+    // Filtrar sobre los clientes ya filtrados (que vienen por props)
+    // Esto asegura que si el usuario es collector, solo busque en sus rutas
     const matches = clients.filter(c => 
         c.dni.includes(term) || 
-        c.name.toLowerCase().includes(lowerTerm) || 
-        c.alias.toLowerCase().includes(lowerTerm)
+        normalize(c.name).includes(lowerTerm) || 
+        normalize(c.alias).includes(lowerTerm)
     ).slice(0, 8); 
 
     setSearchResults(matches);
@@ -250,7 +254,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                                 </>
                             ) : (
                                 <div className="p-6 text-center text-slate-400 text-sm">
-                                    No se encontraron clientes con "{searchTerm}"
+                                    No se encontraron clientes con "{searchTerm}" en su ruta asignada.
                                 </div>
                             )}
                         </div>

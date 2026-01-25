@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Client, Route, User } from '../types';
+import { Client, Route, User, UserRole } from '../types';
 import { COUNTRY_DATA } from '../constants';
 
 // Leaflet global
@@ -15,6 +15,13 @@ interface NewClientProps {
 }
 
 const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onSave, onCancel }) => {
+  
+  // Lógica de permisos: Filtrar rutas permitidas para el usuario actual
+  const allowedRoutes = useMemo(() => {
+    if (currentUser.role === UserRole.ADMIN) return routes;
+    return routes.filter(r => currentUser.routeIds.includes(r.id));
+  }, [routes, currentUser]);
+
   const [formData, setFormData] = useState({
     dni: '',
     name: '',
@@ -24,7 +31,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     phone: '',
     country: 'Colombia',
     city: '',
-    routeId: routes[0]?.id || '',
+    routeId: allowedRoutes.length > 0 ? allowedRoutes[0].id : '', // Pre-seleccionar la primera permitida
     insertPosition: 'last',
     coordinates: { lat: 4.6097, lng: -74.0817 } // Default Bogotá
   });
@@ -123,6 +130,11 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     if (clients.some(c => c.dni === formData.dni)) {
       setNotification({ type: 'error', message: 'Ya existe un cliente registrado con este DNI.' });
       return;
+    }
+
+    if (!formData.routeId) {
+        setNotification({ type: 'error', message: 'Debe asignar una ruta válida.' });
+        return;
     }
 
     let newOrder = activeRouteClients.length + 1;
@@ -296,10 +308,11 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                 <select 
                   value={formData.routeId}
                   onChange={e => setFormData({...formData, routeId: e.target.value, insertPosition: 'last'})}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white"
+                  className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white ${allowedRoutes.length === 1 ? 'cursor-not-allowed opacity-80' : ''}`}
                   required
+                  disabled={allowedRoutes.length === 1}
                 >
-                  {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {allowedRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1">

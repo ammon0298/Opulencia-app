@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Expense, Route, User } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Expense, Route, User, UserRole } from '../types';
 
 interface ExpensesProps {
   expenses: Expense[];
@@ -13,8 +13,14 @@ interface ExpensesProps {
 const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, onDelete }) => {
   const [showForm, setShowForm] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [viewImage, setViewImage] = useState<string | null>(null); // Estado para el modal de ver imagen
+  const [viewImage, setViewImage] = useState<string | null>(null);
   
+  // Lógica de permisos: Filtrar rutas
+  const allowedRoutes = useMemo(() => {
+    if (user.role === UserRole.ADMIN) return routes;
+    return routes.filter(r => user.routeIds.includes(r.id));
+  }, [routes, user]);
+
   // Estado para la imagen del formulario
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -22,7 +28,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
   const [formData, setFormData] = useState({
     name: '',
     value: '',
-    routeId: routes[0]?.id || '',
+    routeId: allowedRoutes[0]?.id || '',
     type: 'Operational',
     concept: ''
   });
@@ -61,6 +67,11 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
         return;
     }
 
+    if (!formData.routeId) {
+        setErrorMsg("Debe seleccionar una ruta válida.");
+        return;
+    }
+
     if (!proofImage) {
         setErrorMsg("⚠️ SEGURIDAD: Es OBLIGATORIO adjuntar foto del recibo o comprobante.");
         return;
@@ -81,7 +92,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
     };
     onAdd(newExpense);
     setShowForm(false);
-    setFormData({ name: '', value: '', routeId: routes[0]?.id || '', type: 'Operational', concept: '' });
+    setFormData({ name: '', value: '', routeId: allowedRoutes[0]?.id || '', type: 'Operational', concept: '' });
     setProofImage(null);
   };
 
@@ -159,9 +170,10 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                 <select 
                   value={formData.routeId} 
                   onChange={e => setFormData({...formData, routeId: e.target.value})} 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-700 appearance-none cursor-pointer shadow-inner"
+                  className={`w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-700 appearance-none cursor-pointer shadow-inner ${allowedRoutes.length === 1 ? 'opacity-80 cursor-not-allowed' : ''}`}
+                  disabled={allowedRoutes.length === 1}
                 >
-                  {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {allowedRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
             </div>
