@@ -217,8 +217,8 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-t-[2.5rem]"></div>
         
         <div className="p-8 md:p-10 space-y-10">
-            {/* Buscador con Z-Index corregido */}
-            <div className="space-y-4 relative z-[60]" ref={searchRef}>
+            {/* Buscador con Z-Index corregido (Reducido a z-20 para no tapar el menú lateral z-50) */}
+            <div className="space-y-4 relative z-20" ref={searchRef}>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Nombre, Alias o DNI)</label>
                 <div className="relative group">
                     <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors">
@@ -233,9 +233,9 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         className="w-full bg-slate-50/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 dark:text-white text-lg shadow-inner placeholder:text-slate-300" 
                     />
                     
-                    {/* Dropdown de resultados */}
+                    {/* Dropdown de resultados (Reducido a z-30 para no tapar el menú lateral z-50) */}
                     {showDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-[70] animate-fadeIn max-h-[350px] overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-30 animate-fadeIn max-h-[350px] overflow-y-auto">
                             {searchResults.length > 0 ? (
                                 <>
                                     <div className="bg-slate-50 dark:bg-slate-800 px-6 py-3 border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10">

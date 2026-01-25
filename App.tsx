@@ -153,7 +153,8 @@ const expenseToDb = (e: Expense) => ({ id: e.id, business_id: e.businessId, rout
 
 // Fixed: business_id to businessId
 const dbToTx = (t: any): RouteTransaction => ({ id: t.id, businessId: t.business_id, routeId: t.route_id, date: t.transaction_date, amount: Number(t.amount), type: t.type, description: t.description ?? '' });
-const txToDb = (t: RouteTransaction) => ({ id: t.id, business_id: t.businessId, route_id: t.route_id, amount: t.amount, type: t.type, description: t.description || null, transaction_date: t.date });
+// Fix: route_id accesses t.routeId from the frontend object
+const txToDb = (t: RouteTransaction) => ({ id: t.id, business_id: t.businessId, route_id: t.routeId, amount: t.amount, type: t.type, description: t.description || null, transaction_date: t.date });
 
 
 const App: React.FC = () => {

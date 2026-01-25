@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Client, Route, Credit, AccountStatus, User, UserRole } from '../types';
 import { COUNTRY_DATA } from '../constants';
@@ -330,19 +329,20 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
 
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Dirección Física</label>
-                <div className="flex gap-2">
+                {/* FIX: Use flex-col on mobile, flex-row on sm screens */}
+                <div className="flex flex-col sm:flex-row gap-3">
                     <input 
                         type="text" 
                         value={formData.address} 
                         onChange={e => setFormData({...formData, address: e.target.value})} 
-                        className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white" 
+                        className="w-full sm:flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white" 
                         required 
                     />
                     <button 
                         type="button"
                         onClick={handleAddressSearch}
                         disabled={isSearchingAddr}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50"
+                        className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 sm:py-0 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50 whitespace-nowrap"
                     >
                         {isSearchingAddr ? '...' : '🔍 Buscar'}
                     </button>
