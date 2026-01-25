@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
+import { useGlobal } from '../contexts/GlobalContext';
 
 interface RoutingProps {
   clients: Client[];
@@ -14,7 +15,7 @@ interface RoutingProps {
 const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits, payments, onGoToCredit }) => {
   const [targetDate, setTargetDate] = useState(TODAY_STR); 
   const isAllSelected = selectedRouteId === 'all';
-  const todayObj = new Date(TODAY_STR + 'T00:00:00');
+  const { t } = useGlobal();
 
   // Helper para obtener solo el número local (sin indicativo)
   const getLocalPhone = (fullPhone: string) => {
@@ -267,7 +268,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                         {/* VISTA MÓVIL */}
                         <div className="flex-1 min-w-0 md:hidden">
                             <h4 className="font-black text-lg text-slate-800 dark:text-white truncate">{item.name}</h4>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-3 mt-1.5">
                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{item.alias}</span>
                                <button 
                                 onClick={() => onGoToCredit(item.credit.id)}
@@ -276,24 +277,24 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                 #{item.credit.id.slice(-6).toUpperCase()}
                                </button>
                                
-                               {/* BOTÓN MAPA MOVIL */}
+                               {/* BOTÓN MAPA MOVIL - AUMENTADO */}
                                {item.coordinates?.lat && (
                                  <button 
                                    onClick={(e) => handleOpenMap(e, item.coordinates?.lat, item.coordinates?.lng)}
-                                   className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shadow-sm border border-blue-200 dark:border-blue-800 active:scale-95"
+                                   className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shadow-sm border border-blue-200 dark:border-blue-800 active:scale-95 ml-1"
                                    title="Ver en Mapa"
                                  >
-                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                                  </button>
                                )}
 
-                               {/* BOTÓN LLAMAR MOVIL */}
+                               {/* BOTÓN LLAMAR MOVIL - AUMENTADO */}
                                <a
                                    href={`tel:${getLocalPhone(item.phone)}`}
-                                   className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-800 active:scale-95"
+                                   className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-800 active:scale-95"
                                    title="Llamar Cliente"
                                >
-                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
                                </a>
                             </div>
                         </div>
@@ -311,23 +312,23 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                           #{item.credit.id.slice(-6).toUpperCase()}
                         </button>
 
-                        {/* BOTÓN MAPA ESCRITORIO */}
+                        {/* BOTÓN MAPA ESCRITORIO - AUMENTADO LIGERAMENTE */}
                         {item.coordinates?.lat && (
                            <button 
                              onClick={(e) => handleOpenMap(e, item.coordinates?.lat, item.coordinates?.lng)}
-                             className="ml-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
+                             className="ml-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
                            >
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                              MAPA
                            </button>
                         )}
 
-                        {/* BOTÓN LLAMAR ESCRITORIO */}
+                        {/* BOTÓN LLAMAR ESCRITORIO - AUMENTADO LIGERAMENTE */}
                         <a
                             href={`tel:${getLocalPhone(item.phone)}`}
-                            className="ml-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
+                            className="ml-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
                             LLAMAR
                         </a>
                       </div>

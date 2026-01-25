@@ -1,5 +1,6 @@
-
 import React from 'react';
+import { useGlobal } from '../contexts/GlobalContext';
+import { Language } from '../utils/i18n';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -7,6 +8,8 @@ interface LandingPageProps {
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
+  const { t, language, setLanguage } = useGlobal();
+
   return (
     <div className="min-h-screen bg-slate-950 font-inter selection:bg-indigo-500 selection:text-white overflow-x-hidden">
       {/* Navbar de Alta Dirección - Mejorado para Mobile */}
@@ -16,13 +19,33 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
             <div className="w-10 h-10 md:w-12 md:h-12 bg-indigo-600 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-500/20 group-hover:rotate-12 transition-all">O</div>
             <span className="text-lg md:text-2xl font-black text-white tracking-tighter uppercase">Opulencia</span>
           </div>
-          <div className="flex items-center gap-4 md:gap-10">
-            <button onClick={onRegister} className="text-[10px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-[0.3em] hidden md:block">Adquirir Licencia</button>
+          <div className="flex items-center gap-4 md:gap-6">
+            
+            {/* Language Selector */}
+            <div className="relative group">
+                <select 
+                    value={language} 
+                    onChange={(e) => setLanguage(e.target.value as Language)}
+                    className="bg-white/5 text-white border border-white/10 rounded-lg py-2 pl-3 pr-8 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                >
+                    <option value="es" className="text-slate-900">🇪🇸 ESP</option>
+                    <option value="en" className="text-slate-900">🇺🇸 ENG</option>
+                    <option value="pt" className="text-slate-900">🇧🇷 POR</option>
+                    <option value="fr" className="text-slate-900">🇫🇷 FRA</option>
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                </div>
+            </div>
+
+            <button onClick={onRegister} className="text-[10px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-[0.3em] hidden md:block">
+                {t('landing_cta_license')}
+            </button>
             <button 
               onClick={onLogin} 
               className="bg-white text-slate-950 px-5 py-2.5 md:px-10 md:py-4 rounded-xl md:rounded-2xl text-[10px] font-black hover:bg-indigo-600 hover:text-white transition-all shadow-2xl active:scale-95 uppercase tracking-[0.2em] border-b-2 md:border-b-4 border-slate-200 hover:border-indigo-900 whitespace-nowrap"
             >
-              Iniciar Sesión
+              {t('landing_cta_login')}
             </button>
           </div>
         </div>
@@ -42,18 +65,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         <div className="max-w-6xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-2 rounded-full mb-10 backdrop-blur-xl">
              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-ping"></div>
-             <span className="text-indigo-400 text-[9px] font-black uppercase tracking-[0.4em]">SISTEMA OPERATIVO DE GESTIÓN FINANCIERA v4.0</span>
+             <span className="text-indigo-400 text-[9px] font-black uppercase tracking-[0.4em]">{t('landing_subtitle')}</span>
           </div>
           <h1 className="text-5xl sm:text-7xl md:text-[9rem] font-black text-white leading-[0.8] tracking-tighter mb-10">
-            DOMINIO <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-emerald-400 to-indigo-500">DE ACTIVOS.</span>
+            {t('landing_hero_title_1')} <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-emerald-400 to-indigo-500">{t('landing_hero_title_2')}</span>
           </h1>
           <p className="text-lg md:text-2xl text-slate-400 max-w-4xl mx-auto font-medium mb-16 leading-relaxed opacity-80 px-4">
-            La infraestructura SaaS definitiva para la recuperación de activos y colocación de capital. Control absoluto para Directores y eficiencia táctica para Ejecutivos de Campo.
+            {t('landing_hero_desc')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 px-4">
             <button onClick={onRegister} className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-6 md:px-16 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-lg md:text-xl shadow-3xl shadow-indigo-500/40 hover:-translate-y-2 transition-all active:scale-95 border-b-[6px] md:border-b-[10px] border-indigo-900 uppercase tracking-widest">
-              Adquirir Licencia
+              {t('landing_cta_license')}
             </button>
           </div>
         </div>
@@ -62,128 +85,132 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
       {/* 01: Analítica Predictiva */}
       <ModuleSection 
         index="01" 
-        tag="Inteligencia" 
-        title="Analítica Predictiva Centralizada." 
-        desc="Visualice el pulso financiero de su organización con métricas de grado bancario. Monitoree tasas de recuperación, proyecciones de rentabilidad y liquidez neta en tiempo real."
+        tag={t('landing_mod1_tag')} 
+        title={t('landing_mod1_title')} 
+        desc={t('landing_mod1_desc')}
         imageUrl="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"
         items={[
-          { t: "Dashboard de Alto Nivel", d: "KPIs financieros diseñados para la toma de decisiones gerenciales." },
-          { t: "Seguridad de Datos", d: "Aislamiento total de información sensible mediante encriptación AES-256." }
+          { t: t('landing_mod1_item1_t'), d: t('landing_mod1_item1_d') },
+          { t: t('landing_mod1_item2_t'), d: t('landing_mod1_item2_d') }
         ]}
       />
 
       {/* 02: Gestión de Riesgo */}
       <ModuleSection 
         index="02" 
-        tag="Operaciones" 
-        title="Matriz de Gestión de Riesgo." 
-        desc="Optimice la logística de campo mediante una interfaz semafórica de alta precisión. Clasifique obligaciones según su criticidad para garantizar la integridad de su capital."
+        tag={t('landing_mod2_tag')} 
+        title={t('landing_mod2_title')} 
+        desc={t('landing_mod2_desc')}
         imageUrl="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop"
         reverse
         gridItems={[
-          { c: "bg-rose-500", t: "Zona de Riesgo", d: "Activos en mora crítica con necesidad de intervención inmediata." },
-          { c: "bg-amber-500", t: "Ciclo de Cierre", d: "Créditos próximos a liquidarse con perfil de re-colocación." },
-          { c: "bg-emerald-500", t: "Cartera Saludable", d: "Flujos de capital estables con cumplimiento puntual." },
-          { c: "bg-indigo-500", t: "Nuevos Activos", d: "Fase de monitoreo inicial para nuevas obligaciones." }
+          { c: "bg-rose-500", t: t('landing_mod2_grid1_t'), d: t('landing_mod2_grid1_d') },
+          { c: "bg-amber-500", t: t('landing_mod2_grid2_t'), d: t('landing_mod2_grid2_d') },
+          { c: "bg-emerald-500", t: t('landing_mod2_grid3_t'), d: t('landing_mod2_grid3_d') },
+          { c: "bg-indigo-500", t: t('landing_mod2_grid4_t'), d: t('landing_mod2_grid4_d') }
         ]}
       />
 
       {/* 03: Motor Predictivo */}
       <ModuleSection 
         index="03" 
-        tag="Crecimiento" 
-        title="Motor Predictivo de Expansión." 
-        desc="Identifique oportunidades de negocio antes de que ocurran. Nuestro algoritmo detecta clientes de alto valor próximos a finalizar su obligación para facilitar la renovación."
+        tag={t('landing_mod3_tag')} 
+        title={t('landing_mod3_title')} 
+        desc={t('landing_mod3_desc')}
         imageUrl="https://images.unsplash.com/photo-1512428559087-560fa5ceab42?q=80&w=2070&auto=format&fit=crop"
         featuredCard={{
           icon: <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
-          title: "Inteligencia de Renovación",
-          desc: "Alerta: 'Cliente Diamante al 92% de cumplimiento. Generando oferta automática de ampliación.'"
+          title: t('landing_mod3_card_title'),
+          desc: t('landing_mod3_card_desc')
         }}
       />
 
       {/* 04: Diccionario Maestro */}
       <ModuleSection 
         index="04" 
-        tag="Patrimonio" 
-        title="Diccionario Maestro de Activos." 
-        desc="Proteja el activo más valioso de su compañía: la información. Centralice perfiles, geolocalización inalterable e historial de comportamiento en un repositorio blindado."
+        tag={t('landing_mod4_tag')} 
+        title={t('landing_mod4_title')} 
+        desc={t('landing_mod4_desc')}
         imageUrl="https://images.unsplash.com/photo-1544383835-bda2bc66a55d?q=80&w=2070&auto=format&fit=crop"
         reverse
         smallItems={[
-          { t: "Ficha Blindada", d: "Base de datos maestra protegida contra fugas de información interna." },
-          { t: "Geo-Logística", d: "Mapeo exacto de puntos de recaudo para auditoría de campo." },
-          { t: "Score Crediticio", d: "Algoritmo de calificación basado en historial de puntualidad." },
-          { t: "Historial Eterno", d: "Trazabilidad total de cada interacción financiera con el cliente." }
+          { t: t('landing_mod4_item1_t'), d: t('landing_mod4_item1_d') },
+          { t: t('landing_mod4_item2_t'), d: t('landing_mod4_item2_d') },
+          { t: t('landing_mod4_item3_t'), d: t('landing_mod4_item3_d') },
+          { t: t('landing_mod4_item4_t'), d: t('landing_mod4_item4_d') }
         ]}
       />
 
       {/* 05: Mitigación de Fugas */}
       <ModuleSection 
         index="05" 
-        tag="Finanzas" 
-        title="Mitigación de Fugas Operativas." 
-        desc="El rigor administrativo es la base de la rentabilidad. Registre cada egreso, desde logística de campo hasta retiros de gerencia, impactando el arqueo final con transparencia."
+        tag={t('landing_mod5_tag')} 
+        title={t('landing_mod5_title')} 
+        desc={t('landing_mod5_desc')}
         imageUrl="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=2070&auto=format&fit=crop"
-        expenseBadges={["-$45.00 Combustible de Ruta", "-$20.00 Viáticos de Ejecutivos"]}
+        expenseBadges={[t('landing_mod5_badge1'), t('landing_mod5_badge2')]}
       />
 
       {/* 06: Supervisión Táctica */}
       <ModuleSection 
         index="06" 
-        tag="Supervisión" 
-        title="Auditoría de Ejecución de Campo." 
-        desc="Controle el desempeño de sus Ejecutivos con precisión. Supervise el cumplimiento de rutas, efectividad de visitas y reportes de incidencias en tiempo real desde la central."
+        tag={t('landing_mod6_tag')} 
+        title={t('landing_mod6_title')} 
+        desc={t('landing_mod6_desc')}
         imageUrl="https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?q=80&w=2006&auto=format&fit=crop"
         reverse
         items={[
-          { t: "Enrutamiento Dinámico", d: "Optimización inteligente de recorridos para maximizar el recaudo diario." },
-          { t: "Mando y Control", d: "Canal de comunicación encriptado entre la unidad de campo y gerencia." }
+          { t: t('landing_mod6_item1_t'), d: t('landing_mod6_item1_d') },
+          { t: t('landing_mod6_item2_t'), d: t('landing_mod6_item2_d') }
         ]}
       />
 
       {/* 07: Arqueo Digital */}
       <ModuleSection 
         index="07" 
-        tag="Conciliación" 
-        title="Arqueo de Caja Maestro Digital." 
-        desc="La conciliación operativa diaria es ahora un proceso matemático perfecto. El sistema consolida recaudos, deduce egresos y nuevas colocaciones para dictar el efectivo real."
+        tag={t('landing_mod7_tag')} 
+        title={t('landing_mod7_title')} 
+        desc={t('landing_mod7_desc')}
         imageUrl="https://images.unsplash.com/photo-1559526324-4b87b5e36e41?q=80&w=2070&auto=format&fit=crop"
-        ctaButton={{ label: "Iniciar Arqueo de Caja", action: onRegister }}
+        ctaButton={{ label: t('landing_mod7_cta'), action: onRegister }}
         liquidationPreview
+        t={t}
       />
 
       {/* Sección de Planes de Suscripción */}
       <section className="py-32 md:py-40 bg-white px-6 md:px-8 relative overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24 md:mb-32">
-            <span className="text-indigo-600 font-black text-[10px] uppercase tracking-[0.5em] mb-4 block">Estructura Corporativa</span>
-            <h2 className="text-4xl md:text-8xl font-black text-slate-950 tracking-tighter leading-none">Planes Institucionales.</h2>
-            <p className="text-slate-500 font-medium text-lg md:text-xl mt-8 max-w-2xl mx-auto px-4">Invierta en la tecnología que transformará la rentabilidad de su organización.</p>
+            <span className="text-indigo-600 font-black text-[10px] uppercase tracking-[0.5em] mb-4 block">{t('landing_pricing_struct')}</span>
+            <h2 className="text-4xl md:text-8xl font-black text-slate-950 tracking-tighter leading-none">{t('landing_pricing_title')}</h2>
+            <p className="text-slate-500 font-medium text-lg md:text-xl mt-8 max-w-2xl mx-auto px-4">{t('landing_pricing_desc')}</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
             <PricingCard 
-              title="Standard" 
+              title={t('landing_pricing_std_title')}
               price="29" 
-              desc="Para micro-operaciones en fase de crecimiento inicial."
+              desc={t('landing_pricing_std_desc')}
               features={['1 Razón Social', '1 Ejecutivo de Campo', 'Módulo de Egresos Básicos', 'Soporte vía Ticket']} 
-              onSelect={onRegister} 
+              onSelect={onRegister}
+              t={t}
             />
             <PricingCard 
-              title="Enterprise" 
+              title={t('landing_pricing_ent_title')}
               price="69" 
-              desc="La opción líder para empresas con gestión de campo activa."
+              desc={t('landing_pricing_ent_desc')}
               features={['1 Razón Social', '5 Ejecutivos de Campo', 'Analítica Predictiva Avanzada', 'Auditoría de Ruta VIP']} 
               popular 
-              onSelect={onRegister} 
+              onSelect={onRegister}
+              t={t} 
             />
             <PricingCard 
-              title="Global Holding" 
+              title={t('landing_pricing_gh_title')} 
               price="149" 
-              desc="Control total para grandes corporaciones financieras."
+              desc={t('landing_pricing_gh_desc')}
               features={['Rutas Ilimitadas', 'Personal Ilimitado', 'API de Integración ERP', 'Account Manager Dedicado']}
-              onSelect={onRegister} 
+              onSelect={onRegister}
+              t={t} 
             />
           </div>
         </div>
@@ -206,13 +233,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                 <h4 className="text-2xl font-black text-white tracking-tighter uppercase">OPULENCIA</h4>
               </div>
               <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xs">
-                La plataforma de gestión financiera definitiva para organizaciones de recaudo y capital de riesgo en Latinoamérica.
+                {t('landing_footer_desc')}
               </p>
             </div>
 
             {/* Columna Producto */}
             <div className="space-y-6">
-              <h5 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">Producto</h5>
+              <h5 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">{t('landing_footer_prod')}</h5>
               <ul className="space-y-4">
                 <li><button className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Analítica Financiera</button></li>
                 <li><button className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Gestión de Rutas</button></li>
@@ -223,7 +250,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
 
             {/* Columna Compañía */}
             <div className="space-y-6">
-              <h5 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">Compañía</h5>
+              <h5 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">{t('landing_footer_comp')}</h5>
               <ul className="space-y-4">
                 <li><button className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sobre Nosotros</button></li>
                 <li><button className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Carreras</button></li>
@@ -234,7 +261,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
 
             {/* Columna Legal */}
             <div className="space-y-6">
-              <h5 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">Legal</h5>
+              <h5 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">{t('landing_footer_leg')}</h5>
               <ul className="space-y-4">
                 <li><button className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Términos de Servicio</button></li>
                 <li><button className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Política de Privacidad</button></li>
@@ -258,7 +285,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
 };
 
 // Componente de Sección de Módulo
-const ModuleSection = ({ index, tag, title, desc, imageUrl, reverse, items, featuredCard, gridItems, smallItems, expenseBadges, ctaButton, liquidationPreview }: any) => (
+const ModuleSection = ({ index, tag, title, desc, imageUrl, reverse, items, featuredCard, gridItems, smallItems, expenseBadges, ctaButton, liquidationPreview, t }: any) => (
   <section className={`relative py-32 md:py-48 ${reverse ? 'bg-slate-900' : 'bg-slate-950'} px-6 md:px-8 overflow-hidden`}>
     <div className={`max-w-7xl mx-auto flex flex-col ${reverse ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-16 md:gap-24`}>
       <div className="lg:w-1/2 space-y-10 text-center lg:text-left">
@@ -338,17 +365,17 @@ const ModuleSection = ({ index, tag, title, desc, imageUrl, reverse, items, feat
         {liquidationPreview ? (
           <div className="bg-white p-6 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-5xl text-slate-900 w-full max-w-xl space-y-8 md:space-y-10 border-4 md:border-8 border-slate-50">
             <div className="flex flex-row justify-between items-center border-b-2 md:border-b-4 border-slate-50 pb-6 md:pb-8">
-               <p className="font-black uppercase text-[8px] md:text-[10px] tracking-[0.2em] md:tracking-[0.4em] text-slate-400">Arqueo de Valores</p>
+               <p className="font-black uppercase text-[8px] md:text-[10px] tracking-[0.2em] md:tracking-[0.4em] text-slate-400">{t('landing_mod7_prev_box')}</p>
                <p className="font-black text-indigo-600 uppercase text-[8px] md:text-[10px] tracking-widest font-mono">OPULENCIA 4.0</p>
             </div>
             <div className="space-y-3 md:space-y-6">
-               <LiquidationRow label="Recaudación Bruta" value="+$1,250.00" color="text-emerald-600" />
-               <LiquidationRow label="Egresos Tácticos" value="-$60.00" color="text-rose-600" />
-               <LiquidationRow label="Re-Colocación Activos" value="-$400.00" color="text-rose-600" />
+               <LiquidationRow label={t('landing_mod7_prev1_l')} value="+$1,250.00" color="text-emerald-600" />
+               <LiquidationRow label={t('landing_mod7_prev2_l')} value="-$60.00" color="text-rose-600" />
+               <LiquidationRow label={t('landing_mod7_prev3_l')} value="-$400.00" color="text-rose-600" />
             </div>
             <div className="pt-8 md:pt-10 border-t-4 md:border-t-8 border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 md:gap-0">
                <div className="order-2 md:order-1 w-full md:w-auto">
-                  <p className="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] md:tracking-[0.3em] mb-1 md:mb-2">Efectivo a Entregar</p>
+                  <p className="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] md:tracking-[0.3em] mb-1 md:mb-2">{t('landing_mod7_prev_total')}</p>
                   <p className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-950 tracking-tighter font-mono leading-none">$790.00</p>
                </div>
                <div className="order-1 md:order-2 w-14 h-14 md:w-20 md:h-20 bg-emerald-500 rounded-2xl md:rounded-3xl flex items-center justify-center text-white shadow-2xl self-end md:self-auto shrink-0">
@@ -378,14 +405,14 @@ const LiquidationRow = ({ label, value, color }: any) => (
   </div>
 );
 
-const PricingCard = ({ title, price, desc, features, popular, onSelect }: any) => (
+const PricingCard = ({ title, price, desc, features, popular, onSelect, t }: any) => (
   <div className={`bg-white p-10 md:p-16 rounded-[3rem] md:rounded-[4rem] border-4 flex flex-col transition-all hover:shadow-4xl group relative overflow-hidden ${popular ? 'border-indigo-600 scale-100 md:scale-105 shadow-4xl z-10' : 'border-slate-50 shadow-xl'}`}>
     {popular && <div className="absolute top-0 right-0 bg-indigo-600 text-white px-8 py-2 rounded-bl-3xl text-[9px] font-black uppercase tracking-[0.3em] shadow-lg">Más Vendido</div>}
     <h3 className="text-3xl md:text-4xl font-black text-slate-950 mb-4">{title}</h3>
     <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed">{desc}</p>
     <div className="flex items-end gap-2 mb-12">
       <span className="text-6xl md:text-7xl font-black text-slate-950">${price}</span>
-      <span className="text-slate-400 font-black mb-3 uppercase text-[10px] tracking-widest">/ Mes</span>
+      <span className="text-slate-400 font-black mb-3 uppercase text-[10px] tracking-widest">{t('landing_pricing_month')}</span>
     </div>
     <ul className="space-y-6 mb-16 flex-1">
       {features.map((f: string, i: number) => (
@@ -398,7 +425,7 @@ const PricingCard = ({ title, price, desc, features, popular, onSelect }: any) =
       ))}
     </ul>
     <button onClick={onSelect} className={`w-full py-6 md:py-8 rounded-[2.5rem] font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-95 shadow-2xl border-b-8 ${popular ? 'bg-indigo-600 text-white border-indigo-900 group-hover:bg-indigo-700' : 'bg-slate-950 text-white border-slate-700 group-hover:bg-slate-900'}`}>
-      Seleccionar {title}
+      {t('landing_pricing_select')} {title}
     </button>
   </div>
 );
