@@ -43,25 +43,25 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-inter">
       {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <h1 className="font-bold text-xl text-indigo-600">Opulencia</h1>
-        <div className="flex items-center gap-3">
+      <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+        <h1 className="font-black text-xl text-indigo-600 tracking-tight">Opulencia</h1>
+        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
           {showSelector && (
-             <div className="relative">
+             <div className="relative max-w-[200px] flex-1 flex justify-end">
                 <select 
                   value={selectedRouteId}
                   onChange={(e) => onRouteSelect(e.target.value)}
-                  className="bg-slate-100 border-none rounded-lg text-[10px] font-black uppercase px-2 py-1 pr-6 appearance-none text-slate-600"
+                  className="bg-slate-100 border-none rounded-lg text-xs font-black uppercase px-3 py-2 pr-8 appearance-none text-slate-700 w-full truncate focus:ring-2 focus:ring-indigo-100 outline-none"
                 >
-                  {isAdmin && <option value="all">TODAS</option>}
-                  {availableRoutes.map(r => <option key={r.id} value={r.id}>{r.name.split(' ')[1] || r.name}</option>)}
+                  {isAdmin && <option value="all">TODAS LAS RUTAS</option>}
+                  {availableRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
-                <div className="absolute right-1 top-1.5 pointer-events-none text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </div>
              </div>
           )}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
@@ -144,7 +144,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
                     <select 
                       value={selectedRouteId}
                       onChange={(e) => onRouteSelect(e.target.value)}
-                      className="bg-indigo-50 border-none rounded-xl text-sm font-black text-indigo-700 py-2 pl-4 pr-10 appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                      className="bg-indigo-50 border-none rounded-xl text-sm font-black text-indigo-700 py-2 pl-4 pr-10 appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner min-w-[200px]"
                     >
                       {isAdmin && <option value="all">Todas las Rutas</option>}
                       {availableRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}

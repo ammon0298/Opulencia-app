@@ -26,7 +26,9 @@ const CreditVisits: React.FC<CreditVisitsProps> = ({ client, credit, payments, o
   const visitCount = visits.length;
 
   const isEditable = (dateStr: string) => {
-    return dateStr === TODAY_STR;
+    // CORRECCIÓN 2: Asegurar comparación solo de FECHA (YYYY-MM-DD), ignorando horas
+    const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    return cleanDate === TODAY_STR;
   };
 
   const handleEditClick = (payment: Payment) => {
@@ -103,15 +105,18 @@ const CreditVisits: React.FC<CreditVisitsProps> = ({ client, credit, payments, o
               {visits.length > 0 ? (
                 visits.map((visit) => {
                   const editable = isEditable(visit.date);
+                  // CORRECCIÓN 2: Mostrar solo fecha
+                  const dateDisplay = visit.date.includes('T') ? visit.date.split('T')[0] : visit.date;
+                  
                   return (
                     <tr key={visit.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
                            </div>
                            <div>
-                              <p className="font-black text-slate-700 text-sm">{visit.date}</p>
+                              <p className="font-black text-slate-700 text-sm">{dateDisplay}</p>
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Registro en Campo</p>
                            </div>
                         </div>
@@ -131,13 +136,13 @@ const CreditVisits: React.FC<CreditVisitsProps> = ({ client, credit, payments, o
                         {editable ? (
                           <button 
                             onClick={() => handleEditClick(visit)}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95 mx-auto"
-                            title="Editar Abono"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95 mx-auto border border-indigo-100"
+                            title="Editar Abono (Disponible Hoy)"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                           </button>
                         ) : (
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-300 mx-auto cursor-not-allowed" title="Cierre Diario Ejecutado (Bloqueado)">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-300 mx-auto cursor-not-allowed opacity-50" title="Cierre Diario Ejecutado (Bloqueado)">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
                           </div>
                         )}
@@ -166,7 +171,7 @@ const CreditVisits: React.FC<CreditVisitsProps> = ({ client, credit, payments, o
           <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl border border-white animate-slideUp">
              <header className="bg-indigo-600 p-6 text-center rounded-t-[2rem]">
                <h3 className="text-xl font-black text-white">Corregir Recaudo</h3>
-               <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mt-1">Fecha: {editingPayment.date}</p>
+               <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mt-1">Fecha: {editingPayment.date.split('T')[0]}</p>
              </header>
              <div className="p-8 space-y-6">
                 <div>

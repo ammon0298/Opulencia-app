@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Route, User, UserRole, RouteTransaction } from '../types';
 import { TODAY_STR } from '../constants';
@@ -36,7 +37,6 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
     if (!newRouteName.trim() || !initialBase) return;
 
     try {
-        // 1. Crear la Ruta
         const { data: routeData, error: rErr } = await supabase.from('routes').insert({
             business_id: user.businessId,
             name: newRouteName.trim()
@@ -44,7 +44,6 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
 
         if (rErr) throw rErr;
 
-        // 2. Crear la Transacción Base (Vinculada al ID real)
         const { error: tErr } = await supabase.from('route_transactions').insert({
             business_id: user.businessId,
             route_id: routeData.id,
@@ -56,7 +55,7 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
 
         if (tErr) throw tErr;
 
-        onSave(); // Refrescar App
+        onSave();
         setNewRouteName('');
         setInitialBase('');
         setShowForm(false);
@@ -93,14 +92,20 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
     }
   };
 
+  // CORRECCIÓN 7: Implementación de renombrado de ruta
   const handleUpdateRouteName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingRoute && newRouteName.trim()) {
-      const { error } = await supabase.from('routes').update({ name: newRouteName.trim() }).eq('id', editingRoute.id);
-      if (!error) {
+    if (editingRoute && newRouteName.trim() && newRouteName.trim() !== editingRoute.name) {
+      try {
+          const { error } = await supabase.from('routes').update({ name: newRouteName.trim() }).eq('id', editingRoute.id);
+          if (error) throw error;
+          
           onSave();
-          setEditingRoute(null);
           setNotification({ type: 'success', message: 'Nombre de ruta actualizado.' });
+          // Actualizar el estado local para reflejar el cambio en la UI inmediatamente
+          setEditingRoute({ ...editingRoute, name: newRouteName.trim() });
+      } catch (err: any) {
+          setNotification({ type: 'error', message: `Error al renombrar: ${err.message}` });
       }
     }
   };
@@ -155,22 +160,42 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <form onSubmit={handleManageFunds} className="space-y-6">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Movimientos de Capital</h4>
-                      <div className="flex bg-slate-100 p-1 rounded-2xl mb-4">
-                          <button type="button" onClick={() => setFundAction('INJECTION')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${fundAction === 'INJECTION' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-400'}`}>Inyección (+)</button>
-                          <button type="button" onClick={() => setFundAction('WITHDRAWAL')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${fundAction === 'WITHDRAWAL' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-400'}`}>Retiro (-)</button>
-                      </div>
-                      <Input label="Monto" value={fundAmount} onChange={setFundAmount} type="number" required />
-                      <Input label="Nota / Justificación" value={fundDescription} onChange={setFundDescription} placeholder="Opcional" />
-                      <button type="submit" disabled={!fundAction} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 disabled:opacity-50">Registrar Operación</button>
-                  </form>
+                  <div className="space-y-8">
+                      {/* Formulario de Renombrado */}
+                      <form onSubmit={handleUpdateRouteName} className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                          <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4">Configuración de Ruta</h4>
+                          <div className="space-y-2 mb-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nombre</label>
+                              <input 
+                                type="text" 
+                                value={newRouteName} 
+                                onChange={e => setNewRouteName(e.target.value)} 
+                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 font-black text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" 
+                              />
+                          </div>
+                          <button type="submit" className="w-full bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 font-black py-3 rounded-xl uppercase tracking-widest text-[10px] shadow-sm active:scale-95">
+                              Actualizar Nombre
+                          </button>
+                      </form>
+
+                      {/* Formulario de Fondos */}
+                      <form onSubmit={handleManageFunds} className="space-y-6">
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Movimientos de Capital</h4>
+                          <div className="flex bg-slate-100 p-1 rounded-2xl mb-2">
+                              <button type="button" onClick={() => setFundAction('INJECTION')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${fundAction === 'INJECTION' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-400'}`}>Inyección (+)</button>
+                              <button type="button" onClick={() => setFundAction('WITHDRAWAL')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${fundAction === 'WITHDRAWAL' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-400'}`}>Retiro (-)</button>
+                          </div>
+                          <Input label="Monto" value={fundAmount} onChange={setFundAmount} type="number" required />
+                          <Input label="Nota / Justificación" value={fundDescription} onChange={setFundDescription} placeholder="Opcional" />
+                          <button type="submit" disabled={!fundAction} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 disabled:opacity-50">Registrar Operación</button>
+                      </form>
+                  </div>
 
                   <div className="space-y-6">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Últimos Movimientos</h4>
-                      <div className="bg-slate-50 rounded-2xl p-4 h-[300px] overflow-y-auto space-y-3 shadow-inner">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Historial Financiero</h4>
+                      <div className="bg-slate-50 rounded-2xl p-4 h-[400px] overflow-y-auto space-y-3 shadow-inner">
                           {routeHistory.length > 0 ? routeHistory.map(tx => (
-                              <div key={tx.id} className="bg-white p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                              <div key={tx.id} className="bg-white p-4 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
                                   <div>
                                       <p className="text-xs font-black text-slate-700 uppercase tracking-tight">{tx.description}</p>
                                       <p className="text-[8px] font-bold text-slate-400 uppercase">{tx.date}</p>
@@ -206,7 +231,6 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
   );
 };
 
-// Fix: Added missing Input component definition
 const Input = ({ label, value, onChange, type = 'text', required, placeholder }: any) => (
   <div className="space-y-1">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{label}</label>

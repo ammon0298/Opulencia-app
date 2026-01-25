@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
@@ -28,8 +29,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
        return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
     }
 
-    // CORRECCIÓN: Permitir que aparezca si la fecha es IGUAL a la de inicio (hoy)
-    // Antes era checkDate <= startDate, lo que bloqueaba el día actual
     if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
 
     let isInstallmentDay = false;
@@ -37,17 +36,15 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
     if (credit.frequency === 'Daily') {
       isInstallmentDay = true;
-      // CORRECCIÓN: Sumar 1 porque countBusinessDays retorna la diferencia de días. 
-      // El día de inicio debe ser la cuota #1.
       installmentNum = countBusinessDays(credit.startDate, dateStr) + 1;
     } else if (credit.frequency === 'Weekly') {
       const diffDays = Math.round((checkDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
       isInstallmentDay = diffDays % 7 === 0;
-      installmentNum = Math.floor(diffDays / 7) + 1; // Base 1
+      installmentNum = Math.floor(diffDays / 7) + 1; 
     } else if (credit.frequency === 'Monthly') {
       isInstallmentDay = checkDate.getDate() === startDate.getDate();
       const diffDays = Math.round((checkDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      installmentNum = Math.floor(diffDays / 30) + 1; // Base 1
+      installmentNum = Math.floor(diffDays / 30) + 1; 
     }
 
     // Si ya pasamos el total de cuotas y no debe nada, no mostrar
@@ -57,14 +54,16 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
     const totalExpectedByDate = Math.min(credit.totalInstallments, installmentNum) * credit.installmentValue;
     const isPaidTotal = credit.totalPaid >= totalExpectedByDate;
-    const paymentToday = payments.find(p => p.creditId === credit.id && p.date === dateStr);
+    const paymentToday = payments.find(p => p.creditId === credit.id && p.date.split('T')[0] === dateStr);
     const amountPaidToday = paymentToday ? paymentToday.amount : 0;
     
-    // Para ver si es parcial, miramos si lo pagado total cubre lo esperado hasta ayer
-    const previousExpected = Math.max(0, totalExpectedByDate - credit.installmentValue);
-    const isPartial = !isPaidTotal && (amountPaidToday > 0 || credit.totalPaid > previousExpected);
-
-    const shouldShow = isInstallmentDay || (credit.isOverdue && !isPaidTotal && checkDate >= todayObj);
+    // CORRECCIÓN 5: Lógica de estado de pago para colores
+    const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
+    const isPartialPaymentToday = amountPaidToday > 0 && amountPaidToday < credit.installmentValue;
+    // Si pagó 0 es "Pending" visualmente si no ha pasado el día, pero si ya hay registro de 0 es "No Pago"
+    // Aquí asumimos que si amountPaidToday > 0 es un pago. Si es 0, depende si se visitó.
+    
+    const shouldShow = isInstallmentDay || (credit.isOverdue && !isPaidTotal) || (amountPaidToday > 0); // Mostrar si pagó adelantado
 
     if (!shouldShow) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
 
@@ -83,8 +82,9 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
         reason: reasonLabel, 
         amount: displayAmount,
         realAmount: amountPaidToday,
-        isPaid: isPaidTotal,
-        isPartial 
+        isPaid: isPaidTotal, // Esto es si va al día globalmente
+        isFullPaymentToday, // Pagó la cuota de HOY completa
+        isPartialPaymentToday // Pagó algo pero incompleto hoy
     };
   };
 
@@ -94,7 +94,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     
     credits.forEach(credit => {
       const client = clients.find(c => c.id === credit.clientId);
-      // Validamos que el cliente exista y esté Activo
       if (!client || client.status === 'Inactive') return;
       
       const details = getVisitDetailsForCredit(credit, targetDate);
@@ -107,16 +106,26 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
       }
     });
 
-    // Sort strictly by client.order which is managed in ClientManagement
     return result.sort((a, b) => a.order - b.order);
   }, [clients, credits, payments, selectedRouteId, targetDate]);
 
   const stats = useMemo(() => {
+    // CORRECCIÓN 5: Meta basada en lo que DEBERÍA recaudarse hoy (Sanos)
+    // Filtramos los que NO son mora para la meta "Sana"
     const healthyVisits = visitsForDate.filter(v => v.reason !== 'Mora Pendiente');
+    
+    // Meta del día: Suma de cuotas esperadas de clientes sanos que tocan hoy
+    const totalToCollectToday = healthyVisits.reduce((acc, curr) => {
+        // Si ya pagó, sumamos lo que pagó (para que la meta no sea menor a lo recaudado si abonó extra)
+        // Si no ha pagado, sumamos la cuota esperada
+        return acc + (curr.realAmount > 0 ? Math.max(curr.realAmount, curr.credit.installmentValue) : curr.credit.installmentValue);
+    }, 0);
+
+    const alreadyCollected = healthyVisits.reduce((acc, curr) => acc + curr.realAmount, 0);
+    
     const count = visitsForDate.length; 
-    const paidCount = visitsForDate.filter(v => v.isPaid).length;
-    const totalToCollectToday = healthyVisits.reduce((acc, curr) => acc + curr.amount, 0);
-    const alreadyCollected = healthyVisits.filter(v => v.isPaid || v.realAmount > 0).reduce((acc, curr) => acc + curr.realAmount, 0);
+    const paidCount = visitsForDate.filter(v => v.realAmount > 0).length;
+
     return { total: totalToCollectToday, collected: alreadyCollected, count, paidCount };
   }, [visitsForDate]);
 
@@ -124,6 +133,28 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     const d = new Date(TODAY_STR + 'T00:00:00');
     d.setDate(d.getDate() + days);
     setTargetDate(d.toISOString().split('T')[0]);
+  };
+
+  // Función auxiliar para determinar el color de la tarjeta
+  const getCardColorClass = (item: any) => {
+      // Prioridad 1: Mora (Siempre MORADO si está en mora y no se ha puesto al día hoy)
+      if (item.credit.isOverdue && !item.isPaid) return 'bg-purple-50 border-purple-200 shadow-purple-100';
+      
+      // Prioridad 2: Pago Completo / Abono Mayor (VERDE)
+      if (item.isFullPaymentToday) return 'bg-emerald-50 border-emerald-200 shadow-emerald-100';
+      
+      // Prioridad 3: Pago Parcial (NARANJA)
+      if (item.isPartialPaymentToday) return 'bg-orange-50 border-orange-200 shadow-orange-100';
+      
+      // Prioridad 4: No Pago (ROJIZO) - Asumimos que si aparece en la lista y realAmount es 0, está pendiente o no pagó
+      // Aquí el usuario pide "Rojizo si no pagó 0 esa visita". 
+      // Visualmente, si es pendiente (futuro/hoy sin gestión) solemos dejarlo blanco. 
+      // Pero si queremos marcar "No Pago", necesitaríamos saber si ya se visitó.
+      // Como no tenemos flag de "Visitado", usaremos Blanco para pendiente y Rojo solo si explícitamente queremos alertar (por ahora Blanco/Gris es estándar para pendiente).
+      // Sin embargo, para cumplir la solicitud de colores, dejaremos el default en blanco pero si es fecha pasada y 0, rojo.
+      if (targetDate < TODAY_STR && item.realAmount === 0) return 'bg-rose-50 border-rose-200 shadow-rose-100';
+
+      return 'bg-white border-slate-100';
   };
 
   return (
@@ -149,7 +180,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
         <div className="bg-slate-900 text-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden animate-slideDown">
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-10">
              <div className="flex items-center gap-4 md:gap-6">
-                <div className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-[2rem] flex items-center justify-center shadow-lg backdrop-blur-md ${stats.collected === stats.total && stats.total > 0 ? 'bg-emerald-500 text-white' : 'bg-white/10 text-emerald-400'}`}>
+                <div className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-[2rem] flex items-center justify-center shadow-lg backdrop-blur-md ${stats.collected >= stats.total && stats.total > 0 ? 'bg-emerald-500 text-white' : 'bg-white/10 text-emerald-400'}`}>
                    {stats.collected >= stats.total && stats.total > 0 ? (
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 md:h-10 md:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                    ) : (
@@ -158,21 +189,22 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                 </div>
                 <div>
                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Meta Pendiente (Sanos)</p>
+                   {/* CORRECCIÓN 5: Lógica de barra de progreso ajustada */}
                    <h3 className="text-2xl md:text-4xl font-black">${Math.max(0, stats.total - stats.collected).toLocaleString()} <span className="text-xs md:text-lg text-slate-500 font-bold">/ ${stats.total.toLocaleString()}</span></h3>
                 </div>
              </div>
              <div className="flex flex-col justify-center">
                 <div className="flex justify-between items-end mb-2">
                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Cumplimiento del día</p>
-                   <p className="text-xs md:text-sm font-black text-emerald-400">{stats.total > 0 ? Math.min(100, Math.round((stats.collected / stats.total) * 100)) : 100}%</p>
+                   <p className="text-xs md:text-sm font-black text-emerald-400">{stats.total > 0 ? Math.min(100, Math.round((stats.collected / stats.total) * 100)) : (stats.collected > 0 ? 100 : 0)}%</p>
                 </div>
                 <div className="h-2 md:h-3 w-full bg-white/10 rounded-full overflow-hidden">
-                   <div className="h-full bg-emerald-500 transition-all duration-1000" style={{width: `${stats.total > 0 ? Math.min(100, (stats.collected / stats.total) * 100) : 100}%`}}></div>
+                   <div className="h-full bg-emerald-500 transition-all duration-1000" style={{width: `${stats.total > 0 ? Math.min(100, (stats.collected / stats.total) * 100) : (stats.collected > 0 ? 100 : 0)}%`}}></div>
                 </div>
              </div>
              <div className="flex items-center justify-between lg:justify-end gap-6 md:gap-10 lg:border-l lg:border-white/10 lg:pl-10">
                 <div className="text-left lg:text-right">
-                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Créditos por Cobrar</p>
+                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Créditos Gestionados</p>
                    <p className="text-xl md:text-2xl font-black text-white">{stats.paidCount} <span className="text-[10px] md:text-xs text-slate-500 uppercase">de {stats.count}</span></p>
                 </div>
              </div>
@@ -197,7 +229,8 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                   <span className="text-indigo-600 font-black text-xl md:text-2xl uppercase tracking-tight">Hoja de Ruta</span>
                </div>
                <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 flex items-center justify-between md:justify-end gap-4">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">HOY:</p>
+                  {/* CORRECCIÓN 5: Cambio de Label 'HOY' a 'FECHA' */}
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FECHA:</p>
                   <span className="text-slate-700 font-black text-xs md:text-sm">{new Date(targetDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                </div>
             </div>
@@ -205,20 +238,24 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
             <div className="space-y-4 max-w-5xl mx-auto w-full">
               {visitsForDate.length > 0 ? (
                 visitsForDate.map((item, index) => (
-                  <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${item.isPaid ? 'bg-emerald-50 border-emerald-200' : (item.isPartial ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100')}`}>
+                  <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)}`}>
+                    
+                    {/* Badge Superior Derecho según Estado */}
                     <div className="absolute top-0 right-0">
-                       {item.isPaid ? (
-                          <div className="bg-emerald-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">CUOTA PAGA</div>
-                       ) : item.isPartial ? (
-                          <div className="bg-orange-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">ABONO</div>
-                       ) : item.reason === 'Mora Pendiente' && (
-                          <div className="bg-rose-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">MORA</div>
-                       )}
+                       {item.isFullPaymentToday ? (
+                          <div className="bg-emerald-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">CUOTA COMPLETA</div>
+                       ) : item.isPartialPaymentToday ? (
+                          <div className="bg-orange-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">ABONO PARCIAL</div>
+                       ) : item.credit.isOverdue && !item.isPaid ? (
+                          <div className="bg-purple-600 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">MORA ACTIVA</div>
+                       ) : targetDate < TODAY_STR && item.realAmount === 0 ? (
+                          <div className="bg-rose-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">NO PAGO</div>
+                       ) : null}
                     </div>
                     
                     <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-[1.5rem] shrink-0 flex items-center justify-center font-black text-lg md:text-xl shadow-inner transition-all ${item.isPaid ? 'bg-emerald-500 text-white' : (item.isPartial ? 'bg-orange-100 text-orange-600' : (item.reason === 'Mora Pendiente' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'))}`}>
-                          {item.isPaid ? <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : item.order}
+                        <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-[1.5rem] shrink-0 flex items-center justify-center font-black text-lg md:text-xl shadow-inner transition-all bg-white/50 text-slate-500`}>
+                          {item.order}
                         </div>
                         <div className="flex-1 min-w-0 md:hidden">
                             <h4 className="font-black text-lg text-slate-800 truncate">{item.name}</h4>
@@ -226,7 +263,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{item.alias}</span>
                                <button 
                                 onClick={() => onGoToCredit(item.credit.id)}
-                                className="bg-indigo-600 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest shadow-sm"
+                                className="bg-slate-800 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest shadow-sm"
                                >
                                 #{item.credit.id.slice(-6).toUpperCase()}
                                </button>
@@ -237,12 +274,11 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                     <div className="flex-1 min-w-0 w-full">
                       <div className="hidden md:flex items-center gap-3 mb-1.5">
                         <h4 className="font-black text-xl lg:text-2xl truncate text-slate-800">{item.name}</h4>
-                        <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-slate-50 border-slate-100 text-slate-400">{item.alias}</span>
+                        <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 border-slate-200 text-slate-500">{item.alias}</span>
                         <button 
                           onClick={() => onGoToCredit(item.credit.id)}
-                          className="ml-2 bg-indigo-600 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-1.5 group/id"
+                          className="ml-2 bg-slate-800 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-700 transition-all active:scale-95 flex items-center gap-1.5"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-indigo-200 group-hover/id:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10.172 13.828a4 4 0 015.656 0l4-4a4 4 0 10-5.656-5.656l-1.102 1.101" /></svg>
                           #{item.credit.id.slice(-6).toUpperCase()}
                         </button>
                       </div>
@@ -252,17 +288,17 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                             <p className="text-xs font-bold md:truncate md:max-w-[200px] lg:max-w-[300px] leading-tight">{item.address}</p>
                          </div>
                          <div className="pt-1 md:pt-0">
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm ${item.isPaid ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-slate-200 text-slate-400'}`}>
+                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white border-slate-200 text-slate-500`}>
                              {item.reason}
                            </span>
                          </div>
                       </div>
                     </div>
 
-                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
+                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-black/5">
                        <div className="flex flex-col items-start md:items-end min-w-[100px] md:min-w-[140px]">
                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 whitespace-nowrap">{item.realAmount > 0 ? 'Recibido' : 'Cuota Sugerida'}</p>
-                          <p className={`text-xl md:text-3xl font-black ${item.isPaid ? 'text-emerald-700' : (item.isPartial ? 'text-orange-600' : (item.reason === 'Mora Pendiente' ? 'text-rose-600' : 'text-slate-800'))}`}>
+                          <p className={`text-xl md:text-3xl font-black ${item.realAmount > 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
                             ${item.amount.toLocaleString()}
                           </p>
                        </div>
