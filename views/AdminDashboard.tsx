@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { User, Route, Credit, Expense, Client } from '../types';
+import { User, Route, Credit, Expense, Client, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
 import { analyzeRouteFinances } from '../lib/ai';
+import { useGlobal } from '../contexts/GlobalContext';
 
 interface DashboardProps {
   navigate: (view: string) => void;
@@ -13,11 +14,13 @@ interface DashboardProps {
     clients: Client[];
     credits: Credit[];
     expenses: Expense[];
+    payments?: Payment[]; // Añadimos pagos para cálculo preciso
   };
   selectedRouteId: string;
 }
 
 const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stats, selectedRouteId }) => {
+  const { t } = useGlobal();
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -99,32 +102,59 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     let overdueAmount = 0;           
     let totalInvested = 0;
     let totalInterestExpected = 0;
+    // Cálculo robusto de recaudado usando pagos si existen
     let totalRecoveredCapital = 0;
     let totalRealizedProfit = 0;
+    
+    // Si tenemos pagos, sumamos directamente
+    if (stats.payments && stats.payments.length > 0) {
+        const totalCollectedReal = stats.payments.reduce((acc, p) => acc + p.amount, 0);
+        // Distribuimos proporcionalmente para las métricas
+        // (Simplificación: Asumimos una tasa global de retorno para dividir capital/interés en el total)
+        // O mejor: Iteramos créditos para precisión
+        stats.credits.forEach(cr => {
+            // Pagos específicos de este crédito
+            const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
+            const capitalRatio = cr.capital / cr.totalToPay;
+            const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
+            
+            totalRecoveredCapital += creditPayments * capitalRatio;
+            totalRealizedProfit += creditPayments * profitRatio;
+        });
+    } else {
+        // Fallback a lógica anterior basada en totalPaid del objeto crédito
+        stats.credits.forEach(cr => {
+            const capitalRatio = cr.capital / cr.totalToPay;
+            const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
+            totalRecoveredCapital += cr.totalPaid * capitalRatio;
+            totalRealizedProfit += cr.totalPaid * profitRatio;
+        });
+    }
+
     let totalPendingToCollect = 0;
     let totalLostCapital = 0;
 
     stats.credits.forEach(cr => {
       const totalToPay = cr.totalToPay;
       const capital = cr.capital;
-      const profitRatio = (totalToPay - capital) / totalToPay;
       const capitalRatio = capital / totalToPay;
 
       if (cr.status === 'Lost') {
-        const capitalRecoveredInPayments = cr.totalPaid * capitalRatio;
+        const creditPayments = stats.payments ? stats.payments.filter(p => p.creditId === cr.id).reduce((s,p)=>s+p.amount,0) : cr.totalPaid;
+        const capitalRecoveredInPayments = creditPayments * capitalRatio;
         totalLostCapital += (capital - capitalRecoveredInPayments);
       } else {
         totalInvested += capital;
         totalInterestExpected += (totalToPay - capital);
-        totalRecoveredCapital += cr.totalPaid * capitalRatio;
-        totalRealizedProfit += cr.totalPaid * profitRatio;
-        totalPendingToCollect += (totalToPay - cr.totalPaid);
+        const creditPayments = stats.payments ? stats.payments.filter(p => p.creditId === cr.id).reduce((s,p)=>s+p.amount,0) : cr.totalPaid;
+        
+        totalPendingToCollect += (totalToPay - creditPayments);
 
         const { installmentNum } = getInstallmentStatusForDate(cr, todayDate);
         const shouldHavePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
-        const debt = Math.max(0, shouldHavePaid - cr.totalPaid);
+        const debt = Math.max(0, shouldHavePaid - creditPayments);
         if (cr.isOverdue || debt > 0) {
-            const finalDebt = cr.totalToPay - cr.totalPaid;
+            const finalDebt = cr.totalToPay - creditPayments;
             overdueAmount += (installmentNum > cr.totalInstallments) ? finalDebt : Math.max(debt, cr.installmentValue);
         }
       }
@@ -187,21 +217,21 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      <header className="bg-white p-10 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+      <header className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 transition-colors">
         <div>
-          <span className="bg-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Consolidado General</span>
-          <h2 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight mt-2">Panel Administrativo</h2>
+          <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Consolidado General</span>
+          <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white tracking-tight mt-2">Panel Administrativo</h2>
         </div>
-        <div className="bg-slate-50 p-2 rounded-3xl border border-slate-100 flex items-center">
+        <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center">
              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Periodo:</span>
-             <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="bg-white border-none rounded-2xl text-xs font-black uppercase text-indigo-600 py-2.5 px-4 shadow-sm cursor-pointer focus:ring-0 outline-none">
+             <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="bg-white dark:bg-slate-700 border-none rounded-2xl text-xs font-black uppercase text-indigo-600 dark:text-indigo-400 py-2.5 px-4 shadow-sm cursor-pointer focus:ring-0 outline-none">
                {availablePeriods.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
              </select>
         </div>
       </header>
 
       {/* Widget de Inteligencia Artificial (Gemini) */}
-      <section className="bg-gradient-to-r from-indigo-900 to-slate-900 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+      <section className="bg-gradient-to-r from-indigo-900 to-slate-900 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group border dark:border-slate-800">
          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="max-w-2xl text-center lg:text-left">
@@ -227,7 +257,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
               {isAnalyzing ? (
                  <>
                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                   Analizando Cartera...
+                   Analizando...
                  </>
               ) : 'Generar Informe AI'}
             </button>
@@ -235,12 +265,12 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="Total Recaudado" value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />
-        <StatCard title="Capital en Calle" value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
-        <StatCard title="Capital Perdido" value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
-        <StatCard title="Utilidad Ruta" value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
-        <StatCard title="Gastos Ruta" value={`$${metrics.totalExpenses.toLocaleString()}`} color="rose" icon={<IconExpense />} />
-        <StatCard title="Mis Clientes" value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
+        <StatCard title={t('total_collected')} value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
+        <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
+        <StatCard title={t('route_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
+        <StatCard title={t('route_expenses')} value={`$${metrics.totalExpenses.toLocaleString()}`} color="rose" icon={<IconExpense />} />
+        <StatCard title={t('my_clients')} value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -263,9 +293,9 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
               <QuickButton label="Clientes" onClick={() => navigate('client_management')} icon={<IconUsers />} />
            </div>
         </div>
-        <button onClick={() => navigate('liquidation')} className="bg-white p-10 rounded-[3rem] border-2 border-slate-100 shadow-sm flex flex-col justify-center items-center text-center gap-6 hover:border-indigo-600 transition-all">
+        <button onClick={() => navigate('liquidation')} className="bg-white dark:bg-slate-800 dark:border-slate-700 p-10 rounded-[3rem] border-2 border-slate-100 shadow-sm flex flex-col justify-center items-center text-center gap-6 hover:border-indigo-600 transition-all">
            <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><IconChart /></div>
-           <h4 className="font-black text-2xl text-slate-800 tracking-tight">Cerrar Caja</h4>
+           <h4 className="font-black text-2xl text-slate-800 dark:text-white tracking-tight">Cerrar Caja</h4>
         </button>
       </div>
     </div>
@@ -275,44 +305,44 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
 const StatCard = ({ title, value, color, icon }: any) => {
   const colors: any = { indigo: 'bg-indigo-600', emerald: 'bg-emerald-600', rose: 'bg-rose-600', amber: 'bg-amber-600', violet: 'bg-violet-600', red: 'bg-red-600' };
   return (
-    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-6 transition-all hover:translate-y-[-4px] overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-6 transition-all hover:translate-y-[-4px] overflow-hidden">
       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 ${colors[color]}`}><div className="scale-110">{icon}</div></div>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight mb-1">{title}</p>
-        <p className="text-2xl md:text-3xl font-black text-slate-800 whitespace-nowrap overflow-visible">{value}</p>
+        <p className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white whitespace-nowrap overflow-visible">{value}</p>
       </div>
     </div>
   );
 };
 
 const ProgressCard = ({ title, label1, val1, perc1, label2, val2, perc2 }: any) => (
-  <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-     <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><div className="w-2 h-6 bg-emerald-500 rounded-full"></div>{title}</h3>
+  <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+     <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3"><div className="w-2 h-6 bg-emerald-500 rounded-full"></div>{title}</h3>
      <div className="grid grid-cols-2 gap-6">
         <div>
            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label1}</p>
            <p className="text-xl font-black text-emerald-600">${Math.round(val1).toLocaleString()}</p>
-           {perc1 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{width: `${perc1}%`}}></div></div>}
+           {perc1 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{width: `${perc1}%`}}></div></div>}
         </div>
         <div>
            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label2}</p>
-           <p className="text-xl font-black text-indigo-600">${Math.round(val2).toLocaleString()}</p>
-           {perc2 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{width: `${perc2}%`}}></div></div>}
+           <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">${Math.round(val2).toLocaleString()}</p>
+           {perc2 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{width: `${perc2}%`}}></div></div>}
         </div>
      </div>
   </div>
 );
 
 const ChartBlock = ({ title, data, type }: any) => (
-  <div className="bg-white p-8 rounded-[3rem] border border-slate-100 h-96 shadow-sm">
-     <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><div className={`w-2 h-6 rounded-full ${type==='compliance'?'bg-blue-500':'bg-rose-500'}`}></div>{title}</h3>
+  <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 h-96 shadow-sm">
+     <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3"><div className={`w-2 h-6 rounded-full ${type==='compliance'?'bg-blue-500':'bg-rose-500'}`}></div>{title}</h3>
      <ResponsiveContainer width="100%" height="70%">
         <ComposedChart data={data}>
-           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
            <Tooltip 
-             cursor={{fill: '#f8fafc'}} 
-             contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold'}}
+             cursor={{fill: 'rgba(255,255,255,0.05)'}} 
+             contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: '#1e293b', color: '#fff'}}
              formatter={(value: any, name: string) => {
                if (name === 'collected') return [`$${value}`, 'Recaudado'];
                if (name === 'target') return [`$${value}`, 'Meta'];

@@ -18,11 +18,17 @@ export const translations = {
     view_list: 'Ver Lista',
     total_loan: 'Total Prestado',
     balance: 'Saldo Pendiente',
-    paid: 'Pagado',
+    paid: 'Recaudado',
     open_maps: 'Abrir en Google Maps',
     theme_dark: 'Modo Oscuro',
     theme_light: 'Modo Claro',
-    lang_select: 'Idioma'
+    lang_select: 'Idioma',
+    total_collected: 'Total Recaudado',
+    capital_street: 'Capital en Calle',
+    capital_lost: 'Capital Perdido',
+    route_profit: 'Utilidad Ruta',
+    route_expenses: 'Gastos Ruta',
+    my_clients: 'Mis Clientes'
   },
   en: {
     dashboard: 'Dashboard',
@@ -40,11 +46,17 @@ export const translations = {
     view_list: 'List View',
     total_loan: 'Total Loan',
     balance: 'Balance Due',
-    paid: 'Paid',
+    paid: 'Collected',
     open_maps: 'Open in Google Maps',
     theme_dark: 'Dark Mode',
     theme_light: 'Light Mode',
-    lang_select: 'Language'
+    lang_select: 'Language',
+    total_collected: 'Total Collected',
+    capital_street: 'Street Capital',
+    capital_lost: 'Lost Capital',
+    route_profit: 'Route Profit',
+    route_expenses: 'Route Expenses',
+    my_clients: 'My Clients'
   },
   pt: {
     dashboard: 'Painel',
@@ -62,11 +74,17 @@ export const translations = {
     view_list: 'Ver Lista',
     total_loan: 'Total Emprestado',
     balance: 'Saldo Devedor',
-    paid: 'Pago',
+    paid: 'Arrecadado',
     open_maps: 'Abrir no Google Maps',
     theme_dark: 'Modo Escuro',
     theme_light: 'Modo Claro',
-    lang_select: 'Idioma'
+    lang_select: 'Idioma',
+    total_collected: 'Total Arrecadado',
+    capital_street: 'Capital na Rua',
+    capital_lost: 'Capital Perdido',
+    route_profit: 'Lucro da Rota',
+    route_expenses: 'Despesas da Rota',
+    my_clients: 'Meus Clientes'
   },
   fr: {
     dashboard: 'Tableau de bord',
@@ -84,10 +102,16 @@ export const translations = {
     view_list: 'Voir Liste',
     total_loan: 'Prêt Total',
     balance: 'Solde Dû',
-    paid: 'Payé',
+    paid: 'Collecté',
     open_maps: 'Ouvrir Google Maps',
     theme_dark: 'Mode Sombre',
     theme_light: 'Mode Clair',
-    lang_select: 'Langue'
+    lang_select: 'Langue',
+    total_collected: 'Total Collecté',
+    capital_street: 'Capital dans la rue',
+    capital_lost: 'Capital Perdu',
+    route_profit: 'Profit de la Route',
+    route_expenses: 'Dépenses de la Route',
+    my_clients: 'Mes Clients'
   }
 };

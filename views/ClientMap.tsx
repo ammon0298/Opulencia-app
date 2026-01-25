@@ -24,8 +24,9 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
     const activeCredit = credits.find(c => c.clientId === client.id && c.status === 'Active');
     if (!activeCredit) return null;
 
-    const paid = activeCredit.totalPaid; // Ya viene calculado o se calcula
-    const balance = activeCredit.totalToPay - paid;
+    // Calcular pagado REAL desde la tabla de pagos
+    const realPaid = payments.filter(p => p.creditId === activeCredit.id).reduce((acc, curr) => acc + curr.amount, 0);
+    const balance = Math.max(0, activeCredit.totalToPay - realPaid);
     
     // Determinar estado para el color
     let statusColor = '#6366f1'; // Indigo (Normal)
@@ -33,45 +34,36 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
     else if (balance <= 0) statusColor = '#10b981'; // Green (Pagado)
     else if ((activeCredit.totalInstallments - activeCredit.paidInstallments) <= 3) statusColor = '#f59e0b'; // Amber (Faltan pocos)
 
-    return { credit: activeCredit, paid, balance, color: statusColor };
+    return { credit: activeCredit, paid: realPaid, balance, color: statusColor };
   };
 
-  // Función determinista para generar coordenadas falsas alrededor de un centro
-  // (Solo para demostración si no hay coords reales)
-  const getSimulatedCoords = (client: Client) => {
-    if (client.coordinates) return client.coordinates;
-    
-    // Usar el ID para generar un offset determinista
+  const getClientCoords = (client: Client) => {
+    if (client.coordinates && client.coordinates.lat) {
+        return client.coordinates;
+    }
+    // Fallback: Coordenadas base si no tiene
     const hash = client.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const latOffset = (hash % 100 - 50) / 5000;
     const lngOffset = (hash % 100 - 50) / 5000;
-    
-    // Coordenadas base (Ej: Centro de una ciudad genérica)
-    const baseLat = 4.6097; // Bogotá aprox
-    const baseLng = -74.0817; 
-    
-    return { lat: baseLat + latOffset, lng: baseLng + lngOffset };
+    return { lat: 4.6097 + latOffset, lng: -74.0817 + lngOffset };
   };
 
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Inicializar mapa si no existe
     if (!mapInstance.current) {
       mapInstance.current = L.map(mapRef.current).setView([4.6097, -74.0817], 13);
 
-      // Tile Layer (Cambia según tema)
       const tileUrl = theme === 'dark' 
         ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
         : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
       
       L.tileLayer(tileUrl, {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 20
       }).addTo(mapInstance.current);
     } else {
-        // Actualizar Tiles si cambia el tema
         mapInstance.current.eachLayer((layer: any) => {
             if (layer instanceof L.TileLayer) {
                 const newUrl = theme === 'dark' 
@@ -82,6 +74,11 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
         });
     }
 
+    // Fix crucial: invalidar tamaño para evitar áreas grises
+    setTimeout(() => {
+        mapInstance.current.invalidateSize();
+    }, 100);
+
     // Limpiar marcadores anteriores
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
@@ -91,10 +88,9 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
       if (client.status !== 'Active') return;
       
       const financials = getClientFinancials(client);
-      const coords = getSimulatedCoords(client);
-      const color = financials ? financials.color : '#94a3b8'; // Gris si no tiene crédito activo
+      const coords = getClientCoords(client);
+      const color = financials ? financials.color : '#94a3b8';
 
-      // Crear icono personalizado HTML
       const customIcon = L.divIcon({
         className: 'custom-pin',
         html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`,
@@ -111,19 +107,18 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
                 balance: financials?.balance || 0,
                 paid: financials?.paid || 0
             });
-            mapInstance.current.setView([coords.lat, coords.lng], 15, { animate: true });
+            mapInstance.current.setView([coords.lat, coords.lng], 16, { animate: true });
         });
 
       markersRef.current.push(marker);
     });
 
-  }, [clients, credits, theme]);
+  }, [clients, credits, theme, payments]);
 
   return (
     <div className="relative w-full h-[600px] rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
       <div ref={mapRef} className="w-full h-full z-0" />
       
-      {/* Modal Flotante de Cliente */}
       {selectedClient && (
         <div className="absolute bottom-6 left-6 right-6 md:left-auto md:right-6 md:w-96 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-2xl z-[1000] border border-slate-100 dark:border-slate-700 animate-slideUp">
             <button onClick={() => setSelectedClient(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -162,7 +157,7 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
             )}
 
             <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedClient.client.address + ", Colombia")}`} 
+                href={`https://www.google.com/maps/search/?api=1&query=${selectedClient.client.coordinates?.lat || 0},${selectedClient.client.coordinates?.lng || 0}`} 
                 target="_blank" 
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-lg transition active:scale-95 uppercase tracking-widest text-[10px]"

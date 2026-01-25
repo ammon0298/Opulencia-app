@@ -54,6 +54,10 @@ export interface Client {
   alias: string;
   address: string;
   phone: string;
+  // Nuevos campos para formulario completo
+  country?: string;
+  city?: string;
+  phoneCode?: string; // Ej: +57
   routeId: string;
   order: number;
   status: AccountStatus;

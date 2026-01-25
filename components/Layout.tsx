@@ -41,18 +41,37 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 dark:bg-slate-950 font-inter text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Mobile Header */}
-      <div className="md:hidden bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-        <h1 className="font-black text-xl text-indigo-600 tracking-tight">Opulencia</h1>
-        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          <button onClick={toggleTheme} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-             {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-            </svg>
-          </button>
+      <div className="md:hidden bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 flex flex-col gap-3 sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center justify-between">
+            <h1 className="font-black text-xl text-indigo-600 tracking-tight">Opulencia</h1>
+            <div className="flex items-center gap-2">
+                <button onClick={toggleTheme} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                </button>
+            </div>
         </div>
+        
+        {/* Mobile Route Selector */}
+        {showSelector && (
+            <div className="relative">
+                <select 
+                    value={selectedRouteId}
+                    onChange={(e) => onRouteSelect(e.target.value)}
+                    className="w-full bg-indigo-50 dark:bg-indigo-900/20 border-none rounded-xl text-xs font-black text-indigo-700 dark:text-indigo-400 py-2.5 px-4 appearance-none focus:ring-2 focus:ring-indigo-100"
+                >
+                    {isAdmin && <option value="all">Todas las Rutas</option>}
+                    {availableRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+                <div className="absolute right-3 top-2.5 pointer-events-none text-indigo-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                </div>
+            </div>
+        )}
       </div>
 
       {/* Sidebar */}
@@ -143,6 +162,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
       {/* Main Content */}
       <main className="flex-1 overflow-auto p-4 md:p-10 relative">
         <div className="max-w-6xl mx-auto">
+          {/* Desktop Filter */}
           <div className="hidden md:flex justify-end mb-8">
             {showSelector ? (
                <div className="bg-white dark:bg-slate-900 px-6 py-2 rounded-2xl shadow-sm border dark:border-slate-800 flex items-center gap-4 animate-fadeIn">

@@ -1,13 +1,16 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Client, Route, Credit, AccountStatus, User, UserRole } from '../types';
+import { COUNTRY_DATA } from '../constants';
+
+// Leaflet global
+declare const L: any;
 
 interface EditClientProps {
   client?: Client;
-  allClients: Client[]; // Needed for reordering logic
+  allClients: Client[]; 
   routes: Route[];
   credit?: Credit;
-  // currentUser added to fix Property 'currentUser' does not exist on type 'IntrinsicAttributes & EditClientProps' error in App.tsx
   currentUser: User | null;
   onSave: (updatedClients: Client[]) => void;
   onCancel: () => void;
@@ -20,48 +23,96 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     name: '',
     alias: '',
     address: '',
+    phoneCode: '+57',
     phone: '',
+    country: 'Colombia',
+    city: '',
     routeId: '',
     order: 0,
     status: 'Active' as AccountStatus,
-    targetOrderPosition: 'current' // 'current', 'last', or specific index
+    targetOrderPosition: 'current',
+    coordinates: { lat: 4.6097, lng: -74.0817 }
   });
+
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const markerRef = useRef<any>(null);
 
   useEffect(() => {
     if (client) {
+      let pCode = '+57';
+      let pNum = client.phone;
+      if (client.phone && client.phone.includes(' ')) {
+          const parts = client.phone.split(' ');
+          if (parts.length > 1 && parts[0].startsWith('+')) {
+              pCode = parts[0];
+              pNum = parts.slice(1).join(' ');
+          }
+      }
+
       setFormData({
         dni: client.dni,
         name: client.name,
         alias: client.alias,
         address: client.address,
-        phone: client.phone,
+        phoneCode: client.phoneCode || pCode,
+        phone: pNum,
+        country: client.country || 'Colombia',
+        city: client.city || '',
         routeId: client.routeId,
         order: client.order,
         status: client.status || 'Active',
-        targetOrderPosition: 'current'
+        targetOrderPosition: 'current',
+        coordinates: client.coordinates || { lat: 4.6097, lng: -74.0817 }
       });
     }
   }, [client]);
 
-  // Determine potential target clients for ordering
+  // Inicializar Mapa
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    if (!mapInstance.current) {
+        mapInstance.current = L.map(mapRef.current).setView([formData.coordinates.lat, formData.coordinates.lng], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            maxZoom: 20
+        }).addTo(mapInstance.current);
+
+        markerRef.current = L.marker([formData.coordinates.lat, formData.coordinates.lng], { draggable: true })
+            .addTo(mapInstance.current);
+
+        markerRef.current.on('dragend', function(event: any) {
+            const position = event.target.getLatLng();
+            setFormData(prev => ({ ...prev, coordinates: { lat: position.lat, lng: position.lng } }));
+        });
+
+        mapInstance.current.on('click', function(e: any) {
+            markerRef.current.setLatLng(e.latlng);
+            setFormData(prev => ({ ...prev, coordinates: { lat: e.latlng.lat, lng: e.latlng.lng } }));
+        });
+    } else {
+        // Actualizar vista si cambian coords (por ejemplo al cargar client data)
+        mapInstance.current.setView([formData.coordinates.lat, formData.coordinates.lng]);
+        if(markerRef.current) markerRef.current.setLatLng([formData.coordinates.lat, formData.coordinates.lng]);
+    }
+
+    setTimeout(() => mapInstance.current.invalidateSize(), 500);
+
+  }, [formData.coordinates.lat, formData.coordinates.lng]); // Dependencia clave para actualizar pin inicial
+
   const activeRouteClients = useMemo(() => {
     if (!formData.routeId) return [];
-    
-    // Filter active clients in the TARGET route
     let list = allClients.filter(c => c.routeId === formData.routeId && c.status === 'Active');
-    
-    // If we are staying in the same route, exclude self from the list to avoid "Before Self" confusion
     if (client && formData.routeId === client.routeId) {
         list = list.filter(c => c.id !== client.id);
     }
-    
     return list.sort((a, b) => a.order - b.order);
   }, [allClients, formData.routeId, client]);
 
   if (!client) return null;
 
   const currentBalance = credit ? credit.totalToPay - credit.totalPaid : 0;
-  // isAdmin logic to restrict status changes to administrators only
   const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   const handleStatusChange = (newStatus: AccountStatus) => {
@@ -69,7 +120,7 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     if (newStatus === 'Inactive' && currentBalance > 0) {
       setNotification({
         type: 'error', 
-        message: `⚠️ ACCIÓN BLOQUEADA: No se puede inactivar a ${client.name} porque tiene un saldo pendiente de $${currentBalance.toLocaleString()}.`
+        message: `⚠️ ACCIÓN BLOQUEADA: No se puede inactivar a ${client.name} porque tiene saldo pendiente.`
       });
       return;
     }
@@ -84,39 +135,33 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     const isRouteChanging = formData.routeId !== client.routeId;
     const isOrderChanging = formData.targetOrderPosition !== 'current';
 
-    // Scenario 1: Just changing basic details, no order/route change
     if (!isRouteChanging && !isOrderChanging) {
-        updates.push({ ...client, ...formData });
+        updates.push({ 
+            ...client, 
+            ...formData, 
+            phone: `${formData.phoneCode} ${formData.phone}` // Reconstruir telefono completo
+        });
         onSave(updates);
         return;
     }
 
-    // Scenario 2: Changing Order (Same Route) OR Changing Route (New Order logic)
-    
-    // Step A: Calculate new order in Target Route
     if (isRouteChanging || isOrderChanging) {
         if (formData.targetOrderPosition === 'last' || formData.targetOrderPosition === 'current') {
-             // If changing route and selected 'last' (or default), append to end
              finalOrder = activeRouteClients.length + 1;
         } else {
-             // Inserting in specific position
              const targetIndex = parseInt(formData.targetOrderPosition);
              finalOrder = targetIndex + 1;
-             
-             // Shift others down
              activeRouteClients.filter(c => c.order >= finalOrder).forEach(c => {
                  updates.push({ ...c, order: c.order + 1 });
              });
         }
     }
 
-    // Step B: If Route Changed, Close gap in Old Route
     if (isRouteChanging) {
         const oldRouteClients = allClients
             .filter(c => c.routeId === client.routeId && c.status === 'Active' && c.id !== client.id)
             .sort((a,b) => a.order - b.order);
         
-        // Re-normalize orders in old route to fill the gap
         oldRouteClients.forEach((c, idx) => {
             if (c.order !== idx + 1) {
                 updates.push({ ...c, order: idx + 1 });
@@ -124,10 +169,10 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
         });
     }
 
-    // Step C: Update Self
     updates.push({
         ...client,
         ...formData,
+        phone: `${formData.phoneCode} ${formData.phone}`,
         order: finalOrder
     });
 
@@ -143,129 +188,102 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
           </svg>
         </button>
         <div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Editar Perfil de Cliente</h2>
-          <p className="text-slate-500 font-medium">Gestión de ubicación y estado operativo</p>
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Editar Cliente</h2>
+          <p className="text-slate-500 font-medium">Actualización de datos y ubicación</p>
         </div>
       </header>
 
       {notification && (
         <div className={`p-4 rounded-2xl border flex items-center gap-3 animate-slideDown ${notification.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            {notification.type === 'error' ? 
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /> :
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            }
-          </svg>
           <p className="text-sm font-black uppercase tracking-widest">{notification.message}</p>
         </div>
       )}
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-6 md:p-10 space-y-8 md:space-y-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-50 p-6 rounded-[2rem] border border-slate-100 gap-6">
-             <div className="w-full sm:w-auto">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado de Cuenta</p>
-                <p className="text-xs font-bold text-slate-500 mt-1">
-                  Saldo Actual: <span className={currentBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}>${currentBalance.toLocaleString()}</span>
-                </p>
+        <form onSubmit={handleSubmit} className="p-10 space-y-10">
+          
+          {/* Sección Estado */}
+          <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50 p-6 rounded-[2rem] gap-6">
+             <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado Financiero</p>
+                <p className="text-xs font-bold text-slate-500 mt-1">Saldo: <span className={currentBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}>${currentBalance.toLocaleString()}</span></p>
              </div>
              
-             {/* Admin-only logic for status changes */}
              {isAdmin ? (
-               <div className="flex w-full sm:w-auto bg-white p-1.5 rounded-2xl border border-slate-200 gap-1 shadow-inner">
-                  <button 
-                    type="button"
-                    onClick={() => handleStatusChange('Active')}
-                    className={`flex-1 sm:flex-none px-4 md:px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.status === 'Active' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
-                  >
-                    Activo
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => handleStatusChange('Inactive')}
-                    className={`flex-1 sm:flex-none px-4 md:px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      formData.status === 'Inactive' 
-                        ? 'bg-rose-600 text-white shadow-lg' 
-                        : (currentBalance > 0 ? 'text-rose-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:bg-slate-50')
-                    }`}
-                  >
-                    Inactivo
-                  </button>
+               <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 gap-1">
+                  <button type="button" onClick={() => handleStatusChange('Active')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.status === 'Active' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-50'}`}>Activo</button>
+                  <button type="button" onClick={() => handleStatusChange('Inactive')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.status === 'Inactive' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:bg-slate-50'}`}>Inactivo</button>
                </div>
              ) : (
-               <div className="px-6 py-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${formData.status === 'Active' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                     {formData.status === 'Active' ? 'CLIENTE ACTIVO' : 'CLIENTE INACTIVO'}
-                  </span>
+               <div className="px-6 py-3 bg-white rounded-2xl border border-slate-200">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${formData.status === 'Active' ? 'text-emerald-600' : 'text-rose-600'}`}>{formData.status === 'Active' ? 'ACTIVO' : 'INACTIVO'}</span>
                </div>
              )}
           </div>
 
-          <section className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Cédula / Identificación (Inalterable)</label>
-                <input value={formData.dni} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-6 py-4 outline-none font-bold text-slate-400 cursor-not-allowed shadow-inner" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Identificación</label>
+                <input value={formData.dni} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-400 cursor-not-allowed" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nombre Completo (Inalterable)</label>
-                <input value={formData.name} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-6 py-4 outline-none font-bold text-slate-400 cursor-not-allowed shadow-inner" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nombre</label>
+                <input value={formData.name} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-400 cursor-not-allowed" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Alias / Apodo Operativo</label>
-                <input type="text" value={formData.alias} onChange={e => setFormData({...formData, alias: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-emerald-50 font-bold text-slate-700 transition" required />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Alias</label>
+                <input type="text" value={formData.alias} onChange={e => setFormData({...formData, alias: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700" required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Teléfono Móvil</label>
-                <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-emerald-50 font-bold text-slate-700 transition" required />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Móvil</label>
+                <div className="flex gap-2">
+                    <select value={formData.phoneCode} onChange={(e) => setFormData({...formData, phoneCode: e.target.value})} className="w-24 bg-slate-50 border border-slate-200 rounded-2xl px-2 py-4 font-bold text-slate-700 text-xs">{COUNTRY_DATA.map(c => <option key={c.code} value={c.dial_code}>{c.flag} {c.dial_code}</option>)}</select>
+                    <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700" required />
+                </div>
               </div>
               
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ruta Asignada</label>
-                <select 
-                  value={formData.routeId} 
-                  onChange={e => setFormData({...formData, routeId: e.target.value, targetOrderPosition: 'last'})} // Reset pos on route change
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-emerald-50 font-bold text-slate-700 transition appearance-none cursor-pointer"
-                  required
-                >
-                  {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">País</label>
+                <select value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700">{COUNTRY_DATA.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}</select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ciudad</label>
+                <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700" required />
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Dirección Física</label>
+                <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700" required />
+              </div>
+
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ajustar Ubicación en Mapa</label>
+                <div className="w-full h-64 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner relative z-0">
+                    <div ref={mapRef} className="w-full h-full" />
+                </div>
+                <p className="text-[10px] text-slate-400 text-center">Coordenadas: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}</p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ruta</label>
+                <select value={formData.routeId} onChange={e => setFormData({...formData, routeId: e.target.value, targetOrderPosition: 'last'})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700" required>{routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
               </div>
 
               {formData.status === 'Active' && (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Reubicar Orden en Ruta</label>
-                    <div className="relative">
-                        <select 
-                        value={formData.targetOrderPosition}
-                        onChange={e => setFormData({...formData, targetOrderPosition: e.target.value})}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-emerald-50 font-bold text-slate-700 transition appearance-none cursor-pointer"
-                        >
-                        <option value="current" className="font-black text-indigo-700">-- MANTENER POSICIÓN ACTUAL --</option>
-                        <option value="last" className="font-bold">MOVER AL FINAL DE LA RUTA</option>
-                        {activeRouteClients.map((c, idx) => (
-                            <option key={c.id} value={idx}>
-                                Posición {idx + 1} - Antes de: {c.name}
-                            </option>
-                        ))}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                        </div>
-                    </div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Orden de Visita</label>
+                    <select value={formData.targetOrderPosition} onChange={e => setFormData({...formData, targetOrderPosition: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-bold text-slate-700">
+                        <option value="current">MANTENER ACTUAL</option>
+                        <option value="last">MOVER AL FINAL</option>
+                        {activeRouteClients.map((c, idx) => <option key={c.id} value={idx}>Antes de: {c.name}</option>)}
+                    </select>
                   </div>
               )}
+          </div>
 
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Dirección Exacta de Cobro</label>
-                <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-emerald-50 font-bold text-slate-700 transition" required />
-              </div>
-            </div>
-          </section>
-
-          <div className="pt-6 md:pt-10 flex flex-col md:flex-row gap-4">
-            <button type="submit" className="w-full md:flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-8 py-5 rounded-3xl shadow-xl transition transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest">Actualizar Perfil</button>
-            <button type="button" onClick={onCancel} className="w-full md:flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-8 py-5 rounded-3xl transition active:scale-95 uppercase tracking-widest">Descartar</button>
+          <div className="pt-10 flex flex-col md:flex-row gap-4">
+            <button type="submit" className="w-full md:flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-8 py-5 rounded-3xl shadow-xl uppercase tracking-widest">Guardar Cambios</button>
+            <button type="button" onClick={onCancel} className="w-full md:flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-8 py-5 rounded-3xl uppercase tracking-widest">Cancelar</button>
           </div>
         </form>
       </div>
