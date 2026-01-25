@@ -86,6 +86,12 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
     return { balance, routeName: route?.name || 'Ruta Desconocida' };
   }, [selectedClient, allTransactions, allPayments, allExpenses, allCredits, clients, routes]);
 
+  // FIX: Función de normalización robusta
+  const normalizeText = (text: string | null | undefined) => {
+    if (!text) return '';
+    return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
+
   const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchTerm(term);
@@ -97,16 +103,17 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         return;
     }
 
-    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const lowerTerm = normalize(term);
+    const lowerTerm = normalizeText(term);
 
-    // Filtrar sobre los clientes ya filtrados (que vienen por props)
-    // Esto asegura que si el usuario es collector, solo busque en sus rutas
-    const matches = clients.filter(c => 
-        c.dni.includes(term) || 
-        normalize(c.name).includes(lowerTerm) || 
-        normalize(c.alias).includes(lowerTerm)
-    ).slice(0, 8); 
+    // FIX: Búsqueda mejorada que incluye nombre, dni y alias (razón social)
+    // El array `clients` ya viene filtrado desde App.tsx según el rol del usuario (Admin ve todo, Collector solo su ruta)
+    // por lo tanto, aquí solo necesitamos filtrar por coincidencia de texto.
+    const matches = clients.filter(c => {
+        const nameMatch = normalizeText(c.name).includes(lowerTerm);
+        const aliasMatch = normalizeText(c.alias).includes(lowerTerm);
+        const dniMatch = normalizeText(c.dni).includes(lowerTerm);
+        return nameMatch || aliasMatch || dniMatch;
+    }).slice(0, 10); // Limitar a 10 resultados
 
     setSearchResults(matches);
     setShowDropdown(true);
@@ -215,7 +222,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         <div className="p-8 md:p-10 space-y-10">
             {/* Buscador */}
             <div className="space-y-4 relative" ref={searchRef}>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Nombre o DNI)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Nombre, Alias o DNI)</label>
                 <div className="relative group">
                     <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -225,7 +232,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         value={searchTerm} 
                         onChange={handleSearchInput} 
                         onFocus={() => { if(searchTerm) setShowDropdown(true); }}
-                        placeholder="Escriba nombre o cédula..." 
+                        placeholder="Escriba para buscar..." 
                         className="w-full bg-slate-50/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 dark:text-white text-lg shadow-inner placeholder:text-slate-300" 
                     />
                     
@@ -236,25 +243,29 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                                     <div className="bg-slate-50 dark:bg-slate-700 px-6 py-3 border-b border-slate-100 dark:border-slate-600 sticky top-0">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Coincidencias encontradas</p>
                                     </div>
-                                    {searchResults.map(c => (
-                                        <button 
-                                            key={c.id} 
-                                            onClick={() => handleSelectClient(c)}
-                                            className="w-full text-left px-6 py-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-700 last:border-0 flex items-center justify-between group transition-colors"
-                                        >
-                                            <div>
-                                                <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400">{c.name}</p>
-                                                <p className="text-xs text-slate-400 mt-0.5">{c.alias} • <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded">{c.dni}</span></p>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded uppercase group-hover:bg-white group-hover:text-indigo-500">Seleccionar</span>
-                                            </div>
-                                        </button>
-                                    ))}
+                                    {searchResults.map(c => {
+                                        const routeName = routes.find(r => r.id === c.routeId)?.name || 'Sin Ruta';
+                                        return (
+                                            <button 
+                                                key={c.id} 
+                                                onClick={() => handleSelectClient(c)}
+                                                className="w-full text-left px-6 py-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-700 last:border-0 flex items-center justify-between group transition-colors"
+                                            >
+                                                <div>
+                                                    <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400">{c.name}</p>
+                                                    <p className="text-xs text-slate-400 mt-0.5">{c.alias || 'Sin alias'} • <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded">{c.dni}</span></p>
+                                                </div>
+                                                <div className="text-right flex flex-col items-end gap-1">
+                                                    <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded uppercase">{routeName}</span>
+                                                    <span className="text-[9px] font-black text-indigo-500 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Seleccionar</span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                                 </>
                             ) : (
                                 <div className="p-6 text-center text-slate-400 text-sm">
-                                    No se encontraron clientes con "{searchTerm}" en su ruta asignada.
+                                    No se encontraron clientes con "{searchTerm}" en las rutas disponibles.
                                 </div>
                             )}
                         </div>

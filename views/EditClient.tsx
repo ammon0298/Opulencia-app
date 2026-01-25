@@ -18,6 +18,9 @@ interface EditClientProps {
 
 const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, credit, currentUser, onSave, onCancel }) => {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isSearchingAddr, setIsSearchingAddr] = useState(false);
+
   const [formData, setFormData] = useState({
     dni: '',
     name: '',
@@ -37,8 +40,8 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cargar datos del cliente
   useEffect(() => {
     if (client) {
       let pCode = '+57';
@@ -64,7 +67,8 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
         order: client.order,
         status: client.status || 'Active',
         targetOrderPosition: 'current',
-        coordinates: client.coordinates || { lat: 4.6097, lng: -74.0817 }
+        // Si el cliente no tiene coords guardadas, usar default
+        coordinates: (client.coordinates && client.coordinates.lat) ? client.coordinates : { lat: 4.6097, lng: -74.0817 }
       });
     }
   }, [client]);
@@ -92,47 +96,88 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
             markerRef.current.setLatLng(e.latlng);
             setFormData(prev => ({ ...prev, coordinates: { lat: e.latlng.lat, lng: e.latlng.lng } }));
         });
-    } else {
-        mapInstance.current.setView([formData.coordinates.lat, formData.coordinates.lng]);
-        if(markerRef.current) markerRef.current.setLatLng([formData.coordinates.lat, formData.coordinates.lng]);
+    } 
+  }, []); 
+
+  // Efecto para actualizar el mapa cuando cambian las coordenadas (manual o carga)
+  useEffect(() => {
+    if (mapInstance.current && markerRef.current) {
+        const { lat, lng } = formData.coordinates;
+        // Check distance to avoid jarring jumps on small drags
+        const currentCenter = mapInstance.current.getCenter();
+        const dist = Math.sqrt(Math.pow(currentCenter.lat - lat, 2) + Math.pow(currentCenter.lng - lng, 2));
+        
+        if (dist > 0.0001) {
+            mapInstance.current.setView([lat, lng], 16, { animate: true });
+            markerRef.current.setLatLng([lat, lng]);
+        }
+    }
+  }, [formData.coordinates]);
+
+  // BUSQUEDA MANUAL: Reemplaza el autocompletado para evitar sobrescritura accidental
+  const handleAddressSearch = async () => {
+    if (!formData.address || !formData.city) {
+        setNotification({ type: 'error', message: 'Escriba dirección y ciudad primero.' });
+        return;
+    }
+    
+    setIsSearchingAddr(true);
+    try {
+        // Limpiador de formato Colombia
+        let cleanAddress = formData.address
+            .toLowerCase()
+            .replace(/\b(no|num|numero|casa)\b\.?/g, '#') 
+            .replace(/\b(cll|cl)\b\.?/g, 'calle')
+            .replace(/\b(cr|cra|kcra)\b\.?/g, 'carrera')
+            .replace(/\b(av)\b\.?/g, 'avenida');
+
+        const query = `${cleanAddress}, ${formData.city}, ${formData.country}`;
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            const newLat = parseFloat(data[0].lat);
+            const newLng = parseFloat(data[0].lon);
+            setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
+            setNotification({ type: 'success', message: 'Pin movido a la dirección encontrada.' });
+        } else {
+            setNotification({ type: 'error', message: 'No se encontró. Use el pin manual.' });
+        }
+    } catch (error) {
+        console.error("Error geocodificando:", error);
+        setNotification({ type: 'error', message: 'Error de red al buscar.' });
+    } finally {
+        setIsSearchingAddr(false);
+    }
+  };
+
+  const handleGetCurrentLocation = () => {
+    setIsLocating(true);
+    if (!navigator.geolocation) {
+        setNotification({ type: 'error', message: 'Navegador sin soporte GPS.' });
+        setIsLocating(false);
+        return;
     }
 
-    setTimeout(() => mapInstance.current.invalidateSize(), 500);
-
-  }, [formData.coordinates.lat, formData.coordinates.lng]); 
-
-  // Geocodificación Automática al Editar (Incluyendo Dirección)
-  useEffect(() => {
-    const { address, city, country } = formData;
-    if (!city || !country || city.length < 3) return;
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    debounceRef.current = setTimeout(async () => {
-        try {
-            const query = `${address ? address + ', ' : ''}${city}, ${country}`;
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-            const data = await response.json();
-            
-            if (data && data.length > 0) {
-                const newLat = parseFloat(data[0].lat);
-                const newLng = parseFloat(data[0].lon);
-                
-                // Actualizar sin causar re-render loop si es muy similar (opcional, por ahora directo)
-                setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
-                
-                if (mapInstance.current && markerRef.current) {
-                    mapInstance.current.setView([newLat, newLng], 16, { animate: true });
-                    markerRef.current.setLatLng([newLat, newLng]);
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            setFormData(prev => ({
+                ...prev,
+                coordinates: {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
                 }
-            }
-        } catch (error) {
-            console.error("Error geocodificando:", error);
-        }
-    }, 1500);
-
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [formData.address, formData.city, formData.country]);
+            }));
+            setNotification({ type: 'success', message: 'Ubicación GPS fijada.' });
+            setIsLocating(false);
+        },
+        (error) => {
+            setNotification({ type: 'error', message: 'Active el GPS e intente de nuevo.' });
+            setIsLocating(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const activeRouteClients = useMemo(() => {
     if (!formData.routeId) return [];
@@ -153,7 +198,7 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     if (newStatus === 'Inactive' && currentBalance > 0) {
       setNotification({
         type: 'error', 
-        message: `⚠️ ACCIÓN BLOQUEADA: No se puede inactivar a ${client.name} porque tiene saldo pendiente.`
+        message: `⚠️ NO PERMITIDO: Cliente con saldo pendiente.`
       });
       return;
     }
@@ -285,15 +330,41 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
 
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Dirección Física</label>
-                <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white" required />
+                <div className="flex gap-2">
+                    <input 
+                        type="text" 
+                        value={formData.address} 
+                        onChange={e => setFormData({...formData, address: e.target.value})} 
+                        className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white" 
+                        required 
+                    />
+                    <button 
+                        type="button"
+                        onClick={handleAddressSearch}
+                        disabled={isSearchingAddr}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50"
+                    >
+                        {isSearchingAddr ? '...' : '🔍 Buscar'}
+                    </button>
+                </div>
               </div>
 
               <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ajustar Ubicación en Mapa</label>
+                <div className="flex justify-between items-end">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ubicación Precisa (Pin)</label>
+                    <button 
+                        type="button" 
+                        onClick={handleGetCurrentLocation}
+                        disabled={isLocating}
+                        className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95"
+                    >
+                        {isLocating ? 'Cargando...' : '📍 Usar Mi GPS'}
+                    </button>
+                </div>
                 <div className="w-full h-64 rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-inner relative z-0">
                     <div ref={mapRef} className="w-full h-full" />
                 </div>
-                <p className="text-[10px] text-slate-400 text-center">Coordenadas: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}</p>
+                <p className="text-[10px] text-slate-400 text-center">Lat: {formData.coordinates.lat.toFixed(5)}, Lng: {formData.coordinates.lng.toFixed(5)}</p>
               </div>
 
               <div className="space-y-1">
