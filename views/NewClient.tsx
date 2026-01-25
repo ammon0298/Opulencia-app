@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Client, Route, User } from '../types';
 import { COUNTRY_DATA } from '../constants';
@@ -33,6 +32,8 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  // Use ReturnType<typeof setTimeout> to correspond to the environment (browser vs node) without relying on global NodeJS namespace
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inicializar Mapa para Picking
   useEffect(() => {
@@ -48,7 +49,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
 
     markerRef.current = L.marker([formData.coordinates.lat, formData.coordinates.lng], { draggable: true })
         .addTo(mapInstance.current)
-        .bindPopup("Arrastra este pin a la ubicación del cliente")
+        .bindPopup("Arrastra este pin a la ubicación exacta")
         .openPopup();
 
     markerRef.current.on('dragend', function(event: any) {
@@ -61,10 +62,53 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
         setFormData(prev => ({ ...prev, coordinates: { lat: e.latlng.lat, lng: e.latlng.lng } }));
     });
 
-    // Fix map render
-    setTimeout(() => mapInstance.current.invalidateSize(), 500);
+    // Fix map render using ResizeObserver for robustness
+    const resizeObserver = new ResizeObserver(() => {
+        if (mapInstance.current) {
+            mapInstance.current.invalidateSize();
+        }
+    });
+    resizeObserver.observe(mapRef.current);
 
+    return () => resizeObserver.disconnect();
   }, []);
+
+  // Lógica de Geocodificación Automática
+  useEffect(() => {
+    const { address, city, country } = formData;
+    
+    // Solo buscar si hay datos suficientes
+    if (!city || !country || city.length < 3) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+        try {
+            const query = `${address ? address + ', ' : ''}${city}, ${country}`;
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                const newLat = parseFloat(data[0].lat);
+                const newLng = parseFloat(data[0].lon);
+                
+                // Actualizar estado y mapa
+                setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
+                
+                if (mapInstance.current && markerRef.current) {
+                    mapInstance.current.setView([newLat, newLng], 16, { animate: true });
+                    markerRef.current.setLatLng([newLat, newLng]);
+                }
+            }
+        } catch (error) {
+            console.error("Error geocodificando dirección:", error);
+        }
+    }, 1500); // Esperar 1.5s después de que el usuario deje de escribir
+
+    return () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [formData.address, formData.city, formData.country]);
 
   const activeRouteClients = useMemo(() => {
     return clients
@@ -218,6 +262,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                         type="text" 
                         value={formData.city} 
                         onChange={e => setFormData({...formData, city: e.target.value})}
+                        placeholder="Ej: Manizales"
                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
                         required
                     />
@@ -228,6 +273,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                         type="text" 
                         value={formData.address} 
                         onChange={e => setFormData({...formData, address: e.target.value})}
+                        placeholder="Ej: Carrera 23 # 45-10"
                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-100 outline-none transition font-bold text-slate-700"
                         required
                     />
@@ -236,7 +282,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
 
             {/* MAPA PICKER */}
             <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ajuste Fino de Ubicación (Arrastre el Pin)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ajuste Fino de Ubicación (El pin se mueve automáticamente)</label>
                 <div className="w-full h-64 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner relative z-0">
                     <div ref={mapRef} className="w-full h-full" />
                 </div>

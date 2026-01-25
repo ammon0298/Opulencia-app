@@ -86,6 +86,7 @@ const dbToCredit = (c: any): Credit => ({
   totalPaid: Number(c.total_paid ?? 0),
   frequency: c.frequency,
   startDate: c.start_date,
+  firstPaymentDate: c.first_payment_date || c.start_date,
   isOverdue: false,
   status: c.status
 });
@@ -166,6 +167,7 @@ const creditToDb = (c: Credit) => ({
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
   start_date: c.startDate,
+  first_payment_date: c.firstPaymentDate,
   status: c.status
 });
 

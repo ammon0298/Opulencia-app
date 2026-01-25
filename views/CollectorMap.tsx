@@ -66,14 +66,20 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
         });
     }
 
+    // Resize Observer para corrección visual al cargar/redimensionar
+    const resizeObserver = new ResizeObserver(() => {
+        if (mapInstance.current) {
+            mapInstance.current.invalidateSize();
+        }
+    });
+    resizeObserver.observe(mapRef.current);
+
     // Limpiar marcadores anteriores
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
     // Agregar marcadores de cobradores
     activeCollectors.forEach(collector => {
-      // Si no tiene ubicación real, simular una cercana para demo (o no mostrar)
-      // En producción real: if (!collector.currentLocation) return;
       const lat = collector.currentLocation?.lat || 4.6097 + (Math.random() * 0.02 - 0.01);
       const lng = collector.currentLocation?.lng || -74.0817 + (Math.random() * 0.02 - 0.01);
       const lastUpdate = collector.currentLocation?.timestamp || new Date().toISOString();
@@ -83,15 +89,15 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
         className: 'collector-pin',
         html: `
           <div class="relative">
-            <div class="w-10 h-10 bg-indigo-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white font-black text-sm relative z-10 overflow-hidden">
+            <div class="w-12 h-12 bg-indigo-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white font-black text-sm relative z-10 overflow-hidden">
                ${collector.name.charAt(0)}
             </div>
             <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white"></div>
             <div class="absolute inset-0 bg-indigo-400 rounded-full animate-ping opacity-20 -z-10 scale-150"></div>
           </div>
         `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 48]
+        iconSize: [48, 48], // Aumentado para mejor tacto
+        iconAnchor: [24, 56]
       });
 
       const marker = L.marker([lat, lng], { icon: customIcon })
@@ -106,6 +112,8 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
 
       markersRef.current.push(marker);
     });
+
+    return () => resizeObserver.disconnect();
 
   }, [users, theme]);
 

@@ -74,10 +74,13 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
         });
     }
 
-    // Fix crucial: invalidar tamaño para evitar áreas grises
-    setTimeout(() => {
-        mapInstance.current.invalidateSize();
-    }, 100);
+    // Fix crucial: Resize Observer para invalidar tamaño automáticamente
+    const resizeObserver = new ResizeObserver(() => {
+        if (mapInstance.current) {
+            mapInstance.current.invalidateSize();
+        }
+    });
+    resizeObserver.observe(mapRef.current);
 
     // Limpiar marcadores anteriores
     markersRef.current.forEach(m => m.remove());
@@ -91,11 +94,12 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
       const coords = getClientCoords(client);
       const color = financials ? financials.color : '#94a3b8';
 
+      // Pin más grande para facilitar clic en móvil (40x40 en vez de 24x24)
       const customIcon = L.divIcon({
         className: 'custom-pin',
-        html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        html: `<div style="background-color: ${color}; width: 40px; height: 40px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.4);"></div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
       });
 
       const marker = L.marker([coords.lat, coords.lng], { icon: customIcon })
@@ -112,6 +116,8 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
 
       markersRef.current.push(marker);
     });
+
+    return () => resizeObserver.disconnect();
 
   }, [clients, credits, theme, payments]);
 
