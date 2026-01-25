@@ -268,7 +268,8 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
       )}
 
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-10 space-y-10">
+        {/* FIX: Reduced padding on mobile (p-6) to prevent overflow */}
+        <form onSubmit={handleSubmit} className="p-6 md:p-10 space-y-10">
           
           <section className="space-y-6">
             <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm border-b dark:border-slate-800 pb-2">1. Datos Básicos</h3>
@@ -303,11 +304,12 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                     >
                         {COUNTRY_DATA.map(c => <option key={c.code} value={c.dial_code}>{c.flag} {c.dial_code}</option>)}
                     </select>
+                    {/* FIX: added min-w-0 to allow shrinking in flex container */}
                     <input 
                         type="text" 
                         value={formData.phone} 
                         onChange={e => setFormData({...formData, phone: e.target.value})}
-                        className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white"
+                        className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white"
                         required
                     />
                 </div>

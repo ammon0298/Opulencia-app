@@ -276,7 +276,8 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
       )}
 
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-10 space-y-10">
+        {/* FIX: Reduced padding on mobile (p-6) to prevent overflow */}
+        <form onSubmit={handleSubmit} className="p-6 md:p-10 space-y-10">
           
           <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50 dark:bg-slate-800 p-6 rounded-[2rem] gap-6">
              <div>
@@ -313,7 +314,8 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Móvil</label>
                 <div className="flex gap-2">
                     <select value={formData.phoneCode} onChange={(e) => setFormData({...formData, phoneCode: e.target.value})} className="w-24 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-2 py-4 font-bold text-slate-700 dark:text-white text-xs">{COUNTRY_DATA.map(c => <option key={c.code} value={c.dial_code}>{c.flag} {c.dial_code}</option>)}</select>
-                    <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white" required />
+                    {/* FIX: added min-w-0 to allow shrinking in flex container */}
+                    <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white" required />
                 </div>
               </div>
               
