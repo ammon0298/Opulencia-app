@@ -89,7 +89,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
   // FIX: Función de normalización robusta
   const normalizeText = (text: string | null | undefined) => {
     if (!text) return '';
-    return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return text.toString().toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   };
 
   const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,15 +105,13 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
 
     const lowerTerm = normalizeText(term);
 
-    // FIX: Búsqueda mejorada que incluye nombre, dni y alias (razón social)
-    // El array `clients` ya viene filtrado desde App.tsx según el rol del usuario (Admin ve todo, Collector solo su ruta)
-    // por lo tanto, aquí solo necesitamos filtrar por coincidencia de texto.
+    // FIX: Búsqueda mejorada. `clients` ya viene filtrado por ruta desde App.tsx si aplica.
     const matches = clients.filter(c => {
         const nameMatch = normalizeText(c.name).includes(lowerTerm);
         const aliasMatch = normalizeText(c.alias).includes(lowerTerm);
         const dniMatch = normalizeText(c.dni).includes(lowerTerm);
         return nameMatch || aliasMatch || dniMatch;
-    }).slice(0, 10); // Limitar a 10 resultados
+    }).slice(0, 15); // Aumentado límite de resultados
 
     setSearchResults(matches);
     setShowDropdown(true);
@@ -215,15 +213,15 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
         </div>
       )}
 
-      {/* FIX: Added overflow-hidden to clip the decorative bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+      {/* FIX: Se eliminó 'overflow-hidden' del contenedor principal para que el dropdown de búsqueda no se corte */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-t-[2.5rem]"></div>
         
         <div className="p-8 md:p-10 space-y-10">
             {/* Buscador */}
             <div className="space-y-4 relative" ref={searchRef}>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Buscar Cliente (Nombre, Alias o DNI)</label>
-                <div className="relative group">
+                <div className="relative group z-30">
                     <div className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
@@ -236,11 +234,12 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                         className="w-full bg-slate-50/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] pl-16 pr-6 py-5 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 focus:border-indigo-500 outline-none transition-all font-bold text-slate-700 dark:text-white text-lg shadow-inner placeholder:text-slate-300" 
                     />
                     
+                    {/* FIX: Mayor z-index, max-height aumentado y borde visible para evitar cortes visuales */}
                     {showDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[99] animate-fadeIn max-h-[300px] overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-[50] animate-fadeIn max-h-[350px] overflow-y-auto">
                             {searchResults.length > 0 ? (
                                 <>
-                                    <div className="bg-slate-50 dark:bg-slate-700 px-6 py-3 border-b border-slate-100 dark:border-slate-600 sticky top-0">
+                                    <div className="bg-slate-50 dark:bg-slate-800 px-6 py-3 border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Coincidencias encontradas</p>
                                     </div>
                                     {searchResults.map(c => {
@@ -249,14 +248,18 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                                             <button 
                                                 key={c.id} 
                                                 onClick={() => handleSelectClient(c)}
-                                                className="w-full text-left px-6 py-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-700 last:border-0 flex items-center justify-between group transition-colors"
+                                                className="w-full text-left px-6 py-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-800 last:border-0 flex items-center justify-between group transition-colors"
                                             >
                                                 <div>
                                                     <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400">{c.name}</p>
-                                                    <p className="text-xs text-slate-400 mt-0.5">{c.alias || 'Sin alias'} • <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded">{c.dni}</span></p>
+                                                    <p className="text-xs text-slate-400 mt-0.5 flex gap-2">
+                                                        <span>{c.alias ? `Alias: ${c.alias}` : 'Sin alias'}</span>
+                                                        <span>•</span>
+                                                        <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 rounded text-slate-600 dark:text-slate-400">{c.dni}</span>
+                                                    </p>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end gap-1">
-                                                    <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded uppercase">{routeName}</span>
+                                                    <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded uppercase border border-slate-200 dark:border-slate-700">{routeName}</span>
                                                     <span className="text-[9px] font-black text-indigo-500 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Seleccionar</span>
                                                 </div>
                                             </button>
@@ -265,7 +268,7 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
                                 </>
                             ) : (
                                 <div className="p-6 text-center text-slate-400 text-sm">
-                                    No se encontraron clientes con "{searchTerm}" en las rutas disponibles.
+                                    No se encontraron clientes con "{searchTerm}" en la vista actual.
                                 </div>
                             )}
                         </div>

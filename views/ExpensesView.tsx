@@ -21,7 +21,6 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
     return routes.filter(r => user.routeIds.includes(r.id));
   }, [routes, user]);
 
-  // Estado para la imagen del formulario
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -33,7 +32,6 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
     concept: ''
   });
 
-  // Resetear el estado de confirmación si se hace click fuera
   useEffect(() => {
     const handleClickOutside = () => setConfirmDeleteId(null);
     window.addEventListener('click', handleClickOutside);
@@ -44,7 +42,6 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
     setErrorMsg(null);
     const file = e.target.files?.[0];
     if (file) {
-      // Validar tamaño (opcional, ej: < 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setErrorMsg("La imagen es demasiado pesada. Máximo 5MB.");
         return;
@@ -97,7 +94,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
   };
 
   const handleToggleConfirm = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); // Evitar que el listener global resetee el ID inmediatamente
+    e.stopPropagation(); 
     if (confirmDeleteId === id) {
       onDelete(id);
       setConfirmDeleteId(null);
@@ -108,15 +105,15 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      <header className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-[2rem] border shadow-sm gap-4">
+      <header className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm gap-4">
         <div className="text-center md:text-left">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión de Gastos</h2>
-          <p className="text-slate-500 font-medium text-sm">Registro detallado de salidas y egresos operativos</p>
+          <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Gestión de Gastos</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Registro detallado de salidas y egresos operativos</p>
         </div>
         <button 
           onClick={() => setShowForm(!showForm)}
           className={`w-full md:w-auto px-8 py-3.5 rounded-2xl font-black transition shadow-xl flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest text-xs ${
-            showForm ? 'bg-rose-100 text-rose-600 border border-rose-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+            showForm ? 'bg-rose-100 text-rose-600 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400' : 'bg-indigo-600 text-white hover:bg-indigo-700'
           }`}
         >
           {showForm ? 'Cancelar Registro' : 'Nuevo Egreso'}
@@ -124,17 +121,17 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
       </header>
 
       {showForm && (
-        <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-2xl animate-slideDown border-t-[8px] border-emerald-500">
+        <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl animate-slideDown border-t-[8px] border-emerald-500">
           <form onSubmit={handleAdd} className="space-y-8">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-black">
+              <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center font-black">
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
               </div>
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest text-sm">Información del Gasto</h3>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm">Información del Gasto</h3>
             </div>
 
             {errorMsg && (
-                <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl text-xs font-black uppercase tracking-wide border border-rose-100 flex items-center gap-2 animate-pulse">
+                <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-4 rounded-2xl text-xs font-black uppercase tracking-wide border border-rose-100 dark:border-rose-800 flex items-center gap-2 animate-pulse">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                     {errorMsg}
                 </div>
@@ -147,7 +144,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                   value={formData.name} 
                   onChange={e => setFormData({...formData, name: e.target.value})} 
                   placeholder="Ej: Gasolina Moto 1"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-700 shadow-inner" 
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white shadow-inner" 
                   
                 />
               </div>
@@ -160,7 +157,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                     value={formData.value} 
                     onChange={e => setFormData({...formData, value: e.target.value})} 
                     placeholder="0.00"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-black text-slate-800 shadow-inner" 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-6 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-black text-slate-800 dark:text-white shadow-inner" 
                     
                   />
                 </div>
@@ -170,7 +167,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                 <select 
                   value={formData.routeId} 
                   onChange={e => setFormData({...formData, routeId: e.target.value})} 
-                  className={`w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-700 appearance-none cursor-pointer shadow-inner ${allowedRoutes.length === 1 ? 'opacity-80 cursor-not-allowed' : ''}`}
+                  className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white appearance-none cursor-pointer shadow-inner ${allowedRoutes.length === 1 ? 'opacity-80 cursor-not-allowed' : ''}`}
                   disabled={allowedRoutes.length === 1}
                 >
                   {allowedRoutes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -184,7 +181,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                 <select 
                   value={formData.type} 
                   onChange={e => setFormData({...formData, type: e.target.value})} 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-700 appearance-none cursor-pointer shadow-inner"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white appearance-none cursor-pointer shadow-inner"
                 >
                   <option value="Operational">Operacional / Ruta</option>
                   <option value="Personal">Personal / Retiro</option>
@@ -196,7 +193,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                   value={formData.concept} 
                   onChange={e => setFormData({...formData, concept: e.target.value})} 
                   placeholder="Detalle breve del motivo del egreso"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-700 shadow-inner" 
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-700 dark:text-white shadow-inner" 
                   
                 />
               </div>
@@ -206,10 +203,10 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
             <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                     Evidencia Comprobante (Obligatorio)
-                    <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[8px]">Requerido</span>
+                    <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded text-[8px]">Requerido</span>
                 </label>
                 
-                <div className={`relative group border-2 border-dashed rounded-3xl p-6 transition-all text-center ${proofImage ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-indigo-400'}`}>
+                <div className={`relative group border-2 border-dashed rounded-3xl p-6 transition-all text-center ${proofImage ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-indigo-400'}`}>
                     <input 
                         type="file" 
                         accept="image/*" 
@@ -227,11 +224,11 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                         </div>
                     ) : (
                         <div className="py-8 flex flex-col items-center gap-4">
-                            <div className="w-16 h-16 bg-white rounded-full shadow-md flex items-center justify-center text-indigo-500">
+                            <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-full shadow-md flex items-center justify-center text-indigo-500 dark:text-indigo-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                             </div>
                             <div>
-                                <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Tomar Foto o Subir de Galería</p>
+                                <p className="text-sm font-black text-slate-700 dark:text-white uppercase tracking-tight">Tomar Foto o Subir de Galería</p>
                                 <p className="text-xs text-slate-400 mt-1">Soporta JPG, PNG, WEBP (Max 5MB)</p>
                             </div>
                         </div>
@@ -246,10 +243,10 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
         </div>
       )}
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left min-w-[700px]">
-            <thead className="bg-slate-50 border-b border-slate-100">
+            <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
               <tr className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
                 <th className="px-6 md:px-8 py-5">Fecha</th>
                 <th className="px-6 md:px-8 py-5">Identificación</th>
@@ -259,32 +256,32 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                 <th className="px-6 md:px-8 py-5 text-center">Gestión</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {expenses.length > 0 ? expenses.map(exp => (
-                <tr key={exp.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={exp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-6 md:px-8 py-5">
                     <p className="text-xs font-black text-slate-400 uppercase">{new Date(exp.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</p>
-                    <p className="text-[10px] font-medium text-slate-300">{new Date(exp.date + 'T00:00:00').getFullYear()}</p>
+                    <p className="text-[10px] font-medium text-slate-300 dark:text-slate-500">{new Date(exp.date + 'T00:00:00').getFullYear()}</p>
                   </td>
                   <td className="px-6 md:px-8 py-5">
-                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{exp.name}</p>
+                    <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{exp.name}</p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{exp.concept}</p>
                   </td>
                   <td className="px-6 md:px-8 py-5">
                     <div className="inline-flex">
-                      <span className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-tight md:tracking-widest border border-indigo-100 whitespace-nowrap">
+                      <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-tight md:tracking-widest border border-indigo-100 dark:border-indigo-800 whitespace-nowrap">
                         {routes.find(r => r.id === exp.routeId)?.name || 'Sin Ruta'}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 md:px-8 py-5 text-right">
-                    <p className="text-lg md:text-xl font-black text-rose-600">-${exp.value.toLocaleString()}</p>
+                    <p className="text-lg md:text-xl font-black text-rose-600 dark:text-rose-400">-${exp.value.toLocaleString()}</p>
                   </td>
                   <td className="px-6 md:px-8 py-5 text-center">
                     {exp.proofImage ? (
                         <button 
                             onClick={() => setViewImage(exp.proofImage || null)}
-                            className="bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 p-2 rounded-xl transition-colors inline-flex items-center gap-1 group"
+                            className="bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-slate-400 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 p-2 rounded-xl transition-colors inline-flex items-center gap-1 group"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
                             <span className="text-[9px] font-black uppercase hidden group-hover:inline">Ver</span>
@@ -299,7 +296,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
                       className={`min-w-[44px] h-11 flex items-center justify-center rounded-xl transition-all duration-300 shadow-sm border ${
                         confirmDeleteId === exp.id 
                         ? 'bg-rose-600 border-rose-700 text-white px-4 scale-105' 
-                        : 'bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100'
+                        : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-800 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30'
                       }`}
                     >
                       {confirmDeleteId === exp.id ? (
@@ -315,7 +312,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
               )) : (
                 <tr>
                   <td colSpan={6} className="px-8 py-16 text-center">
-                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">
+                    <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-600">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     </div>
                     <p className="text-slate-400 font-black italic uppercase tracking-widest text-xs">No hay egresos registrados hoy</p>

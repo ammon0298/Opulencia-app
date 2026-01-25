@@ -114,7 +114,7 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     }
   }, [formData.coordinates]);
 
-  // BUSQUEDA MANUAL: Reemplaza el autocompletado para evitar sobrescritura accidental
+  // BUSQUEDA MANUAL
   const handleAddressSearch = async () => {
     if (!formData.address || !formData.city) {
         setNotification({ type: 'error', message: 'Escriba dirección y ciudad primero.' });
@@ -123,7 +123,6 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     
     setIsSearchingAddr(true);
     try {
-        // Limpiador de formato Colombia
         let cleanAddress = formData.address
             .toLowerCase()
             .replace(/\b(no|num|numero|casa)\b\.?/g, '#') 
@@ -319,6 +318,7 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
                 </div>
               </div>
               
+              {/* CAMPO PAIS REINTRODUCIDO */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">País</label>
                 <select value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white">{COUNTRY_DATA.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}</select>

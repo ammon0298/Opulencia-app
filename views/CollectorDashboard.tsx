@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
+import { useGlobal } from '../contexts/GlobalContext';
 
 interface DashboardProps {
   navigate: (view: string) => void;
@@ -17,6 +18,7 @@ interface DashboardProps {
 }
 
 const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stats }) => {
+  const { theme } = useGlobal();
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -24,7 +26,6 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
   const selYear = parseInt(selectedPeriod.substring(0, 4));
   const selMonth = parseInt(selectedPeriod.substring(4, 6)) - 1;
 
-  // Generación dinámica de periodos disponibles (Igual que AdminDashboard)
   const availablePeriods = useMemo(() => {
     if (stats.credits.length === 0) {
        const y = parseInt(TODAY_STR.substring(0, 4));
@@ -39,14 +40,12 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
        const start = new Date(cr.startDate + 'T00:00:00');
        if (start.getTime() < minTs) minTs = start.getTime();
 
-       // Calcular fin estimado
        let end = new Date(start);
        if (cr.frequency === 'Monthly') {
           end.setMonth(end.getMonth() + cr.totalInstallments);
        } else if (cr.frequency === 'Weekly') {
           end.setDate(end.getDate() + (cr.totalInstallments * 7));
        } else {
-          // Daily: sumar días hábiles
           let added = 0;
           while (added < cr.totalInstallments) {
              end.setDate(end.getDate() + 1);
@@ -58,7 +57,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 
     const options = [];
     const current = new Date(minTs);
-    current.setDate(1); // Normalizar al día 1
+    current.setDate(1); 
     const limit = new Date(maxTs);
     limit.setDate(1);
 
@@ -72,16 +71,13 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
        current.setMonth(current.getMonth() + 1);
     }
     
-    // Orden descendente (más reciente arriba)
     return options.sort((a, b) => b.value.localeCompare(a.value));
   }, [stats.credits]);
 
-  // Actualización: Usar lógica de días hábiles
   const getInstallmentStatusForDate = (credit: Credit, targetDate: Date) => {
     const startDate = new Date(credit.startDate + 'T00:00:00');
     if (targetDate < startDate) return { isInstallmentDay: false, installmentNum: 0 };
     
-    // Si es Domingo y crédito es diario, no hay cuota
     if (credit.frequency === 'Daily' && targetDate.getDay() === 0) {
         return { isInstallmentDay: false, installmentNum: 0 };
     }
@@ -117,9 +113,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     let totalPendingToCollect = 0;
     let totalLostCapital = 0;
 
-    // Use detailed payment data if available
     if (stats.payments && stats.payments.length > 0) {
-        // Distribute proportionally for metrics
         stats.credits.forEach(cr => {
             const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
             const capitalRatio = cr.capital / cr.totalToPay;
@@ -129,7 +123,6 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
             totalRealizedProfit += creditPayments * profitRatio;
         });
     } else {
-        // Fallback
         stats.credits.forEach(cr => {
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
@@ -179,7 +172,6 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       const currentDate = new Date(selYear, selMonth, day);
       let targetForDay = 0;
       let actualCollected = 0;
-      // Solo calcular si no es Domingo para créditos diarios
       stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
         const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
@@ -214,14 +206,14 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      <header className="bg-white p-10 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+      <header className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border shadow-sm border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
-          <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Gestión de Mi Ruta</span>
-          <h2 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight mt-2">¡Hola, {user.name.split(' ')[0]}!</h2>
+          <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Gestión de Mi Ruta</span>
+          <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white tracking-tight mt-2">¡Hola, {user.name.split(' ')[0]}!</h2>
         </div>
-        <div className="bg-slate-50 p-2 rounded-3xl border border-slate-100 flex items-center">
+        <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center">
              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Periodo:</span>
-             <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="bg-white border-none rounded-2xl text-xs font-black uppercase text-indigo-600 py-2.5 px-4 shadow-sm cursor-pointer focus:ring-0 outline-none">
+             <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="bg-white dark:bg-slate-700 border-none rounded-2xl text-xs font-black uppercase text-indigo-600 dark:text-indigo-300 py-2.5 px-4 shadow-sm cursor-pointer focus:ring-0 outline-none">
                {availablePeriods.map(opt => (
                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                ))}
@@ -244,12 +236,12 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ChartBlock title="Cumplimiento de Mi Ruta (Sanos)" data={chartData} type="compliance" />
-        <ChartBlock title="Recaudo de Mora (Mi Ruta)" data={moraChartData} type="mora" />
+        <ChartBlock title="Cumplimiento de Mi Ruta (Sanos)" data={chartData} type="compliance" theme={theme} />
+        <ChartBlock title="Recaudo de Mora (Mi Ruta)" data={moraChartData} type="mora" theme={theme} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 bg-slate-900 p-10 rounded-[3rem] shadow-2xl">
+        <div className="md:col-span-2 bg-slate-900 dark:bg-black p-10 rounded-[3rem] shadow-2xl border border-slate-800">
            <h3 className="text-2xl font-black text-white mb-8">Panel Operativo</h3>
            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <QuickButton label="Créditos" onClick={() => navigate('credits')} icon={<IconCash />} />
@@ -258,9 +250,9 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
               <QuickButton label="Clientes" onClick={() => navigate('client_management')} icon={<IconUsers />} />
            </div>
         </div>
-        <button onClick={() => navigate('liquidation')} className="bg-white p-10 rounded-[3rem] border-2 border-slate-100 shadow-sm flex flex-col justify-center items-center text-center gap-6 hover:border-indigo-600 transition-all">
-           <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><IconChart /></div>
-           <h4 className="font-black text-2xl text-slate-800 tracking-tight">Cerrar Mi Caja</h4>
+        <button onClick={() => navigate('liquidation')} className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center items-center text-center gap-6 hover:border-indigo-600 dark:hover:border-indigo-500 transition-all group">
+           <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"><IconChart /></div>
+           <h4 className="font-black text-2xl text-slate-800 dark:text-white tracking-tight">Cerrar Mi Caja</h4>
         </button>
       </div>
     </div>
@@ -270,71 +262,74 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 const StatCard = ({ title, value, color, icon }: any) => {
   const colors: any = { indigo: 'bg-indigo-600', emerald: 'bg-emerald-600', rose: 'bg-rose-600', amber: 'bg-amber-600', violet: 'bg-violet-600', red: 'bg-red-600' };
   return (
-    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-6 transition-all hover:translate-y-[-4px] overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-6 transition-all hover:translate-y-[-4px]">
       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 ${colors[color]}`}><div className="scale-110">{icon}</div></div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight whitespace-normal mb-1">{title}</p>
-        <p className="text-2xl md:text-3xl font-black text-slate-800 whitespace-nowrap overflow-visible">{value}</p>
+        <p className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-tight whitespace-normal mb-1">{title}</p>
+        <p className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white whitespace-nowrap overflow-visible">{value}</p>
       </div>
     </div>
   );
 };
 
 const ProgressCard = ({ title, label1, val1, perc1, label2, val2, perc2 }: any) => (
-  <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-     <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><div className="w-2 h-6 bg-emerald-500 rounded-full"></div>{title}</h3>
+  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-700">
+     <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3"><div className="w-2 h-6 bg-emerald-500 rounded-full"></div>{title}</h3>
      <div className="grid grid-cols-2 gap-6">
         <div>
            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label1}</p>
-           <p className="text-xl font-black text-emerald-600">${Math.round(val1).toLocaleString()}</p>
-           {perc1 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{width: `${perc1}%`}}></div></div>}
+           <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">${Math.round(val1).toLocaleString()}</p>
+           {perc1 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{width: `${perc1}%`}}></div></div>}
         </div>
         <div>
            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label2}</p>
-           <p className="text-xl font-black text-indigo-600">${Math.round(val2).toLocaleString()}</p>
-           {perc2 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{width: `${perc2}%`}}></div></div>}
+           <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">${Math.round(val2).toLocaleString()}</p>
+           {perc2 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{width: `${perc2}%`}}></div></div>}
         </div>
      </div>
   </div>
 );
 
-const ChartBlock = ({ title, data, type }: any) => (
-  <div className="bg-white p-8 rounded-[3rem] border border-slate-100 h-96 shadow-sm">
-     <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><div className={`w-2 h-6 rounded-full ${type==='compliance'?'bg-blue-500':'bg-rose-500'}`}></div>{title}</h3>
-     <ResponsiveContainer width="100%" height="70%">
-        <ComposedChart data={data}>
-           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-           <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-           <Tooltip 
-             cursor={{fill: '#f8fafc'}} 
-             contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold'}}
-             formatter={(value: any, name: string) => {
-               if (name === 'collected') return [`$${value}`, 'Recaudado'];
-               if (name === 'target') return [`$${value}`, 'Meta'];
-               if (name === 'moraTotal') return [`$${value}`, 'Total Mora'];
-               return [value, name];
-             }}
-           />
-           {type === 'compliance' ? (
-             <>
-               <Bar dataKey="collected" radius={[4, 4, 0, 0]} barSize={15}>
-                 {data.map((entry: any, index: number) => (
-                   <Cell key={`cell-${index}`} fill={entry.collected >= entry.target ? '#10b981' : '#f59e0b'} />
-                 ))}
-               </Bar>
-               <Line type="monotone" dataKey="target" stroke="#3b82f6" strokeWidth={3} dot={false} />
-             </>
-           ) : (
-             <Line type="stepAfter" dataKey="moraTotal" stroke="#f43f5e" strokeWidth={3} dot={false} />
-           )}
-        </ComposedChart>
-     </ResponsiveContainer>
-  </div>
-);
+const ChartBlock = ({ title, data, type, theme }: any) => {
+  const isDark = theme === 'dark';
+  return (
+    <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-700 h-96 shadow-sm">
+       <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3"><div className={`w-2 h-6 rounded-full ${type==='compliance'?'bg-blue-500':'bg-rose-500'}`}></div>{title}</h3>
+       <ResponsiveContainer width="100%" height="70%">
+          <ComposedChart data={data}>
+             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f1f5f9'} />
+             <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: isDark ? '#94a3b8' : '#94a3b8', fontSize: 10, fontWeight: 800}} />
+             <Tooltip 
+               cursor={{fill: isDark ? '#1e293b' : '#f8fafc'}} 
+               contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: isDark ? '#0f172a' : '#fff', color: isDark ? '#fff' : '#000'}}
+               formatter={(value: any, name: string) => {
+                 if (name === 'collected') return [`$${value}`, 'Recaudado'];
+                 if (name === 'target') return [`$${value}`, 'Meta'];
+                 if (name === 'moraTotal') return [`$${value}`, 'Total Mora'];
+                 return [value, name];
+               }}
+             />
+             {type === 'compliance' ? (
+               <>
+                 <Bar dataKey="collected" radius={[4, 4, 0, 0]} barSize={15}>
+                   {data.map((entry: any, index: number) => (
+                     <Cell key={`cell-${index}`} fill={entry.collected >= entry.target ? '#10b981' : '#f59e0b'} />
+                   ))}
+                 </Bar>
+                 <Line type="monotone" dataKey="target" stroke="#3b82f6" strokeWidth={3} dot={false} />
+               </>
+             ) : (
+               <Line type="stepAfter" dataKey="moraTotal" stroke="#f43f5e" strokeWidth={3} dot={false} />
+             )}
+          </ComposedChart>
+       </ResponsiveContainer>
+    </div>
+  );
+};
 
 const QuickButton = ({ label, onClick, icon }: any) => (
-  <button onClick={onClick} className="flex flex-col items-center gap-3 p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all border border-white/5">
-    <div className="text-indigo-400">{icon}</div>
+  <button onClick={onClick} className="flex flex-col items-center gap-3 p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all border border-white/5 group">
+    <div className="text-indigo-400 group-hover:text-white transition-colors">{icon}</div>
     <span className="text-[10px] font-black text-white uppercase tracking-widest">{label}</span>
   </button>
 );

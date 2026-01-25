@@ -39,12 +39,8 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
 
     // Inicializar mapa si no existe
     if (!mapInstance.current) {
-      // Centro por defecto (o calcular centro de cobradores)
-      const defaultCenter = activeCollectors.length > 0 && activeCollectors[0].currentLocation
-        ? [activeCollectors[0].currentLocation.lat, activeCollectors[0].currentLocation.lng]
-        : [4.6097, -74.0817];
-
-      mapInstance.current = L.map(mapRef.current).setView(defaultCenter, 13);
+      // Centro por defecto
+      mapInstance.current = L.map(mapRef.current).setView([4.6097, -74.0817], 13);
 
       const tileUrl = theme === 'dark' 
         ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
@@ -78,11 +74,15 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
+    const points: any[] = [];
+
     // Agregar marcadores de cobradores
     activeCollectors.forEach(collector => {
       const lat = collector.currentLocation?.lat || 4.6097 + (Math.random() * 0.02 - 0.01);
       const lng = collector.currentLocation?.lng || -74.0817 + (Math.random() * 0.02 - 0.01);
       const lastUpdate = collector.currentLocation?.timestamp || new Date().toISOString();
+
+      points.push([lat, lng]);
 
       // Icono personalizado para cobrador (Avatar)
       const customIcon = L.divIcon({
@@ -112,6 +112,12 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
 
       markersRef.current.push(marker);
     });
+
+    // AUTO FIT: Ajustar vista a todos los cobradores
+    if (points.length > 0) {
+        const bounds = L.latLngBounds(points);
+        mapInstance.current.fitBounds(bounds, { padding: [80, 80], maxZoom: 15 });
+    }
 
     return () => resizeObserver.disconnect();
 

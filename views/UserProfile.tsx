@@ -91,6 +91,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
         setNotification({ type: 'success', message: 'Datos personales actualizados correctamente.' });
     } 
     else if (activeTab === 'security') {
+        // VALIDACIÓN: Email duplicado
         if (formData.username !== user.username) {
             const emailExists = users.some(u => u.username === formData.username && u.id !== user.id);
             if (emailExists) {
@@ -99,36 +100,35 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
             }
         }
 
+        // VALIDACIÓN OBLIGATORIA: Contraseña actual
         if (!formData.currentPassword) {
-            setNotification({ type: 'error', message: 'Seguridad: Debe ingresar su contraseña actual.' });
+            setNotification({ type: 'error', message: 'Seguridad: Es OBLIGATORIO ingresar su contraseña actual para realizar cambios.' });
             return;
         }
 
+        // VERIFICACIÓN: Contraseña actual vs Hash almacenado
         const isCurrentPasswordValid = verifyPassword(formData.currentPassword, user.password || '');
         if (!isCurrentPasswordValid) {
-            setNotification({ type: 'error', message: 'Error: La contraseña actual ingresada es incorrecta.' });
+            setNotification({ type: 'error', message: 'Error: La contraseña actual ingresada es INCORRECTA. Intente nuevamente.' });
             return;
         }
 
-        let finalPassword = user.password; 
-
+        // PROCESO DE CAMBIO DE CONTRASEÑA
         if (formData.newPassword || formData.confirmPassword) {
-            if (formData.newPassword !== formData.confirmPassword) {
-                setNotification({ type: 'error', message: 'Error: La nueva contraseña y la confirmación no coinciden.' });
-                return;
-            }
             if (formData.newPassword.length < 6) {
-                setNotification({ type: 'error', message: 'Error: La nueva contraseña debe tener al menos 6 caracteres.' });
+                setNotification({ type: 'error', message: 'Error: La nueva contraseña es muy corta. Mínimo 6 caracteres.' });
                 return;
             }
-            finalPassword = hashPassword(formData.newPassword);
+            if (formData.newPassword !== formData.confirmPassword) {
+                setNotification({ type: 'error', message: 'Error: La confirmación no coincide con la nueva contraseña.' });
+                return;
+            }
+            
+            const newHash = hashPassword(formData.newPassword);
+            updatedUser.password = newHash;
         }
 
-        updatedUser = {
-            ...updatedUser,
-            username: formData.username,
-            password: finalPassword
-        };
+        updatedUser.username = formData.username;
 
         onUpdate(updatedUser);
         
@@ -146,8 +146,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-20">
       <header>
-        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Mi Perfil</h2>
-        <p className="text-slate-500 font-medium">Administra tu información personal y credenciales de acceso.</p>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Mi Perfil</h2>
+        <p className="text-slate-500 dark:text-slate-400 font-medium">Administra tu información personal y credenciales de acceso.</p>
       </header>
 
       {notification && (
@@ -162,13 +162,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
-        {/* Sidebar Tabs (Sin Cambios) */}
-        <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-6 md:p-8 flex flex-row md:flex-col gap-2 overflow-x-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+        {/* Sidebar Tabs */}
+        <div className="w-full md:w-64 bg-slate-50 dark:bg-slate-950 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 p-6 md:p-8 flex flex-row md:flex-col gap-2 overflow-x-auto">
            <button 
              type="button"
              onClick={() => { setActiveTab('general'); setNotification(null); }}
-             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all whitespace-nowrap ${activeTab === 'general' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}
+             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all whitespace-nowrap ${activeTab === 'general' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400'}`}
            >
              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
              <span className="font-black text-xs uppercase tracking-widest">Datos Generales</span>
@@ -176,7 +176,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
            <button 
              type="button"
              onClick={() => { setActiveTab('security'); setNotification(null); }}
-             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all whitespace-nowrap ${activeTab === 'security' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}
+             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all whitespace-nowrap ${activeTab === 'security' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400'}`}
            >
              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
              <span className="font-black text-xs uppercase tracking-widest">Seguridad</span>
@@ -184,14 +184,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-8 md:p-12 bg-white">
+        <div className="flex-1 p-8 md:p-12 bg-white dark:bg-slate-900">
            <form onSubmit={handleSubmit} className="space-y-8 w-full">
               {activeTab === 'general' && (
                 <div className="space-y-8 animate-fadeIn">
                    <div>
-                      <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+                      <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6 flex items-center gap-2">
                         Información Personal
-                        <span className="bg-slate-100 text-slate-500 text-[9px] px-2 py-1 rounded-md uppercase tracking-wider">{isAdmin ? 'Administrador' : 'Cobrador'}</span>
+                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-[9px] px-2 py-1 rounded-md uppercase tracking-wider">{isAdmin ? 'Administrador' : 'Cobrador'}</span>
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <Input label="Nombre Completo" value={formData.name} onChange={v => setFormData({...formData, name: v})} required disabled />
@@ -204,7 +204,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
                                     <select 
                                         value={formData.phoneCode}
                                         onChange={(e) => setFormData({...formData, phoneCode: e.target.value})}
-                                        className="w-full bg-white border border-slate-200 rounded-2xl pl-4 pr-8 py-4 appearance-none font-bold text-slate-800 text-base focus:ring-4 focus:ring-indigo-50 outline-none transition cursor-pointer shadow-inner truncate"
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-4 pr-8 py-4 appearance-none font-bold text-slate-800 dark:text-white text-base focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition cursor-pointer shadow-inner truncate"
                                     >
                                         {COUNTRY_DATA.map(c => (
                                             <option key={c.code} value={c.dial_code}>
@@ -220,7 +220,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
                                     value={formData.phoneNumber} 
                                     onChange={e => setFormData({...formData, phoneNumber: e.target.value})} 
                                     placeholder="300 123 4567"
-                                    className="flex-1 w-full bg-white border border-slate-200 rounded-2xl px-4 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-800 text-base shadow-inner min-w-0"
+                                    className="flex-1 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-800 dark:text-white text-base shadow-inner min-w-0"
                                     required 
                                 />
                             </div>
@@ -230,8 +230,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
                       </div>
                    </div>
 
-                   <div className="pt-6 border-t border-slate-100">
-                        <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+                   <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                        <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6 flex items-center gap-2">
                            Ubicación y Operación
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -247,13 +247,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
                                     <select 
                                         value={formData.country}
                                         onChange={(e) => setFormData({...formData, country: e.target.value})}
-                                        className="w-full bg-white border border-slate-200 rounded-2xl p-4 appearance-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-indigo-50 outline-none transition cursor-pointer shadow-inner"
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 appearance-none font-bold text-slate-800 dark:text-white text-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition cursor-pointer shadow-inner"
                                         required
                                     >
                                         <option value="">Seleccione...</option>
                                         {Object.entries(countriesByContinent).map(([continent, countries]) => (
-                                            <optgroup key={continent} label={continent} className="font-bold text-indigo-900">
-                                                {/* Fix: Cast countries to proper type to avoid 'unknown' error */}
+                                            <optgroup key={continent} label={continent} className="font-bold text-indigo-900 dark:text-indigo-400">
                                                 {(countries as typeof COUNTRY_DATA).map(c => (
                                                     <option key={c.code} value={c.name}>{c.name}</option>
                                                 ))}
@@ -275,28 +274,29 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
               {activeTab === 'security' && (
                 <div className="space-y-8 animate-fadeIn">
                    <div>
-                      <h3 className="text-xl font-black text-slate-800 mb-6">Credenciales de Acceso</h3>
+                      <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6">Credenciales de Acceso</h3>
                       <div className="space-y-6">
-                         <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-700 mb-6">
+                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-4 rounded-2xl flex gap-3 text-amber-700 dark:text-amber-400 mb-6">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             <p className="text-xs font-bold leading-relaxed">
-                               Para actualizar su correo electrónico o contraseña, es obligatorio verificar su identidad ingresando su contraseña actual.
+                               Por seguridad, cualquier cambio en esta sección requiere que ingrese su contraseña actual para verificar su identidad.
                             </p>
                          </div>
 
                          <Input label="Correo Electrónico (Usuario)" value={formData.username} onChange={v => setFormData({...formData, username: v})} type="email" required />
                          
-                         <div className="py-4 border-t border-slate-100">
-                            <h4 className="text-sm font-black text-slate-700 mb-4">Cambio de Contraseña</h4>
+                         <div className="py-4 border-t border-slate-100 dark:border-slate-800">
+                            <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 mb-4">Gestión de Clave</h4>
                             
-                            <div className="space-y-4">
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                            <div className="space-y-6">
+                                <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 relative">
+                                    <span className="absolute -top-3 left-4 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">Requerido</span>
                                     <Input 
-                                        label="Contraseña Actual (Obligatorio)" 
+                                        label="Contraseña Actual" 
                                         value={formData.currentPassword} 
                                         onChange={v => setFormData({...formData, currentPassword: v})} 
                                         type="password" 
-                                        placeholder="Ingrese su clave actual para confirmar cambios"
+                                        placeholder="Ingrese su clave actual aquí"
                                         required 
                                     />
                                 </div>
@@ -307,7 +307,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
                                         value={formData.newPassword} 
                                         onChange={v => setFormData({...formData, newPassword: v})} 
                                         type="password" 
-                                        placeholder="Min. 6 caracteres"
+                                        placeholder="Min. 6 caracteres (Opcional)"
                                     />
                                     <Input 
                                         label="Confirmar Nueva Contraseña" 
@@ -325,7 +325,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, users, onUpdate }) => {
               )}
 
               <div className="pt-2">
-                 <button type="submit" className="bg-slate-900 hover:bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl transition-all transform active:scale-95">
+                 <button type="submit" className="bg-slate-900 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl transition-all transform active:scale-95">
                     {activeTab === 'general' ? 'Guardar Datos Personales' : 'Actualizar Credenciales'}
                  </button>
               </div>
@@ -345,7 +345,7 @@ const Input = ({ label, value, onChange, type = 'text', placeholder, required, c
       onChange={e => onChange(e.target.value)} 
       placeholder={placeholder}
       disabled={disabled}
-      className={`w-full border border-slate-200 rounded-2xl px-5 py-4 focus:ring-4 focus:ring-indigo-50 outline-none transition font-bold text-slate-800 text-sm shadow-inner ${disabled ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+      className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none transition font-bold text-slate-800 dark:text-white text-sm shadow-inner ${disabled ? 'bg-slate-100 dark:bg-slate-900 text-slate-500 cursor-not-allowed' : ''}`}
       required={required}
     />
   </div>

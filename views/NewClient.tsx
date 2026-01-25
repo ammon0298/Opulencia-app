@@ -141,14 +141,12 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     setIsSearchingAddr(true);
     try {
         // Limpieza de dirección para formato OSM estándar
-        // Cambia "no", "numero", "casa" por "#"
-        // Asegura que "Manizales" o la ciudad esté presente
         let cleanAddress = formData.address
             .toLowerCase()
-            .replace(/\b(no|num|numero|casa)\b\.?/g, '#') // Reemplazar 'no', 'num' por '#'
-            .replace(/\b(cll|cl)\b\.?/g, 'calle') // Reemplazar 'cll' por 'calle'
-            .replace(/\b(cr|cra|kcra)\b\.?/g, 'carrera') // Reemplazar 'cra' por 'carrera'
-            .replace(/\b(av)\b\.?/g, 'avenida'); // Reemplazar 'av' por 'avenida'
+            .replace(/\b(no|num|numero|casa)\b\.?/g, '#') 
+            .replace(/\b(cll|cl)\b\.?/g, 'calle') 
+            .replace(/\b(cr|cra|kcra)\b\.?/g, 'carrera') 
+            .replace(/\b(av)\b\.?/g, 'avenida'); 
 
         const query = `${cleanAddress}, ${formData.city}, ${formData.country}`;
         
@@ -161,7 +159,6 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
             setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
             setNotification({ type: 'success', message: 'Dirección encontrada en el mapa.' });
         } else {
-            // Intento secundario: Buscar solo por el barrio si está en la dirección
             setNotification({ type: 'error', message: 'No se encontró exacto. Intente mover el pin manualmente.' });
         }
     } catch (e) {
@@ -333,6 +330,17 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
             <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm border-b dark:border-slate-800 pb-2">2. Geolocalización (Importante)</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* CAMPO PAIS REINTRODUCIDO */}
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">País</label>
+                    <select 
+                        value={formData.country}
+                        onChange={(e) => setFormData({...formData, country: e.target.value})}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white"
+                    >
+                        {COUNTRY_DATA.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
+                    </select>
+                </div>
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ciudad</label>
                     <input 

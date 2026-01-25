@@ -86,6 +86,9 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
+    // Colección de puntos para ajustar el mapa
+    const points: any[] = [];
+
     // Agregar nuevos marcadores
     clients.forEach(client => {
       if (client.status !== 'Active') return;
@@ -93,6 +96,9 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
       const financials = getClientFinancials(client);
       const coords = getClientCoords(client);
       const color = financials ? financials.color : '#94a3b8';
+
+      // Guardar punto para bounds
+      points.push([coords.lat, coords.lng]);
 
       // Pin más grande para facilitar clic en móvil (40x40 en vez de 24x24)
       const customIcon = L.divIcon({
@@ -116,6 +122,12 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
 
       markersRef.current.push(marker);
     });
+
+    // AUTO FIT BOUNDS: Ajustar zoom para ver todos los puntos
+    if (points.length > 0) {
+       const bounds = L.latLngBounds(points);
+       mapInstance.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
 
     return () => resizeObserver.disconnect();
 

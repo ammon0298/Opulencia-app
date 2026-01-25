@@ -57,7 +57,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     const paymentToday = payments.find(p => p.creditId === credit.id && p.date.split('T')[0] === dateStr);
     const amountPaidToday = paymentToday ? paymentToday.amount : 0;
     
-    // CORRECCIÓN 5: Lógica de estado de pago para colores
+    // Lógica de estado de pago para colores
     // Si pagó hoy la cuota completa o más, es verde.
     const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
     const isPartialPaymentToday = amountPaidToday > 0 && amountPaidToday < credit.installmentValue;
@@ -130,20 +130,33 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   };
 
   // Función auxiliar para determinar el color de la tarjeta
+  // AHORA SOPORTA DARK MODE con fondos translúcidos en lugar de blancos
   const getCardColorClass = (item: any) => {
-      // CORRECCIÓN 2: Si pagó hoy (completo o más), VERDE prioridad
-      if (item.isFullPaymentToday) return 'bg-emerald-50 border-emerald-200 shadow-emerald-100';
+      // Si pagó hoy (completo o más), VERDE prioridad
+      if (item.isFullPaymentToday) 
+        return 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/30 shadow-emerald-100 dark:shadow-none';
 
       // Prioridad: Mora (MORADO) si está en mora y NO pagó hoy suficiente para salir
-      if (item.credit.isOverdue && !item.isPaid) return 'bg-purple-50 border-purple-200 shadow-purple-100';
+      if (item.credit.isOverdue && !item.isPaid) 
+        return 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-500/30 shadow-purple-100 dark:shadow-none';
       
       // Prioridad: Pago Parcial (NARANJA)
-      if (item.isPartialPaymentToday) return 'bg-orange-50 border-orange-200 shadow-orange-100';
+      if (item.isPartialPaymentToday) 
+        return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-500/30 shadow-orange-100 dark:shadow-none';
       
       // Prioridad: No Pago (ROJIZO) solo si es pasado
-      if (targetDate < TODAY_STR && item.realAmount === 0) return 'bg-rose-50 border-rose-200 shadow-rose-100';
+      if (targetDate < TODAY_STR && item.realAmount === 0) 
+        return 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 shadow-rose-100 dark:shadow-none';
 
-      return 'bg-white border-slate-100';
+      // Default (Blanco en Light, Slate Oscuro en Dark)
+      return 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700';
+  };
+
+  const handleOpenMap = (e: React.MouseEvent, lat?: number, lng?: number) => {
+    e.stopPropagation();
+    if (lat && lng) {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+    }
   };
 
   return (
@@ -225,7 +238,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
             <div className="space-y-4 max-w-5xl mx-auto w-full">
               {visitsForDate.length > 0 ? (
                 visitsForDate.map((item, index) => (
-                  <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)} dark:border-opacity-10`}>
+                  <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)}`}>
                     
                     {/* Badge Superior Derecho según Estado */}
                     <div className="absolute top-0 right-0">
@@ -241,9 +254,11 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                     </div>
                     
                     <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-[1.5rem] shrink-0 flex items-center justify-center font-black text-lg md:text-xl shadow-inner transition-all bg-white/50 text-slate-500`}>
+                        <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-[1.5rem] shrink-0 flex items-center justify-center font-black text-lg md:text-xl shadow-inner transition-all bg-white/50 dark:bg-black/20 text-slate-500 dark:text-slate-300`}>
                           {item.order}
                         </div>
+                        
+                        {/* VISTA MÓVIL */}
                         <div className="flex-1 min-w-0 md:hidden">
                             <h4 className="font-black text-lg text-slate-800 dark:text-white truncate">{item.name}</h4>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -254,31 +269,54 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                >
                                 #{item.credit.id.slice(-6).toUpperCase()}
                                </button>
+                               
+                               {/* BOTÓN MAPA MOVIL */}
+                               {item.coordinates?.lat && (
+                                 <button 
+                                   onClick={(e) => handleOpenMap(e, item.coordinates?.lat, item.coordinates?.lng)}
+                                   className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shadow-sm border border-blue-200 dark:border-blue-800 active:scale-95"
+                                   title="Ver en Mapa"
+                                 >
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                                 </button>
+                               )}
                             </div>
                         </div>
                     </div>
 
+                    {/* VISTA ESCRITORIO */}
                     <div className="flex-1 min-w-0 w-full">
                       <div className="hidden md:flex items-center gap-3 mb-1.5">
                         <h4 className="font-black text-xl lg:text-2xl truncate text-slate-800 dark:text-white">{item.name}</h4>
-                        <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">{item.alias}</span>
+                        <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-300">{item.alias}</span>
                         <button 
                           onClick={() => onGoToCredit(item.credit.id)}
                           className="ml-2 bg-slate-800 dark:bg-slate-700 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-all active:scale-95 flex items-center gap-1.5"
                         >
                           #{item.credit.id.slice(-6).toUpperCase()}
                         </button>
+
+                        {/* BOTÓN MAPA ESCRITORIO */}
+                        {item.coordinates?.lat && (
+                           <button 
+                             onClick={(e) => handleOpenMap(e, item.coordinates?.lat, item.coordinates?.lng)}
+                             className="ml-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
+                           >
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                             MAPA
+                           </button>
+                        )}
                       </div>
                       <div className="space-y-1.5 md:space-y-0 md:flex md:flex-wrap md:items-center md:gap-4 lg:gap-6">
-                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-300">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                             <p className="text-xs font-bold md:truncate md:max-w-[200px] lg:max-w-[300px] leading-tight">{item.address}</p>
                          </div>
                          <div className="pt-1 md:pt-0 flex gap-2">
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400`}>
+                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300`}>
                              {item.reason}
                            </span>
-                           {/* CORRECCIÓN 2: Etiqueta AL DÍA si el cliente no debe nada acumulado */}
+                           {/* Etiqueta AL DÍA si el cliente no debe nada acumulado */}
                            {item.isPaid && (
                                <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
                                    ESTADO: AL DÍA
@@ -288,7 +326,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                       </div>
                     </div>
 
-                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-black/5 dark:border-white/5">
+                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-black/5 dark:border-white/10">
                        <div className="flex flex-col items-start md:items-end min-w-[100px] md:min-w-[140px]">
                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 whitespace-nowrap">{item.realAmount > 0 ? 'Recibido' : 'Cuota Sugerida'}</p>
                           <p className={`text-xl md:text-3xl font-black ${item.realAmount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-white'}`}>

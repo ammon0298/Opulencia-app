@@ -50,6 +50,7 @@ const dbToUser = (u: any): User => ({
   id: u.id,
   businessId: u.business_id,
   username: u.username,
+  password: u.password_hash, // Mapeo crítico para validación de contraseña
   name: u.name,
   dni: u.dni,
   phone: u.phone ?? '',
@@ -211,6 +212,7 @@ const App: React.FC = () => {
           const user = JSON.parse(savedUser);
           if (!Array.isArray(user.routeIds)) user.routeIds = [];
           
+          // Al recargar, necesitamos obtener el usuario fresco con su password_hash actualizado si aplica
           setCurrentUser(user);
           await loadBusinessData(user.businessId);
           if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
@@ -319,11 +321,18 @@ const App: React.FC = () => {
 
   const handleUpdateProfile = async (u: User) => {
       const payload: any = userToDb(u);
-      if ((u as any).password) payload.password_hash = (u as any).password;
+      // Si la contraseña fue actualizada en UserProfile, vendrá como hash en u.password
+      // Debemos mapearla al campo correcto de DB 'password_hash'
+      if ((u as any).password && (u as any).password.startsWith('$2')) {
+          payload.password_hash = (u as any).password;
+      }
+      
       const { error } = await supabase.from('users').update(payload).eq('id', u.id);
       if (!error) {
-          setCurrentUser(u);
-          localStorage.setItem('op_user', JSON.stringify(u));
+          // Actualizar estado local asegurando que el nuevo password se mantenga
+          const updatedUser = { ...u };
+          setCurrentUser(updatedUser);
+          localStorage.setItem('op_user', JSON.stringify(updatedUser));
           await loadBusinessData(u.businessId);
       } else {
           console.error("Error updating profile:", error);
