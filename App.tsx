@@ -19,8 +19,8 @@ import NewClient from './views/NewClient';
 import UserProfile from './views/UserProfile';
 import ClientList from './views/ClientList';
 import { supabase } from './lib/supabase';
-import { verifyPassword } from './utils/security';
-import { sendLicenseRequestEmail } from './utils/email';
+import { verifyPassword, generateOTP, hashPassword } from './utils/security';
+import { sendLicenseRequestEmail, sendOTPEmail } from './utils/email';
 import { GlobalProvider } from './contexts/GlobalContext';
 
 // UUID helper
@@ -151,8 +151,9 @@ const paymentToDb = (p: Payment) => ({ business_id: p.businessId, credit_id: p.c
 const dbToExpense = (e: any): Expense => ({ id: e.id, businessId: e.business_id, date: e.expense_date ?? e.created_at?.slice(0, 10), routeId: e.route_id, value: Number(e.amount), name: e.name, type: e.category, concept: e.concept ?? '', proofImage: e.proof_image_url ?? '' });
 const expenseToDb = (e: Expense) => ({ id: e.id, business_id: e.businessId, route_id: e.routeId, name: e.name, amount: e.value, category: e.type, concept: e.concept || null, proof_image_url: e.proofImage || null, expense_date: e.date });
 
+// Fixed: business_id to businessId
 const dbToTx = (t: any): RouteTransaction => ({ id: t.id, businessId: t.business_id, routeId: t.route_id, date: t.transaction_date, amount: Number(t.amount), type: t.type, description: t.description ?? '' });
-const txToDb = (t: RouteTransaction) => ({ id: t.id, business_id: t.businessId, route_id: t.routeId, amount: t.amount, type: t.type, description: t.description || null, transaction_date: t.date });
+const txToDb = (t: RouteTransaction) => ({ id: t.id, business_id: t.businessId, route_id: t.route_id, amount: t.amount, type: t.type, description: t.description || null, transaction_date: t.date });
 
 
 const App: React.FC = () => {
@@ -174,6 +175,9 @@ const App: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const [creditsFilter, setCreditsFilter] = useState<string>('');
+
+  // Estado temporal para recuperación de contraseña
+  const [recoveryState, setRecoveryState] = useState<{email: string, code: string} | null>(null);
 
   const { normalizeId } = useTempIdMap();
 
@@ -212,7 +216,6 @@ const App: React.FC = () => {
           const user = JSON.parse(savedUser);
           if (!Array.isArray(user.routeIds)) user.routeIds = [];
           
-          // Al recargar, necesitamos obtener el usuario fresco con su password_hash actualizado si aplica
           setCurrentUser(user);
           await loadBusinessData(user.businessId);
           if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
@@ -287,6 +290,59 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Lógica de Recuperación de Contraseña ---
+
+  const handleRecoverInitiate = async (email: string): Promise<boolean> => {
+    try {
+        const cleanEmail = email.trim().toLowerCase();
+        // Verificar si existe el usuario
+        const { data: user, error } = await supabase.from('users').select('name').ilike('username', cleanEmail).maybeSingle();
+        
+        if (error || !user) {
+            // Por seguridad, no decimos explícitamente si existe o no, pero aquí devolvemos false para la UI
+            return false;
+        }
+
+        const otp = generateOTP();
+        const sent = await sendOTPEmail(cleanEmail, user.name, otp);
+        
+        if (sent) {
+            setRecoveryState({ email: cleanEmail, code: otp });
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.error(e);
+        return false;
+    }
+  };
+
+  const handleRecoverVerify = (code: string): boolean => {
+    if (!recoveryState) return false;
+    return recoveryState.code === code;
+  };
+
+  const handleRecoverReset = async (newPass: string) => {
+    if (!recoveryState) return;
+    try {
+        const hash = hashPassword(newPass);
+        const { error } = await supabase
+            .from('users')
+            .update({ password_hash: hash })
+            .ilike('username', recoveryState.email);
+
+        if (!error) {
+            setAuthSuccess("Contraseña restablecida correctamente. Inicie sesión.");
+            setRecoveryState(null);
+            setCurrentView('auth'); // Volver al login
+        } else {
+            setAuthError("Error al actualizar la contraseña. Intente de nuevo.");
+        }
+    } catch (e) {
+        setAuthError("Error crítico del sistema.");
+    }
+  };
+
   const filteredData = useMemo(() => {
     const routeFilter = (id: string) => selectedRouteId === 'all' || id === selectedRouteId;
     return {
@@ -343,6 +399,14 @@ const App: React.FC = () => {
   const persistRouteTransaction = async (t: any) => { if(currentUser) await loadBusinessData(currentUser.businessId); };
   const persistUsersFromSetter = async (setter: any) => { if(currentUser) await loadBusinessData(currentUser.businessId); };
 
+  // Manejo de Navegación: Limpia filtros al volver a la vista de créditos desde el menú
+  const handleNavigation = (viewName: string) => {
+    if (viewName === 'credits') {
+        setCreditsFilter('');
+    }
+    setCurrentView(viewName);
+  };
+
   if (isInitializing) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><p className="text-white font-black animate-pulse uppercase tracking-widest">Iniciando Servidores de Producción...</p></div>;
 
   if (!currentUser) {
@@ -356,9 +420,9 @@ const App: React.FC = () => {
           onRegister={handleRegisterInterest}
           onBack={() => { setAuthError(null); setAuthSuccess(null); setCurrentView('landing'); }}
           onSwitchMode={(m) => { setAuthError(null); setAuthSuccess(null); setCurrentView(m); }}
-          onRecoverInitiate={async () => true}
-          onRecoverVerify={() => true}
-          onRecoverReset={() => {}}
+          onRecoverInitiate={handleRecoverInitiate}
+          onRecoverVerify={handleRecoverVerify}
+          onRecoverReset={handleRecoverReset}
           onClearError={() => { setAuthError(null); setAuthSuccess(null); }}
         />
       );
@@ -368,10 +432,10 @@ const App: React.FC = () => {
 
   return (
     <GlobalProvider>
-        <Layout user={currentUser} onLogout={() => {localStorage.removeItem('op_user'); setCurrentUser(null); setCurrentView('landing');}} navigateTo={setCurrentView} currentView={currentView} routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}>
-            {currentView === 'admin_dashboard' && <AdminDashboard navigate={setCurrentView} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{...filteredData, payments: filteredData.payments}} />}
-            {currentView === 'collector_dashboard' && <CollectorDashboard navigate={setCurrentView} user={currentUser} routes={routes} stats={{...filteredData, payments: filteredData.payments}} />}
-            {currentView === 'credits' && <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { await supabase.from('payments').insert(paymentToDb({ id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt })); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_details')}} onViewVisits={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_visits')}} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} />}
+        <Layout user={currentUser} onLogout={() => {localStorage.removeItem('op_user'); setCurrentUser(null); setCurrentView('landing');}} navigateTo={handleNavigation} currentView={currentView} routes={routes} selectedRouteId={selectedRouteId} onRouteSelect={setSelectedRouteId}>
+            {currentView === 'admin_dashboard' && <AdminDashboard navigate={handleNavigation} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{...filteredData, payments: filteredData.payments}} />}
+            {currentView === 'collector_dashboard' && <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={routes} stats={{...filteredData, payments: filteredData.payments}} />}
+            {currentView === 'credits' && <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { await supabase.from('payments').insert(paymentToDb({ id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt })); await loadBusinessData(currentUser.businessId); setCreditsFilter(''); }} onViewDetails={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_details')}} onViewVisits={(cId) => {setSelectedCreditId(cId); setCurrentView('credit_visits')}} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} />}
             {currentView === 'client_management' && <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onEditClient={(id) => {setSelectedClientId(id); setCurrentView('edit_client')}} onDeleteClient={()=>{}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />}
             {currentView === 'edit_client' && <EditClient client={clients.find(c => c.id === selectedClientId)} allClients={clients} routes={routes} credit={credits.find(c => c.clientId === selectedClientId && c.status === 'Active')} currentUser={currentUser} onSave={(l) => {handleSaveClientBulk(l); setCurrentView('client_management')}} onCancel={() => setCurrentView('client_management')} />}
             {currentView === 'new_client' && <NewClient routes={routes} clients={clients} currentUser={currentUser} onSave={(l) => {handleSaveClientBulk(l); setCurrentView('client_management')}} onCancel={() => setCurrentView('client_management')} />}

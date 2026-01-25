@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, UserRole, Route } from '../types';
 import { useGlobal } from '../contexts/GlobalContext';
@@ -125,12 +124,12 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
                 <select 
                     value={language} 
                     onChange={(e) => setLanguage(e.target.value as Language)}
-                    className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase text-center outline-none border-none cursor-pointer"
+                    className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase text-center outline-none border-none cursor-pointer appearance-none"
                 >
-                    <option value="es">ESP</option>
-                    <option value="en">ENG</option>
-                    <option value="pt">POR</option>
-                    <option value="fr">FRA</option>
+                    <option value="es">🇪🇸 ESP</option>
+                    <option value="en">🇺🇸 ENG</option>
+                    <option value="pt">🇧🇷 POR</option>
+                    <option value="fr">🇫🇷 FRA</option>
                 </select>
             </div>
 

@@ -1,78 +1,68 @@
-
 import emailjs from '@emailjs/browser';
 
 // ==============================================================================
-// CONFIGURACIÓN DE EMAIL (Reemplazar con tus datos reales de EmailJS)
+// CONFIGURACIÓN DE EMAILJS - PRODUCCIÓN
 // ==============================================================================
-const SERVICE_ID = 'YOUR_SERVICE_ID'; 
-const TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; 
-const PUBLIC_KEY = 'YOUR_PUBLIC_KEY';   
+const SERVICE_ID = 'service_qp2oakh'; 
+const PUBLIC_KEY = 'r7u59Ac39JfGnqV0A'; 
+
+// Identificadores de Plantillas (Templates)
+const TEMPLATE_OTP = 'template_rosahxt';      // Para recuperación de contraseña
+const TEMPLATE_LICENSE = 'template_v6oy3zm';  // Para nuevos leads/clientes
 
 /**
- * Envía el código OTP al correo del usuario.
+ * Envía el código OTP de recuperación de contraseña.
+ * Plantilla: Password Reset (template_rosahxt)
  */
 export const sendOTPEmail = async (email: string, name: string, otp: string): Promise<boolean> => {
-  if (SERVICE_ID === 'YOUR_SERVICE_ID') {
-    console.group('🔐 [SIMULACIÓN DE ENVÍO DE EMAIL - OTP]');
-    console.log(`📨 Enviando a: ${email}`);
-    console.log(`👤 Usuario: ${name}`);
-    console.log(`🔑 CÓDIGO OTP: ${otp}`);
-    console.groupEnd();
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    return true;
-  }
-
   try {
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-      to_email: email,
-      to_name: name,
-      otp_code: otp,
-      message: `Tu código de recuperación es: ${otp}`,
+    // console.log(`🔄 Enviando OTP a ${email}...`); // Debug dev
+    
+    await emailjs.send(SERVICE_ID, TEMPLATE_OTP, {
+      to_email: email, // Mapea al campo "To Email" en EmailJS
+      to_name: name,   // Mapea a "{{to_name}}" en el cuerpo del correo
+      otp_code: otp,   // Mapea a "{{otp_code}}" en el cuerpo del correo
     }, PUBLIC_KEY);
+
     return true;
   } catch (error) {
-    console.error('❌ Error enviando email real:', error);
+    console.error('❌ Error crítico enviando email (OTP):', error);
+    // En caso de fallo de red, podrías implementar una lógica de reintento aquí o fallback
     return false; 
   }
 };
 
 /**
- * Envía la solicitud de licencia al administrador (admin@opulencia.com).
+ * Envía la solicitud de licencia al administrador.
+ * Plantilla: New License Request (template_v6oy3zm)
  */
 export const sendLicenseRequestEmail = async (data: any): Promise<boolean> => {
-  const adminEmail = 'admin@opulencia.pro';
+  // Correo destino definido en la lógica de negocio (o en la plantilla por defecto)
+  const adminEmail = 'admin@opulencia.pro'; 
   
-  if (SERVICE_ID === 'YOUR_SERVICE_ID') {
-    console.group('💼 [NUEVA SOLICITUD DE LICENCIA]');
-    console.log(`📨 Para: ${adminEmail}`);
-    console.log('--- DATOS DEL INTERESADO ---');
-    console.log(`👤 Nombre: ${data.name}`);
-    console.log(`🏢 Negocio: ${data.businessName}`);
-    console.log(`📧 Email: ${data.email}`);
-    console.log(`📱 Teléfono: ${data.phone}`);
-    console.log(`🆔 DNI/NIT: ${data.dni}`);
-    console.log(`📍 Ubicación: ${data.city}, ${data.country}`);
-    console.log(`🏠 Dirección: ${data.address}`);
-    console.groupEnd();
-    
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Simular proceso de red
-    return true;
-  }
-
   try {
-    // Asume que tienes un template configurado para recibir estos datos
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+    // console.log(`🔄 Enviando solicitud de licencia para ${data.businessName}...`); // Debug dev
+
+    await emailjs.send(SERVICE_ID, TEMPLATE_LICENSE, {
+      // Cabeceras
       to_email: adminEmail,
-      subject: 'Nueva Solicitud de Licencia Opulencia',
-      lead_name: data.name,
-      lead_business: data.businessName,
-      lead_email: data.email,
-      lead_phone: data.phone,
-      lead_details: `DNI: ${data.dni} | Ubicación: ${data.city}, ${data.country}`,
+      
+      // Variables del cuerpo del correo (coinciden con tu template)
+      lead_name: data.name,          // {{lead_name}} - Nombre del interesado
+      lead_business: data.businessName, // {{lead_business}} - Nombre del Negocio
+      lead_email: data.email,        // {{lead_email}} - Correo del interesado
+      lead_phone: data.phone,        // {{lead_phone}} - Teléfono (si está en el template)
+      
+      // Variable compuesta para detalles extra si el template usa {{lead_details}}
+      lead_details: `DNI/NIT: ${data.dni} | Ubicación: ${data.city}, ${data.country} | Dirección: ${data.address}`,
+      
+      // Variable auxiliar por si el template usa {{name}} genérico en el header
+      name: data.name 
     }, PUBLIC_KEY);
+
     return true;
   } catch (error) {
-    console.error('❌ Error enviando solicitud:', error);
+    console.error('❌ Error crítico enviando email (Licencia):', error);
     return false;
   }
 };
