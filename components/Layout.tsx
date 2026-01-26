@@ -19,9 +19,11 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
   const { theme, toggleTheme, language, setLanguage, t } = useGlobal();
 
   const isAdmin = user.role === UserRole.ADMIN;
-  const showSelector = isAdmin || (user.role === UserRole.COLLECTOR && user.routeIds.length > 1);
+  // Mostrar selector si es admin O si es cobrador con AL MENOS 1 ruta asignada
+  const showSelector = isAdmin || (user.role === UserRole.COLLECTOR && user.routeIds.length > 0);
+  
   const availableRoutes = isAdmin ? routes : routes.filter(r => user.routeIds.includes(r.id));
-  const currentRouteName = routes.find(r => r.id === selectedRouteId)?.name || 'Todas las Rutas';
+  const currentRouteName = routes.find(r => r.id === selectedRouteId)?.name || (isAdmin ? 'Todas las Rutas' : 'Ruta Asignada');
 
   const NavItem = ({ view, label, icon }: { view: string, label: string, icon: React.ReactNode }) => (
     <button
@@ -85,7 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
               Opulencia
             </h1>
             <div className="mt-2 text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800 inline-block shadow-sm">
-              {isAdmin ? currentRouteName : (user.routeIds.length > 1 ? currentRouteName : routes.find(r => r.id === user.routeIds[0])?.name || 'Mi Ruta')}
+              {isAdmin ? currentRouteName : (availableRoutes.length > 0 ? currentRouteName : 'Sin Ruta Asignada')}
             </div>
           </div>
 

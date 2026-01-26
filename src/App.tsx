@@ -303,6 +303,14 @@ const AppContent: React.FC = () => {
         try {
           const user = JSON.parse(savedUser);
           setCurrentUser(user);
+          
+          // Configurar ruta inicial basada en rol
+          if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
+             setSelectedRouteId(user.routeIds[0]);
+          } else {
+             setSelectedRouteId('all');
+          }
+
           await loadBusinessData(user.businessId);
           setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
         } catch (e) {
@@ -388,6 +396,14 @@ const AppContent: React.FC = () => {
         const mappedUser = dbToUser(dbUser);
         setCurrentUser(mappedUser);
         localStorage.setItem('op_user', JSON.stringify(mappedUser));
+        
+        // CONFIGURACIÓN DE FILTRO DE RUTA INICIAL SEGÚN ROL
+        if (mappedUser.role === UserRole.COLLECTOR && mappedUser.routeIds.length > 0) {
+            setSelectedRouteId(mappedUser.routeIds[0]);
+        } else {
+            setSelectedRouteId('all');
+        }
+
         await loadBusinessData(mappedUser.businessId);
         setCurrentView(mappedUser.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
       } else {
@@ -494,8 +510,21 @@ const AppContent: React.FC = () => {
     setCurrentView(viewName);
   };
 
+  // Filtrado Seguro de Datos
   const filteredData = useMemo(() => {
-    const routeFilter = (id: string) => selectedRouteId === 'all' || id === selectedRouteId;
+    // Definir las rutas permitidas para el usuario actual
+    const allowedRouteIds = currentUser?.role === UserRole.ADMIN 
+        ? routes.map(r => r.id) 
+        : (currentUser?.routeIds || []);
+
+    // Función de filtro que combina la selección UI y los permisos de seguridad
+    const routeFilter = (itemId: string) => {
+        const isAllowed = allowedRouteIds.includes(itemId);
+        // Si es 'all', permite todas las permitidas. Si es específica, debe coincidir y estar permitida.
+        const isSelected = selectedRouteId === 'all' ? true : itemId === selectedRouteId;
+        return isAllowed && isSelected;
+    };
+
     return {
       clients: clients
         .filter((c) => routeFilter(c.routeId))
@@ -511,7 +540,14 @@ const AppContent: React.FC = () => {
         return !!(c && routeFilter(c.routeId));
       })
     };
-  }, [clients, credits, expenses, payments, selectedRouteId]);
+  }, [clients, credits, expenses, payments, selectedRouteId, currentUser, routes]);
+
+  // Rutas visibles para componentes como Selectores (NewCredit, etc.)
+  const visibleRoutes = useMemo(() => {
+      if (!currentUser) return [];
+      if (currentUser.role === UserRole.ADMIN) return routes;
+      return routes.filter(r => currentUser.routeIds.includes(r.id));
+  }, [routes, currentUser]);
 
   const handleSaveClientBulk = async (updatedClients: Client[]) => {
     if (!currentUser) return;
@@ -567,17 +603,17 @@ const AppContent: React.FC = () => {
 
     switch (currentView) {
       case 'admin_dashboard':
-        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
+        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
       case 'collector_dashboard':
-        return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={routes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
+        return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
       case 'credits':
-        return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
+        return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
       case 'client_management':
         return (
           <ClientManagement 
             clients={filteredData.clients} 
             allClients={clients} 
-            routes={routes} 
+            routes={visibleRoutes} 
             user={currentUser} 
             credits={filteredData.credits} 
             payments={filteredData.payments}
@@ -591,18 +627,18 @@ const AppContent: React.FC = () => {
       case 'edit_client': {
         const clientToEdit = clients.find((c) => c.id === selectedClientId);
         const activeCredit = credits.find((c) => c.clientId === selectedClientId && c.status === 'Active');
-        return <EditClient client={clientToEdit} allClients={clients} routes={routes} credit={activeCredit} currentUser={currentUser} onSave={(updatedList) => { handleSaveClientBulk(updatedList); setCurrentView('client_management'); }} onCancel={() => setCurrentView('client_management')} />;
+        return <EditClient client={clientToEdit} allClients={clients} routes={visibleRoutes} credit={activeCredit} currentUser={currentUser} onSave={(updatedList) => { handleSaveClientBulk(updatedList); setCurrentView('client_management'); }} onCancel={() => setCurrentView('client_management')} />;
       }
       case 'new_client':
-        return <NewClient routes={routes} clients={clients} currentUser={currentUser} onSave={(newClients) => { handleSaveClientBulk(newClients); setCurrentView('client_management'); }} onCancel={() => setCurrentView('client_management')} />;
+        return <NewClient routes={visibleRoutes} clients={clients} currentUser={currentUser} onSave={(newClients) => { handleSaveClientBulk(newClients); setCurrentView('client_management'); }} onCancel={() => setCurrentView('client_management')} />;
       case 'new_credit':
-        return <NewCredit clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={routes} onSave={async (_cl, cr) => { const payload = creditToDb({ ...cr, businessId: currentUser.businessId }); await supabase.from('credits').insert(payload); await loadBusinessData(currentUser.businessId); setCurrentView('credits'); }} />;
+        return <NewCredit clients={filteredData.clients} user={currentUser} allCredits={credits} allExpenses={expenses} allPayments={payments} allTransactions={transactions} routes={visibleRoutes} onSave={async (_cl, cr) => { const payload = creditToDb({ ...cr, businessId: currentUser.businessId }); await supabase.from('credits').insert(payload); await loadBusinessData(currentUser.businessId); setCurrentView('credits'); }} />;
       case 'expenses':
-        return <ExpensesView expenses={filteredData.expenses} routes={routes} user={currentUser} onAdd={async (e) => { const fixed: Expense = { ...e, id: isUuid(e.id) ? e.id : normalizeId(e.id), routeId: isUuid(e.routeId) ? e.routeId : normalizeId(e.routeId), businessId: currentUser.businessId }; await supabase.from('expenses').insert(expenseToDb(fixed)); await loadBusinessData(currentUser.businessId); }} onDelete={async (id) => { await supabase.from('expenses').delete().eq('id', id); setExpenses((prev) => prev.filter((e) => e.id !== id)); }} />;
+        return <ExpensesView expenses={filteredData.expenses} routes={visibleRoutes} user={currentUser} onAdd={async (e) => { const fixed: Expense = { ...e, id: isUuid(e.id) ? e.id : normalizeId(e.id), routeId: isUuid(e.routeId) ? e.routeId : normalizeId(e.routeId), businessId: currentUser.businessId }; await supabase.from('expenses').insert(expenseToDb(fixed)); await loadBusinessData(currentUser.businessId); }} onDelete={async (id) => { await supabase.from('expenses').delete().eq('id', id); setExpenses((prev) => prev.filter((e) => e.id !== id)); }} />;
       case 'routing':
         return <RoutingView clients={filteredData.clients} setClients={setClients} selectedRouteId={selectedRouteId} credits={credits} payments={payments} onGoToCredit={(cid) => { setCreditsFilter(cid); setCurrentView('credits'); }} />;
       case 'liquidation':
-        return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions} />;
+        return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={visibleRoutes} transactions={transactions} />;
       case 'users':
         return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} />;
       case 'routes_mgmt':
@@ -620,7 +656,7 @@ const AppContent: React.FC = () => {
         return <CreditVisits client={clVisits} credit={crVisits} payments={payments.filter((p) => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onUpdatePayment={async (pid, amt) => { await supabase.from('payments').update({ amount: amt }).eq('id', pid); await loadBusinessData(currentUser.businessId); }} />;
       }
       default:
-        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={routes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
+        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
     }
   };
 
