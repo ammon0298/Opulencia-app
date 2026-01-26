@@ -17,20 +17,39 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
   const { theme, t } = useGlobal();
   const [selectedCollector, setSelectedCollector] = useState<User | null>(null);
 
-  // Filtrar solo cobradores activos y que tengan ubicación reportada
+  // Filtrar solo cobradores activos y que tengan ubicación REAL reportada
   const activeCollectors = users.filter(u => 
     u.role === 'COLLECTOR' && 
-    u.status === 'Active'
+    u.status === 'Active' &&
+    u.currentLocation && 
+    u.currentLocation.lat !== null && 
+    u.currentLocation.lng !== null
   );
 
   // Función auxiliar para calcular tiempo transcurrido
   const getTimeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    if (!dateStr) return 'Sin datos';
+    const reportDate = new Date(dateStr);
+    const diff = Date.now() - reportDate.getTime();
+    
+    // Si la fecha es muy antigua (año incorrecto o similar), mostrar solo fecha
+    if (diff < 0) return 'Fecha futura (?)';
+
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1) return 'Ahora mismo';
     if (minutes < 60) return `Hace ${minutes} min`;
     const hours = Math.floor(minutes / 60);
-    return `Hace ${hours} horas`;
+    if (hours < 24) return `Hace ${hours} horas`;
+    const days = Math.floor(hours / 24);
+    return `Hace ${days} días`;
+  };
+
+  const formatDateTime = (dateStr: string) => {
+      if (!dateStr) return '--';
+      return new Date(dateStr).toLocaleString('es-ES', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true
+      });
   };
 
   useEffect(() => {
@@ -38,7 +57,7 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
 
     // Inicializar mapa si no existe
     if (!mapInstance.current) {
-      // Centro por defecto
+      // Centro por defecto (ej. Bogotá o centro geográfico neutral)
       mapInstance.current = L.map(mapRef.current).setView([4.6097, -74.0817], 13);
 
       const tileUrl = theme === 'dark' 
@@ -75,12 +94,12 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
 
     const points: any[] = [];
 
-    // Agregar marcadores de cobradores
+    // Agregar marcadores de cobradores (SOLO DATOS REALES)
     activeCollectors.forEach(collector => {
-      const lat = collector.currentLocation?.lat || 4.6097 + (Math.random() * 0.02 - 0.01);
-      const lng = collector.currentLocation?.lng || -74.0817 + (Math.random() * 0.02 - 0.01);
-      const lastUpdate = collector.currentLocation?.timestamp || new Date().toISOString();
+      if (!collector.currentLocation) return;
 
+      const { lat, lng, timestamp } = collector.currentLocation;
+      
       points.push([lat, lng]);
 
       // Icono personalizado para cobrador (Avatar)
@@ -104,7 +123,7 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
         .on('click', () => {
             setSelectedCollector({
                 ...collector,
-                currentLocation: { lat, lng, timestamp: lastUpdate }
+                currentLocation: { lat, lng, timestamp: timestamp || new Date().toISOString() }
             });
             mapInstance.current.setView([lat, lng], 16, { animate: true });
         });
@@ -130,9 +149,9 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
       <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-lg z-20 border border-slate-100 dark:border-slate-700">
          <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 bg-indigo-600 rounded-full animate-pulse"></div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Rastreo Activo</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Señal GPS Activa</p>
          </div>
-         <p className="font-black text-slate-800 dark:text-white text-lg">{activeCollectors.length} Cobradores</p>
+         <p className="font-black text-slate-800 dark:text-white text-lg">{activeCollectors.length} en Campo</p>
       </div>
 
       {/* Modal Detalle Cobrador (Z-Index ajustado a z-30 para estar sobre leyenda pero bajo menú) */}
@@ -153,11 +172,16 @@ const CollectorMap: React.FC<CollectorMapProps> = ({ users, routes }) => {
             </div>
 
             <div className="space-y-3 mb-6">
-                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl flex justify-between items-center">
+                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl">
                     <span className="text-[10px] font-black text-slate-400 uppercase">Último Reporte</span>
-                    <span className="text-xs font-bold text-emerald-600">
-                        {getTimeAgo(selectedCollector.currentLocation?.timestamp || '')}
-                    </span>
+                    <div className="flex flex-col mt-1">
+                        <span className="text-xs font-bold text-emerald-600">
+                            {getTimeAgo(selectedCollector.currentLocation?.timestamp || '')}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                            {formatDateTime(selectedCollector.currentLocation?.timestamp || '')}
+                        </span>
+                    </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl">
                     <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Rutas Asignadas</span>

@@ -136,10 +136,10 @@ const dbToUser = (u: any): User => ({
   businessName: u.business_name ?? '',
   country: u.country ?? '',
   city: u.city ?? '',
-  currentLocation: u.lat && u.lng ? { 
-      lat: u.lat, 
-      lng: u.lng, 
-      timestamp: u.last_location_at || new Date().toISOString() 
+  currentLocation: (u.lat !== null && u.lat !== undefined && u.lng !== null && u.lng !== undefined) ? { 
+      lat: Number(u.lat), 
+      lng: Number(u.lng), 
+      timestamp: u.last_location_at
   } : undefined
 });
 
