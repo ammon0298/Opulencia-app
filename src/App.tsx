@@ -455,21 +455,10 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const persistRoutesFromSetter = async (setter: React.SetStateAction<Route[]>) => {
-    if (!currentUser) return;
-    let nextRoutes: Route[] = [];
-    setRoutes((prev) => {
-      nextRoutes = typeof setter === 'function' ? (setter as any)(prev) : setter;
-      nextRoutes = nextRoutes.map((r) => ({
-        ...r,
-        id: isUuid(r.id) ? r.id : normalizeId(r.id),
-        businessId: currentUser.businessId
-      }));
-      return nextRoutes;
-    });
-    const payload = nextRoutes.map(routeToDb);
-    await supabase.from('routes').upsert(payload, { onConflict: 'id' });
-    await loadBusinessData(currentUser.businessId);
+  const handleRefreshData = async () => {
+    if (currentUser) {
+        await loadBusinessData(currentUser.businessId);
+    }
   };
 
   const persistRouteTransaction = async (t: RouteTransaction) => {
@@ -481,27 +470,6 @@ const AppContent: React.FC = () => {
       businessId: currentUser.businessId
     };
     await supabase.from('route_transactions').insert(txToDb(fixed));
-    await loadBusinessData(currentUser.businessId);
-  };
-
-  const persistUsersFromSetter = async (setter: React.SetStateAction<User[]>) => {
-    if (!currentUser) return;
-    let nextUsers: User[] = [];
-    setUsers((prev) => {
-      nextUsers = typeof setter === 'function' ? (setter as any)(prev) : setter;
-      nextUsers = nextUsers.map((u) => ({
-        ...u,
-        id: isUuid(u.id) ? u.id : normalizeId(u.id),
-        businessId: currentUser.businessId
-      }));
-      return nextUsers;
-    });
-    const payload = nextUsers.map((u) => {
-      const base = userToDb(u);
-      const withPass = (u as any).password ? { ...base, password_hash: (u as any).password } : base;
-      return withPass;
-    });
-    await supabase.from('users').upsert(payload, { onConflict: 'id' });
     await loadBusinessData(currentUser.businessId);
   };
 
@@ -547,9 +515,9 @@ const AppContent: React.FC = () => {
       case 'liquidation':
         return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={routes} transactions={transactions} />;
       case 'users':
-        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={persistUsersFromSetter as any} />;
+        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} />;
       case 'routes_mgmt':
-        return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={persistRoutesFromSetter as any} onAddTransaction={persistRouteTransaction} />;
+        return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={handleRefreshData} onAddTransaction={persistRouteTransaction} />;
       case 'profile':
         return <UserProfile user={currentUser} users={users} onUpdate={(u) => setCurrentUser(u)} />;
       case 'credit_details': {
