@@ -19,7 +19,7 @@ import NewClient from './views/NewClient';
 import UserProfile from './views/UserProfile';
 import ClientList from './views/ClientList';
 import { supabase } from './lib/supabase';
-import { verifyPassword } from './utils/security';
+import { verifyPassword, hashPassword } from './utils/security';
 import { GlobalProvider } from './contexts/GlobalContext';
 
 // UUID v4 check (suficiente para nuestro caso)
@@ -86,7 +86,7 @@ const dbToCredit = (c: any): Credit => ({
   frequency: c.frequency,
   startDate: c.start_date,
   firstPaymentDate: c.first_payment_date || c.start_date,
-  isOverdue: false,
+  isOverdue: false, // Se recalcula en frontend
   status: c.status
 });
 
@@ -168,14 +168,13 @@ const clientToDb = (c: Client) => ({
 });
 
 const creditToDb = (c: Credit) => ({
-  // OJO: credits.id en tu UI no es UUID (CR-...), así que lo dejamos a la BD
   business_id: c.businessId,
   client_id: c.clientId,
   capital: c.capital,
   total_to_pay: c.totalToPay,
   installment_value: c.installmentValue,
   total_installments: c.totalInstallments,
-  paid_installments: c.paid_installments ?? 0,
+  paid_installments: c.paidInstallments ?? 0,
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
   start_date: c.startDate,
@@ -217,7 +216,6 @@ const userToDb = (u: User) => ({
   id: u.id,
   business_id: u.businessId,
   username: u.username,
-  // password_hash se gestiona aparte cuando se crea/actualiza password
   name: u.name,
   dni: u.dni,
   phone: u.phone || null,
@@ -288,6 +286,7 @@ const AppContent: React.FC = () => {
       if (paymentsData) setPayments(paymentsData.map(dbToPayment));
       if (usersData) setUsers(usersData.map(dbToUser));
       if (transData) setTransactions(transData.map(dbToTx));
+
     } catch (err) {
       console.error('Error cargando datos:', err);
     }
@@ -347,11 +346,62 @@ const AppContent: React.FC = () => {
         setAuthError('Contraseña incorrecta.');
       }
     } catch (err: any) {
-      setAuthError(`Error de conexión.`);
+      setAuthError(`Error de conexión: ${err.message}`);
     } finally {
       setIsInitializing(false);
     }
   };
+
+  const handleRegister = async (data: any) => {
+    try {
+        const newBusinessId = newUuid();
+        
+        // 1. Create User
+        const { data: user, error: userError } = await supabase.from('users').insert({
+            business_id: newBusinessId,
+            username: data.email.trim().toLowerCase(),
+            password_hash: hashPassword(data.password),
+            name: data.name,
+            dni: data.dni,
+            phone: data.phone,
+            address: data.address,
+            role: 'ADMIN',
+            status: 'Active',
+            business_name: data.businessName,
+            city: data.city,
+            country: data.country
+        }).select().single();
+
+        if (userError) throw userError;
+
+        // 2. Create Default Route
+        const { data: route, error: routeError } = await supabase.from('routes').insert({
+            business_id: newBusinessId,
+            name: 'Ruta General'
+        }).select().single();
+        
+        if (routeError) {
+            console.error("Error creating default route:", routeError);
+            // Non-critical, user created anyway
+        } else {
+            // 3. Initial Capital Transaction
+            await supabase.from('route_transactions').insert({
+                business_id: newBusinessId,
+                route_id: route.id,
+                amount: 0,
+                type: 'INITIAL_BASE',
+                description: 'Apertura de Cuenta',
+                transaction_date: new Date().toISOString()
+            });
+        }
+
+        return true;
+    } catch (e: any) {
+        console.error("Registration Error:", e);
+        setAuthError(`Error al registrar: ${e.message || 'Intente nuevamente'}`);
+        return false;
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('op_user');
@@ -399,7 +449,10 @@ const AppContent: React.FC = () => {
 
     const payload = normalized.map(clientToDb);
     const { error } = await supabase.from('clients').upsert(payload, { onConflict: 'id' });
-    if (error) await loadBusinessData(currentUser.businessId);
+    if (error) {
+        console.error("Save Error:", error);
+        await loadBusinessData(currentUser.businessId);
+    }
   };
 
   const persistRoutesFromSetter = async (setter: React.SetStateAction<Route[]>) => {
@@ -463,7 +516,21 @@ const AppContent: React.FC = () => {
       case 'credits':
         return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={routes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
       case 'client_management':
-        return <ClientManagement clients={filteredData.clients} allClients={clients} routes={routes} user={currentUser} selectedRouteId={selectedRouteId} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
+        return (
+          <ClientManagement 
+            clients={filteredData.clients} 
+            allClients={clients} 
+            routes={routes} 
+            user={currentUser} 
+            credits={filteredData.credits} 
+            payments={filteredData.payments}
+            selectedRouteId={selectedRouteId} 
+            onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} 
+            onDeleteClient={() => {}} 
+            onNewClient={() => setCurrentView('new_client')} 
+            onUpdateClients={handleSaveClientBulk} 
+          />
+        );
       case 'edit_client': {
         const clientToEdit = clients.find((c) => c.id === selectedClientId);
         const activeCredit = credits.find((c) => c.clientId === selectedClientId && c.status === 'Active');
@@ -513,7 +580,7 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     if (currentView === 'auth' || currentView === 'register') {
-      return <AuthView mode={currentView === 'register' ? 'register' : 'login'} error={authError} onLogin={handleLogin} onRegister={async () => true} onBack={() => { setAuthError(null); setCurrentView('landing'); }} onSwitchMode={(m) => { setAuthError(null); setCurrentView(m); }} onRecoverInitiate={async () => true} onRecoverVerify={() => true} onRecoverReset={() => {}} onClearError={() => setAuthError(null)} />;
+      return <AuthView mode={currentView === 'register' ? 'register' : 'login'} error={authError} onLogin={handleLogin} onRegister={handleRegister} onBack={() => { setAuthError(null); setCurrentView('landing'); }} onSwitchMode={(m) => { setAuthError(null); setCurrentView(m); }} onRecoverInitiate={async () => true} onRecoverVerify={() => true} onRecoverReset={() => {}} onClearError={() => setAuthError(null)} />;
     }
     return <LandingPage onLogin={() => setCurrentView('auth')} onRegister={() => setCurrentView('register')} />;
   }
