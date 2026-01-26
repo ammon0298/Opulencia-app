@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
 import { useGlobal } from '../contexts/GlobalContext';
+import AIAssistant from '../components/AIAssistant';
 
 interface DashboardProps {
   navigate: (view: string) => void;
@@ -220,6 +220,14 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
              </select>
         </div>
       </header>
+
+      {/* AI Assistant Integration */}
+      <div className="mb-8">
+        <AIAssistant 
+          metrics={metrics} 
+          totalExpenses={stats.expenses.reduce((a, b) => a + b.value, 0)} 
+        />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StatCard title="Recaudado Hoy" value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />

@@ -310,6 +310,50 @@ const AppContent: React.FC = () => {
     checkSession();
   }, []);
 
+  // SISTEMA DE RASTREO GPS AUTOMÁTICO (Heartbeat)
+  // Se sincroniza cada 5 minutos al campo `last_location_at` de la BD
+  useEffect(() => {
+    let gpsInterval: any;
+
+    const trackLocation = async () => {
+        if (!currentUser || currentUser.role !== UserRole.COLLECTOR || !navigator.geolocation) return;
+
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const { latitude, longitude } = position.coords;
+            const now = new Date().toISOString();
+
+            try {
+                // Actualizar DB silenciosamente (lat, lng, last_location_at)
+                await supabase.from('users').update({
+                    lat: latitude,
+                    lng: longitude,
+                    last_location_at: now
+                }).eq('id', currentUser.id);
+            } catch (err) {
+                console.error("Error enviando GPS:", err);
+            }
+        }, (error) => {
+            console.warn("GPS no disponible:", error.message);
+        }, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        });
+    };
+
+    if (currentUser && currentUser.role === UserRole.COLLECTOR) {
+        // 1. Enviar ubicación inmediatamente al cargar/loguear
+        trackLocation();
+
+        // 2. Establecer intervalo de 5 minutos (300,000 ms)
+        gpsInterval = setInterval(trackLocation, 300000);
+    }
+
+    return () => {
+        if (gpsInterval) clearInterval(gpsInterval);
+    };
+  }, [currentUser]);
+
   const handleLogin = async (u: string, p: string) => {
     setAuthError(null);
     setIsInitializing(true);
