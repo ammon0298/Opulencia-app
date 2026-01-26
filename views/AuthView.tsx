@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { COUNTRY_DATA } from '../constants';
 
@@ -7,7 +6,7 @@ interface AuthViewProps {
   error?: string | null; 
   successMessage?: string | null;
   onLogin: (u: string, p: string) => void;
-  onRegister: (data: any) => Promise<boolean>; 
+  onRegister: (data: any) => Promise<boolean>;
   onBack: () => void;
   onSwitchMode: (mode: 'login' | 'register') => void;
   onRecoverInitiate: (email: string) => Promise<boolean>;
@@ -20,6 +19,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
   const [recoveryStep, setRecoveryStep] = useState<'none' | 'email' | 'code' | 'reset'>('none');
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [requestSent, setRequestSent] = useState(false);
   
   const [recEmail, setRecEmail] = useState('');
   const [recCode, setRecCode] = useState('');
@@ -72,6 +72,8 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
             setIsLoading(false);
             if (!success) {
                 setValidationError("Hubo un problema enviando la solicitud. Intente nuevamente.");
+            } else {
+                setRequestSent(true);
             }
         }
     } catch (err) {
@@ -86,16 +88,25 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
     onClearError();
     
     if (recoveryStep === 'email') {
+        if (!recEmail.trim()) {
+            setValidationError("Ingrese su correo electrónico.");
+            return;
+        }
         setIsLoading(true);
+        // La validación de existencia se hace dentro de onRecoverInitiate en App.tsx
         const success = await onRecoverInitiate(recEmail);
         setIsLoading(false);
-        if (success) setRecoveryStep('code');
-        else setValidationError("No pudimos verificar este correo.");
+        if (success) {
+            setRecoveryStep('code');
+        } else {
+            // MENSAJE DE ALERTA ESPECÍFICO SOLICITADO
+            setValidationError("El correo ingresado no existe o no está registrado en el sistema.");
+        }
         
     } else if (recoveryStep === 'code') {
         const success = onRecoverVerify(recCode);
         if (success) setRecoveryStep('reset');
-        else setValidationError("Código incorrecto.");
+        else setValidationError("Código incorrecto o expirado.");
         
     } else if (recoveryStep === 'reset') {
         if (recPass1.length < 6) {
@@ -147,7 +158,23 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
 
         <div className="col-span-1 lg:col-span-8 p-8 md:p-12 lg:p-16 flex flex-col justify-center relative">
           
-          {recoveryStep !== 'none' ? (
+          {requestSent ? (
+             <div className="animate-slideDown w-full max-w-md mx-auto text-center">
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-4">¡Solicitud Recibida!</h3>
+                <p className="text-slate-500 font-medium text-lg mb-8 leading-relaxed">
+                    Hemos recibido su información correctamente. Un asesor comercial se pondrá en contacto con usted en breve para activar su licencia corporativa.
+                </p>
+                <button 
+                    onClick={onBack} 
+                    className="bg-slate-900 hover:bg-slate-800 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl transition-all active:scale-95"
+                >
+                    Volver al Inicio
+                </button>
+             </div>
+          ) : recoveryStep !== 'none' ? (
              <div className="animate-slideDown w-full max-w-md mx-auto">
                 <header className="mb-8 text-center">
                     <h3 className="text-2xl font-black text-slate-800">Recuperación de Cuenta</h3>
@@ -174,6 +201,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
 
                     {displayError && (
                         <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-rose-600 text-xs font-bold animate-shake">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                             {displayError}
                         </div>
                     )}
@@ -182,7 +210,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                         <button 
                             type="submit" 
                             disabled={isLoading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition active:scale-95 uppercase tracking-[0.2em] text-xs"
+                            className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition active:scale-95 uppercase tracking-[0.2em] text-xs ${isLoading ? 'opacity-80 cursor-wait' : ''}`}
                         >
                             {isLoading ? 'PROCESANDO...' : (recoveryStep === 'email' ? 'ENVIAR CÓDIGO' : (recoveryStep === 'code' ? 'VERIFICAR' : 'CAMBIAR CLAVE'))}
                         </button>
@@ -314,7 +342,7 @@ const AuthView: React.FC<AuthViewProps> = ({ mode, error, successMessage, onLogi
                             disabled={isLoading} 
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 md:py-5 rounded-2xl shadow-xl transition transform active:scale-95 uppercase tracking-[0.2em] text-[10px] md:text-xs border-b-4 border-indigo-900"
                         >
-                           {isLoading ? 'PROCESANDO...' : (mode === 'login' ? 'INICIAR SESIÓN' : 'SOLICITAR LICENCIA')}
+                           {isLoading ? 'PROCESANDO...' : (mode === 'login' ? 'INICIAR SESIÓN' : 'ENVIAR SOLICITUD')}
                         </button>
                     </div>
                 </form>

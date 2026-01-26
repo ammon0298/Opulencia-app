@@ -19,8 +19,9 @@ import NewClient from './views/NewClient';
 import UserProfile from './views/UserProfile';
 import ClientList from './views/ClientList';
 import { supabase } from './lib/supabase';
-import { verifyPassword, hashPassword } from './utils/security';
+import { verifyPassword, hashPassword, generateOTP } from './utils/security';
 import { GlobalProvider } from './contexts/GlobalContext';
+import { sendLicenseRequestEmail, sendOTPEmail } from './utils/email';
 
 // UUID v4 check (suficiente para nuestro caso)
 const isUuid = (v: string) =>
@@ -101,7 +102,7 @@ const dbToPayment = (p: any): Payment => ({
 
 const dbToExpense = (e: any): Expense => ({
   id: e.id,
-  businessId: e.business_id,
+  businessId: e.business_id, // Fix: Changed business_id to businessId to match Expense interface
   date: e.expense_date ?? e.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   routeId: e.route_id,
   value: Number(e.amount),
@@ -247,6 +248,9 @@ const AppContent: React.FC = () => {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('all');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Recovery State
+  const [recoveryData, setRecoveryData] = useState<{email: string, otp: string} | null>(null);
 
   // Selection State
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -398,54 +402,86 @@ const AppContent: React.FC = () => {
 
   const handleRegister = async (data: any) => {
     try {
-        const newBusinessId = newUuid();
+        // En lugar de crear usuarios en DB, enviamos email de solicitud
+        const emailSent = await sendLicenseRequestEmail(data);
         
-        // 1. Create User
-        const { data: user, error: userError } = await supabase.from('users').insert({
-            business_id: newBusinessId,
-            username: data.email.trim().toLowerCase(),
-            password_hash: hashPassword(data.password),
-            name: data.name,
-            dni: data.dni,
-            phone: data.phone,
-            address: data.address,
-            role: 'ADMIN',
-            status: 'Active',
-            business_name: data.businessName,
-            city: data.city,
-            country: data.country
-        }).select().single();
-
-        if (userError) throw userError;
-
-        // 2. Create Default Route
-        const { data: route, error: routeError } = await supabase.from('routes').insert({
-            business_id: newBusinessId,
-            name: 'Ruta General'
-        }).select().single();
-        
-        if (routeError) {
-            console.error("Error creating default route:", routeError);
-            // Non-critical, user created anyway
-        } else {
-            // 3. Initial Capital Transaction
-            await supabase.from('route_transactions').insert({
-                business_id: newBusinessId,
-                route_id: route.id,
-                amount: 0,
-                type: 'INITIAL_BASE',
-                description: 'Apertura de Cuenta',
-                transaction_date: new Date().toISOString()
-            });
+        if (!emailSent) {
+            throw new Error("No se pudo enviar el correo de solicitud. Por favor verifique su conexión.");
         }
 
         return true;
     } catch (e: any) {
-        console.error("Registration Error:", e);
-        setAuthError(`Error al registrar: ${e.message || 'Intente nuevamente'}`);
+        console.error("License Request Error:", e);
+        setAuthError(`Error al enviar solicitud: ${e.message || 'Intente nuevamente'}`);
         return false;
     }
   }
+
+  // --- LÓGICA DE RECUPERACIÓN DE CONTRASEÑA ---
+  
+  const handleRecoverInitiate = async (email: string): Promise<boolean> => {
+    try {
+        const cleanEmail = email.trim().toLowerCase();
+        
+        // 1. Validar que el correo existe en la base de datos
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('name')
+            .ilike('username', cleanEmail)
+            .maybeSingle();
+
+        if (error) {
+            console.error("Error buscando usuario:", error);
+            return false;
+        }
+
+        if (!user) {
+            // Usuario NO existe: Retornamos false para que la vista muestre alerta
+            return false;
+        }
+
+        // 2. Generar OTP y enviar correo
+        const otp = generateOTP();
+        const emailSent = await sendOTPEmail(cleanEmail, user.name, otp);
+
+        if (emailSent) {
+            setRecoveryData({ email: cleanEmail, otp });
+            return true;
+        }
+        
+        return false;
+    } catch (err) {
+        console.error("Critical recovery error:", err);
+        return false;
+    }
+  };
+
+  const handleRecoverVerify = (code: string): boolean => {
+    if (!recoveryData) return false;
+    return recoveryData.otp === code;
+  };
+
+  const handleRecoverReset = async (newPass: string) => {
+    if (!recoveryData) return;
+    try {
+        const newHash = hashPassword(newPass);
+        const { error } = await supabase
+            .from('users')
+            .update({ password_hash: newHash })
+            .ilike('username', recoveryData.email);
+        
+        if (error) throw error;
+        
+        setNotification({ type: 'success', message: 'Contraseña restablecida con éxito. Inicie sesión.' });
+        setRecoveryData(null);
+        setCurrentView('auth');
+    } catch (err: any) {
+        console.error("Reset error:", err);
+        setAuthError("Error actualizando la contraseña.");
+    }
+  };
+
+  // --- FIN LÓGICA RECUPERACIÓN ---
 
   const handleLogout = () => {
     localStorage.removeItem('op_user');
@@ -516,6 +552,15 @@ const AppContent: React.FC = () => {
     await supabase.from('route_transactions').insert(txToDb(fixed));
     await loadBusinessData(currentUser.businessId);
   };
+
+  // Helper para notificaciones flotantes simples
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  useEffect(() => {
+      if (notification) {
+          const timer = setTimeout(() => setNotification(null), 4000);
+          return () => clearTimeout(timer);
+      }
+  }, [notification]);
 
   const renderContent = () => {
     if (!currentUser) return null;
@@ -592,7 +637,19 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     if (currentView === 'auth' || currentView === 'register') {
-      return <AuthView mode={currentView === 'register' ? 'register' : 'login'} error={authError} onLogin={handleLogin} onRegister={handleRegister} onBack={() => { setAuthError(null); setCurrentView('landing'); }} onSwitchMode={(m) => { setAuthError(null); setCurrentView(m); }} onRecoverInitiate={async () => true} onRecoverVerify={() => true} onRecoverReset={() => {}} onClearError={() => setAuthError(null)} />;
+      return <AuthView 
+        mode={currentView === 'register' ? 'register' : 'login'} 
+        error={authError} 
+        successMessage={notification?.type === 'success' ? notification.message : null}
+        onLogin={handleLogin} 
+        onRegister={handleRegister} 
+        onBack={() => { setAuthError(null); setCurrentView('landing'); }} 
+        onSwitchMode={(m) => { setAuthError(null); setCurrentView(m); }} 
+        onRecoverInitiate={handleRecoverInitiate}
+        onRecoverVerify={handleRecoverVerify}
+        onRecoverReset={handleRecoverReset}
+        onClearError={() => setAuthError(null)} 
+      />;
     }
     return <LandingPage onLogin={() => setCurrentView('auth')} onRegister={() => setCurrentView('register')} />;
   }
