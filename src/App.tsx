@@ -174,7 +174,7 @@ const creditToDb = (c: Credit) => ({
   total_to_pay: c.totalToPay,
   installment_value: c.installmentValue,
   total_installments: c.totalInstallments,
-  paid_installments: c.paid_installments ?? 0,
+  paid_installments: c.paidInstallments ?? 0,
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
   start_date: c.startDate,
@@ -279,7 +279,6 @@ const AppContent: React.FC = () => {
         console.error('Load errors:', { cErr, crErr, rErr, eErr, pErr, uErr, tErr });
       }
 
-      // CARGA DE DATOS REALES (Sin fallbacks a Mocks)
       if (clientsData) setClients(clientsData.map(dbToClient));
       if (creditsData) setCredits(creditsData.map(dbToCredit));
       if (routesData) setRoutes(routesData.map(dbToRoute));
