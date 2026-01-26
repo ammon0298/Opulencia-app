@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole } from './types';
 import Layout from './components/Layout';
@@ -323,7 +324,6 @@ const AppContent: React.FC = () => {
   }, []);
 
   // SISTEMA DE RASTREO GPS AUTOMÁTICO (Heartbeat)
-  // Se sincroniza cada 5 minutos al campo `last_location_at` de la BD
   useEffect(() => {
     let gpsInterval: any;
 
@@ -335,7 +335,6 @@ const AppContent: React.FC = () => {
             const now = new Date().toISOString();
 
             try {
-                // Actualizar DB silenciosamente (lat, lng, last_location_at)
                 await supabase.from('users').update({
                     lat: latitude,
                     lng: longitude,
@@ -354,10 +353,7 @@ const AppContent: React.FC = () => {
     };
 
     if (currentUser && currentUser.role === UserRole.COLLECTOR) {
-        // 1. Enviar ubicación inmediatamente al cargar/loguear
         trackLocation();
-
-        // 2. Establecer intervalo de 5 minutos (300,000 ms)
         gpsInterval = setInterval(trackLocation, 300000);
     }
 
@@ -397,7 +393,6 @@ const AppContent: React.FC = () => {
         setCurrentUser(mappedUser);
         localStorage.setItem('op_user', JSON.stringify(mappedUser));
         
-        // CONFIGURACIÓN DE FILTRO DE RUTA INICIAL SEGÚN ROL
         if (mappedUser.role === UserRole.COLLECTOR && mappedUser.routeIds.length > 0) {
             setSelectedRouteId(mappedUser.routeIds[0]);
         } else {
@@ -418,13 +413,10 @@ const AppContent: React.FC = () => {
 
   const handleRegister = async (data: any) => {
     try {
-        // En lugar de crear usuarios en DB, enviamos email de solicitud
         const emailSent = await sendLicenseRequestEmail(data);
-        
         if (!emailSent) {
             throw new Error("No se pudo enviar el correo de solicitud. Por favor verifique su conexión.");
         }
-
         return true;
     } catch (e: any) {
         console.error("License Request Error:", e);
@@ -433,13 +425,9 @@ const AppContent: React.FC = () => {
     }
   }
 
-  // --- LÓGICA DE RECUPERACIÓN DE CONTRASEÑA ---
-  
   const handleRecoverInitiate = async (email: string): Promise<boolean> => {
     try {
         const cleanEmail = email.trim().toLowerCase();
-        
-        // 1. Validar que el correo existe en la base de datos
         const { data: user, error } = await supabase
             .from('users')
             .select('name')
@@ -451,12 +439,8 @@ const AppContent: React.FC = () => {
             return false;
         }
 
-        if (!user) {
-            // Usuario NO existe: Retornamos false para que la vista muestre alerta
-            return false;
-        }
+        if (!user) return false;
 
-        // 2. Generar OTP y enviar correo
         const otp = generateOTP();
         const emailSent = await sendOTPEmail(cleanEmail, user.name, otp);
 
@@ -464,7 +448,6 @@ const AppContent: React.FC = () => {
             setRecoveryData({ email: cleanEmail, otp });
             return true;
         }
-        
         return false;
     } catch (err) {
         console.error("Critical recovery error:", err);
@@ -497,8 +480,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // --- FIN LÓGICA RECUPERACIÓN ---
-
   const handleLogout = () => {
     localStorage.removeItem('op_user');
     setCurrentUser(null);
@@ -510,17 +491,13 @@ const AppContent: React.FC = () => {
     setCurrentView(viewName);
   };
 
-  // Filtrado Seguro de Datos
   const filteredData = useMemo(() => {
-    // Definir las rutas permitidas para el usuario actual
     const allowedRouteIds = currentUser?.role === UserRole.ADMIN 
         ? routes.map(r => r.id) 
         : (currentUser?.routeIds || []);
 
-    // Función de filtro que combina la selección UI y los permisos de seguridad
     const routeFilter = (itemId: string) => {
         const isAllowed = allowedRouteIds.includes(itemId);
-        // Si es 'all', permite todas las permitidas. Si es específica, debe coincidir y estar permitida.
         const isSelected = selectedRouteId === 'all' ? true : itemId === selectedRouteId;
         return isAllowed && isSelected;
     };
@@ -542,7 +519,6 @@ const AppContent: React.FC = () => {
     };
   }, [clients, credits, expenses, payments, selectedRouteId, currentUser, routes]);
 
-  // Rutas visibles para componentes como Selectores (NewCredit, etc.)
   const visibleRoutes = useMemo(() => {
       if (!currentUser) return [];
       if (currentUser.role === UserRole.ADMIN) return routes;
@@ -589,7 +565,6 @@ const AppContent: React.FC = () => {
     await loadBusinessData(currentUser.businessId);
   };
 
-  // Helper para notificaciones flotantes simples
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   useEffect(() => {
       if (notification) {
@@ -603,9 +578,9 @@ const AppContent: React.FC = () => {
 
     switch (currentView) {
       case 'admin_dashboard':
-        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
+        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
       case 'collector_dashboard':
-        return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
+        return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
       case 'credits':
         return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
       case 'client_management':
@@ -656,7 +631,7 @@ const AppContent: React.FC = () => {
         return <CreditVisits client={clVisits} credit={crVisits} payments={payments.filter((p) => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onUpdatePayment={async (pid, amt) => { await supabase.from('payments').update({ amount: amt }).eq('id', pid); await loadBusinessData(currentUser.businessId); }} />;
       }
       default:
-        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses }} />;
+        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
     }
   };
 

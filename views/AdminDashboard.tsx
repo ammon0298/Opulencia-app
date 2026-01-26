@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
@@ -94,16 +95,21 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     return { isInstallmentDay, installmentNum };
   };
 
+  // CÁLCULO DE MÉTRICAS GLOBALES (Históricas y Totales)
   const metrics = useMemo(() => {
     let overdueAmount = 0;           
-    let totalInvested = 0;
-    let totalInterestExpected = 0;
-    let totalRecoveredCapital = 0;
-    let totalRealizedProfit = 0;
+    let totalInvested = 0; // Capital prestado (suma de capitales)
+    let totalInterestExpected = 0; // Interés total esperado (Total a pagar - Capital)
+    let totalRecoveredCapital = 0; // Cuánto del capital se ha recuperado
+    let totalRealizedProfit = 0; // Cuánto del interés ya es ganancia
     
+    // Usamos los pagos reales filtrados por ruta para calcular recuperación
     if (stats.payments && stats.payments.length > 0) {
         stats.credits.forEach(cr => {
+            // Sumar todos los pagos históricos para este crédito
             const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
+            
+            // Proporción matemática simple: Cuánto de cada dólar es capital vs interés
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
             
@@ -111,6 +117,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
             totalRealizedProfit += creditPayments * profitRatio;
         });
     } else {
+        // Fallback si no hay pagos cargados (usa totalPaid del crédito)
         stats.credits.forEach(cr => {
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
@@ -149,34 +156,61 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     });
 
     return { 
-      overdueAmount, totalInvested, totalInterestExpected,
-      totalRecoveredCapital, totalRealizedProfit, totalPendingToCollect, totalLostCapital,
+      overdueAmount, 
+      totalInvested, 
+      totalInterestExpected,
+      totalRecoveredCapital, 
+      totalRealizedProfit, 
+      totalPendingToCollect, 
+      totalLostCapital,
       recoveryRate: totalInvested > 0 ? (totalRecoveredCapital / totalInvested) * 100 : 0,
       profitRate: totalInterestExpected > 0 ? (totalRealizedProfit / totalInterestExpected) * 100 : 0
     };
   }, [stats]);
 
+  // CÁLCULO ESTRICTO DE "HOY" (Solo pagos con fecha de hoy)
+  const todayCollected = useMemo(() => {
+    if (!stats.payments) return 0;
+    return stats.payments
+      .filter(p => p.date.startsWith(TODAY_STR)) // Filtrar estrictamente por el string de fecha YYYY-MM-DD
+      .reduce((acc, p) => acc + p.amount, 0);
+  }, [stats.payments]);
+
+  // CÁLCULO DE GRÁFICA (REAL VS META)
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
+    
     for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = new Date(selYear, selMonth, day);
+      const currentDayDate = new Date(selYear, selMonth, day);
+      const currentDayStr = currentDayDate.toISOString().split('T')[0];
+      
       let targetForDay = 0;
       let actualCollected = 0;
+
+      // 1. Calcular META TEÓRICA (Cuánto debí cobrar)
       stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
-        const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDate);
+        const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
           targetForDay += cr.installmentValue;
-          if (currentDate <= todayDate) {
-            if (installmentNum <= cr.paidInstallments) actualCollected += cr.installmentValue;
-            else if (installmentNum === cr.paidInstallments + 1) actualCollected += (cr.totalPaid % cr.installmentValue);
-          }
         }
       });
-      data.push({ day: String(day).padStart(2, '0'), collected: Math.round(actualCollected), target: Math.round(targetForDay) });
+
+      // 2. Calcular RECAUDO REAL (Cuánto entró realmente ese día según la tabla de pagos)
+      if (stats.payments) {
+          actualCollected = stats.payments
+            .filter(p => p.date.startsWith(currentDayStr))
+            .reduce((sum, p) => sum + p.amount, 0);
+      }
+
+      data.push({ 
+          day: String(day).padStart(2, '0'), 
+          collected: Math.round(actualCollected), 
+          target: Math.round(targetForDay) 
+      });
     }
     return data;
-  }, [selectedPeriod, stats.credits]);
+  }, [selectedPeriod, stats.credits, stats.payments]);
 
   const moraChartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
@@ -225,15 +259,23 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard title={t('collected_today')} value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        {/* CORRECCIÓN: Usar todayCollected en lugar de la suma histórica */}
+        <StatCard title={t('collected_today')} value={`$${todayCollected.toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        
+        {/* Capital en calle es lo invertido activo */}
         <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
+        
         <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
+        
+        {/* Utilidad proyectada es el total de intereses que se espera ganar de los créditos activos */}
         <StatCard title={t('projected_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
+        
         <StatCard title={t('total_expenses')} value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
         <StatCard title={t('total_clients')} value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Retorno Capital es el histórico recuperado */}
         <ProgressCard title={t('return_capital')} label1={t('return_capital')} val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2={t('projected_profit')} val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
         <ProgressCard title={t('pending_portfolio')} label1={t('capital_street')} val1={metrics.totalPendingToCollect} label2={t('projected_profit')} val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
@@ -18,7 +19,7 @@ interface DashboardProps {
 }
 
 const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stats }) => {
-  const { theme } = useGlobal();
+  const { theme, t } = useGlobal();
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -104,6 +105,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     return { isInstallmentDay, installmentNum };
   };
 
+  // CÁLCULO DE MÉTRICAS GLOBALES (Adaptadas con pagos reales)
   const metrics = useMemo(() => {
     let overdueAmount = 0;           
     let totalInvested = 0;
@@ -113,6 +115,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     let totalPendingToCollect = 0;
     let totalLostCapital = 0;
 
+    // Usar pagos reales si existen
     if (stats.payments && stats.payments.length > 0) {
         stats.credits.forEach(cr => {
             const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
@@ -123,6 +126,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
             totalRealizedProfit += creditPayments * profitRatio;
         });
     } else {
+        // Fallback
         stats.credits.forEach(cr => {
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
@@ -165,27 +169,49 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     };
   }, [stats]);
 
+  // CÁLCULO ESTRICTO DE "HOY" (Solo pagos con fecha de hoy)
+  const todayCollected = useMemo(() => {
+    if (!stats.payments) return 0;
+    return stats.payments
+      .filter(p => p.date.startsWith(TODAY_STR))
+      .reduce((acc, p) => acc + p.amount, 0);
+  }, [stats.payments]);
+
+  // CÁLCULO DE GRÁFICA REAL VS META (Igual que Admin)
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
+    
     for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = new Date(selYear, selMonth, day);
+      const currentDayDate = new Date(selYear, selMonth, day);
+      const currentDayStr = currentDayDate.toISOString().split('T')[0];
+      
       let targetForDay = 0;
       let actualCollected = 0;
+
+      // Meta Teórica
       stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
-        const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDate);
+        const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
           targetForDay += cr.installmentValue;
-          if (currentDate <= todayDate) {
-            if (installmentNum <= cr.paidInstallments) actualCollected += cr.installmentValue;
-            else if (installmentNum === cr.paidInstallments + 1) actualCollected += (cr.totalPaid % cr.installmentValue);
-          }
         }
       });
-      data.push({ day: String(day).padStart(2, '0'), collected: Math.round(actualCollected), target: Math.round(targetForDay) });
+
+      // Recaudo Real
+      if (stats.payments) {
+          actualCollected = stats.payments
+            .filter(p => p.date.startsWith(currentDayStr))
+            .reduce((sum, p) => sum + p.amount, 0);
+      }
+
+      data.push({ 
+          day: String(day).padStart(2, '0'), 
+          collected: Math.round(actualCollected), 
+          target: Math.round(targetForDay) 
+      });
     }
     return data;
-  }, [selectedPeriod, stats.credits]);
+  }, [selectedPeriod, stats.credits, stats.payments]);
 
   const moraChartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
@@ -212,8 +238,12 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
           <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white tracking-tight mt-2">¡Hola, {user.name.split(' ')[0]}!</h2>
         </div>
         <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center">
-             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Periodo:</span>
-             <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="bg-white dark:bg-slate-700 border-none rounded-2xl text-xs font-black uppercase text-indigo-600 dark:text-indigo-300 py-2.5 px-4 shadow-sm cursor-pointer focus:ring-0 outline-none">
+             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">{t('date')}:</span>
+             <select 
+               value={selectedPeriod} 
+               onChange={(e) => setSelectedPeriod(e.target.value)} 
+               className="bg-white dark:bg-slate-700 border-none rounded-2xl text-xs font-black uppercase text-indigo-600 dark:text-indigo-300 py-2.5 px-4 shadow-sm cursor-pointer focus:ring-0 outline-none"
+             >
                {availablePeriods.map(opt => (
                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                ))}
@@ -230,17 +260,19 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard title="Recaudado Hoy" value={`$${Math.round(metrics.totalRecoveredCapital + metrics.totalRealizedProfit).toLocaleString()}`} color="indigo" icon={<IconCash />} />
-        <StatCard title="Capital en Calle" value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
-        <StatCard title="Capital Perdido" value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
-        <StatCard title="Utilidad Ruta" value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
-        <StatCard title="Gastos Ruta" value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
-        <StatCard title="Mis Clientes" value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
+        {/* CORREGIDO: Usando todayCollected real */}
+        <StatCard title={t('collected_today')} value={`$${todayCollected.toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        
+        <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
+        <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
+        <StatCard title={t('projected_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
+        <StatCard title={t('total_expenses')} value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
+        <StatCard title={t('total_clients')} value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ProgressCard title="Rendimiento de Mi Ruta" label1="Cap. Recuperado" val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2="Utilidad Real" val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
-        <ProgressCard title="Expectativa de Recaudo" label1="Cartera Pendiente" val1={metrics.totalPendingToCollect} label2="Utilidad por Cobrar" val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
+        <ProgressCard title={t('return_capital')} label1={t('return_capital')} val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2={t('projected_profit')} val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
+        <ProgressCard title={t('pending_portfolio')} label1={t('capital_street')} val1={metrics.totalPendingToCollect} label2={t('projected_profit')} val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -250,23 +282,24 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 bg-slate-900 dark:bg-black p-10 rounded-[3rem] shadow-2xl border border-slate-800">
-           <h3 className="text-2xl font-black text-white mb-8">Panel Operativo</h3>
+           <h3 className="text-2xl font-black text-white mb-8">{t('quick_actions')}</h3>
            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <QuickButton label="Créditos" onClick={() => navigate('credits')} icon={<IconCash />} />
-              <QuickButton label="Nvo. Crédito" onClick={() => navigate('new_credit')} icon={<IconLoan />} />
-              <QuickButton label="Gastos" onClick={() => navigate('expenses')} icon={<IconReceipt />} />
-              <QuickButton label="Clientes" onClick={() => navigate('client_management')} icon={<IconUsers />} />
+              <QuickButton label={t('credits')} onClick={() => navigate('credits')} icon={<IconCash />} />
+              <QuickButton label={t('new_credit')} onClick={() => navigate('new_credit')} icon={<IconLoan />} />
+              <QuickButton label={t('expenses')} onClick={() => navigate('expenses')} icon={<IconReceipt />} />
+              <QuickButton label={t('clients')} onClick={() => navigate('client_management')} icon={<IconUsers />} />
            </div>
         </div>
         <button onClick={() => navigate('liquidation')} className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center items-center text-center gap-6 hover:border-indigo-600 dark:hover:border-indigo-500 transition-all group">
            <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"><IconChart /></div>
-           <h4 className="font-black text-2xl text-slate-800 dark:text-white tracking-tight">Cerrar Mi Caja</h4>
+           <h4 className="font-black text-2xl text-slate-800 dark:text-white tracking-tight">{t('close_box')}</h4>
         </button>
       </div>
     </div>
   );
 };
 
+// UI Components (Reutilizados del AdminDashboard para consistencia visual)
 const StatCard = ({ title, value, color, icon }: any) => {
   const colors: any = { indigo: 'bg-indigo-600', emerald: 'bg-emerald-600', rose: 'bg-rose-600', amber: 'bg-amber-600', violet: 'bg-violet-600', red: 'bg-red-600' };
   return (
