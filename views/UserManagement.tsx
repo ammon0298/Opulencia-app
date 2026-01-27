@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { User, UserRole, Route, AccountStatus } from '../types';
+import { User, UserRole, Route, AccountStatus, Subscription } from '../types';
 import { COUNTRY_DATA } from '../constants';
 import { hashPassword } from '../utils/security';
 import { supabase } from '../lib/supabase';
@@ -12,9 +12,10 @@ interface UserManagementProps {
   routes: Route[];
   currentUser: User;
   onSave: () => void;
+  subscription: Subscription | null;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentUser, onSave }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentUser, onSave, subscription }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -34,6 +35,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
     routeIds: [] as string[],
     status: 'Active' as AccountStatus
   });
+
+  const collectors = users.filter(u => u.role === UserRole.COLLECTOR);
+  
+  // VERIFICAR LÍMITE DEL PLAN
+  const canAddCollector = subscription ? collectors.length < subscription.maxCollectors : false;
 
   const countriesByContinent = useMemo(() => {
     const groups: { [key: string]: typeof COUNTRY_DATA } = {};
@@ -59,6 +65,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
   const handleAddOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setNotification(null);
+
+    // Validar límite si es creación nueva
+    if (!editingId && !canAddCollector) {
+        setNotification({ type: 'error', message: `Ha alcanzado el límite de cobradores (${subscription?.maxCollectors}) permitidos por su plan.` });
+        return;
+    }
 
     if (formData.status === 'Inactive' && formData.routeIds.length > 0) {
         setNotification({ 
@@ -149,8 +161,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const collectors = users.filter(u => u.role === UserRole.COLLECTOR);
-
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
       <header className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm gap-4">
@@ -167,15 +177,23 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
                     Mapa GPS
                 </button>
             </div>
+            
+            {!canAddCollector && !showForm && (
+                <div className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-200 dark:border-rose-800">
+                    Límite Alcanzado
+                </div>
+            )}
+
             <button 
-            onClick={() => { 
-                if(showForm) { setShowForm(false); setEditingId(null); }
-                else { resetFormData(); setEditingId(null); setShowForm(true); setViewMode('list'); }
-                setNotification(null); 
-            }} 
-            className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all ${showForm ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                onClick={() => { 
+                    if(showForm) { setShowForm(false); setEditingId(null); }
+                    else { resetFormData(); setEditingId(null); setShowForm(true); setViewMode('list'); }
+                    setNotification(null); 
+                }} 
+                disabled={!showForm && !canAddCollector}
+                className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all ${showForm ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed'}`}
             >
-            {showForm ? 'Cerrar Formulario' : 'Vincular Cobrador'}
+                {showForm ? 'Cerrar Formulario' : 'Vincular Cobrador'}
             </button>
         </div>
       </header>

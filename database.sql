@@ -119,6 +119,18 @@ CREATE TABLE IF NOT EXISTS route_transactions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 9. Tabla de Suscripciones / Planes
+CREATE TABLE IF NOT EXISTS business_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  business_id UUID NOT NULL UNIQUE, -- Relación lógica con users.business_id
+  plan_name TEXT CHECK (plan_name IN ('PLAN_1', 'PLAN_2', 'CUSTOM')) DEFAULT 'PLAN_1',
+  max_routes INTEGER NOT NULL DEFAULT 2,
+  max_collectors INTEGER NOT NULL DEFAULT 2,
+  start_date DATE DEFAULT CURRENT_DATE,
+  end_date DATE NOT NULL, -- Fecha límite de acceso
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ==============================================================================
 -- ÍNDICES DE RENDIMIENTO
 -- ==============================================================================
@@ -128,6 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_users_business ON users(business_id);
 CREATE INDEX IF NOT EXISTS idx_routes_business ON routes(business_id);
 CREATE INDEX IF NOT EXISTS idx_clients_business ON clients(business_id);
 CREATE INDEX IF NOT EXISTS idx_credits_business ON credits(business_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_business ON business_subscriptions(business_id);
 
 -- Relaciones Clave
 CREATE INDEX IF NOT EXISTS idx_clients_route ON clients(route_id);
@@ -152,6 +165,7 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE route_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE business_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Política de ejemplo: Permitir acceso público (MODO DESARROLLO)
 -- Para producción, configurar políticas basadas en `auth.uid()` y `business_id`
@@ -162,3 +176,4 @@ CREATE POLICY "Public Access for Development" ON payments FOR ALL USING (true);
 CREATE POLICY "Public Access for Development" ON routes FOR ALL USING (true);
 CREATE POLICY "Public Access for Development" ON expenses FOR ALL USING (true);
 CREATE POLICY "Public Access for Development" ON route_transactions FOR ALL USING (true);
+CREATE POLICY "Public Access for Development" ON business_subscriptions FOR ALL USING (true);

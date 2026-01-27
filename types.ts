@@ -104,3 +104,13 @@ export interface Expense {
   concept: string;
   proofImage?: string; // Base64 image string for receipt/voucher
 }
+
+export interface Subscription {
+  id: string;
+  businessId: string;
+  planName: 'PLAN_1' | 'PLAN_2' | 'CUSTOM';
+  maxRoutes: number;
+  maxCollectors: number;
+  startDate: string;
+  endDate: string;
+}

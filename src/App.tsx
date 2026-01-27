@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole } from './types';
+import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
 import LandingPage from './views/LandingPage';
 import AuthView from './views/AuthView';
@@ -23,6 +23,7 @@ import { supabase } from './lib/supabase';
 import { verifyPassword, hashPassword, generateOTP } from './utils/security';
 import { GlobalProvider } from './contexts/GlobalContext';
 import { sendLicenseRequestEmail, sendOTPEmail } from './utils/email';
+import { TODAY_STR } from './constants';
 
 // UUID v4 check (suficiente para nuestro caso)
 const isUuid = (v: string) =>
@@ -103,7 +104,7 @@ const dbToPayment = (p: any): Payment => ({
 
 const dbToExpense = (e: any): Expense => ({
   id: e.id,
-  businessId: e.business_id, // Fix: Changed business_id to businessId to match Expense interface
+  businessId: e.business_id,
   date: e.expense_date ?? e.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   routeId: e.route_id,
   value: Number(e.amount),
@@ -142,6 +143,16 @@ const dbToUser = (u: any): User => ({
       lng: Number(u.lng), 
       timestamp: u.last_location_at
   } : undefined
+});
+
+const dbToSubscription = (s: any): Subscription => ({
+  id: s.id,
+  businessId: s.business_id,
+  planName: s.plan_name,
+  maxRoutes: s.max_routes,
+  maxCollectors: s.max_collectors,
+  startDate: s.start_date,
+  endDate: s.end_date
 });
 
 // ---- App -> DB ----
@@ -214,25 +225,6 @@ const txToDb = (t: RouteTransaction) => ({
   transaction_date: t.date
 });
 
-const userToDb = (u: User) => ({
-  id: u.id,
-  business_id: u.businessId,
-  username: u.username,
-  name: u.name,
-  dni: u.dni,
-  phone: u.phone || null,
-  address: u.address || null,
-  role: u.role,
-  route_ids: u.routeIds ?? [],
-  status: u.status,
-  business_name: u.businessName || null,
-  country: u.country || null,
-  city: u.city || null,
-  lat: u.currentLocation?.lat || null,
-  lng: u.currentLocation?.lng || null,
-  last_location_at: u.currentLocation?.timestamp || null
-});
-
 const AppContent: React.FC = () => {
   // Data States
   const [users, setUsers] = useState<User[]>([]);
@@ -242,6 +234,7 @@ const AppContent: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [transactions, setTransactions] = useState<RouteTransaction[]>([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
 
   // UI State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -269,7 +262,8 @@ const AppContent: React.FC = () => {
         { data: expensesData, error: eErr },
         { data: paymentsData, error: pErr },
         { data: usersData, error: uErr },
-        { data: transData, error: tErr }
+        { data: transData, error: tErr },
+        { data: subData, error: sErr }
       ] = await Promise.all([
         supabase.from('clients').select('*').eq('business_id', businessId),
         supabase.from('credits').select('*').eq('business_id', businessId),
@@ -277,11 +271,12 @@ const AppContent: React.FC = () => {
         supabase.from('expenses').select('*').eq('business_id', businessId),
         supabase.from('payments').select('*').eq('business_id', businessId),
         supabase.from('users').select('*').eq('business_id', businessId),
-        supabase.from('route_transactions').select('*').eq('business_id', businessId)
+        supabase.from('route_transactions').select('*').eq('business_id', businessId),
+        supabase.from('business_subscriptions').select('*').eq('business_id', businessId).maybeSingle()
       ]);
 
-      if (cErr || crErr || rErr || eErr || pErr || uErr || tErr) {
-        console.error('Load errors:', { cErr, crErr, rErr, eErr, pErr, uErr, tErr });
+      if (cErr || crErr || rErr || eErr || pErr || uErr || tErr || sErr) {
+        console.error('Load errors:', { cErr, crErr, rErr, eErr, pErr, uErr, tErr, sErr });
       }
 
       if (clientsData) setClients(clientsData.map(dbToClient));
@@ -291,9 +286,24 @@ const AppContent: React.FC = () => {
       if (paymentsData) setPayments(paymentsData.map(dbToPayment));
       if (usersData) setUsers(usersData.map(dbToUser));
       if (transData) setTransactions(transData.map(dbToTx));
+      if (subData) setSubscription(dbToSubscription(subData));
+
+      // VALIDACIÓN DE SUSCRIPCIÓN ACTIVA AL CARGAR
+      if (subData) {
+          const endDate = new Date(subData.end_date);
+          const now = new Date(TODAY_STR); // Comparar con fecha local
+          if (now > endDate) {
+              return 'EXPIRED';
+          }
+      } else {
+          console.warn("No active subscription record found.");
+      }
+
+      return 'OK';
 
     } catch (err) {
       console.error('Error cargando datos:', err);
+      return 'ERROR';
     }
   };
 
@@ -303,17 +313,23 @@ const AppContent: React.FC = () => {
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          setCurrentUser(user);
           
-          // Configurar ruta inicial basada en rol
-          if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
-             setSelectedRouteId(user.routeIds[0]);
+          const status = await loadBusinessData(user.businessId);
+          
+          if (status === 'EXPIRED') {
+              setAuthError('SU LICENCIA HA VENCIDO. Contacte a soporte para renovar.');
+              localStorage.removeItem('op_user');
+              setCurrentUser(null);
+              setCurrentView('auth');
           } else {
-             setSelectedRouteId('all');
+              setCurrentUser(user);
+              if (user.role === UserRole.COLLECTOR && user.routeIds.length > 0) {
+                 setSelectedRouteId(user.routeIds[0]);
+              } else {
+                 setSelectedRouteId('all');
+              }
+              setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
           }
-
-          await loadBusinessData(user.businessId);
-          setCurrentView(user.role === 'ADMIN' ? 'admin_dashboard' : 'collector_dashboard');
         } catch (e) {
           localStorage.removeItem('op_user');
         }
@@ -389,6 +405,14 @@ const AppContent: React.FC = () => {
       const isValid = verifyPassword(p, dbUser.password_hash);
 
       if (isValid) {
+        const status = await loadBusinessData(dbUser.business_id);
+        
+        if (status === 'EXPIRED') {
+            setAuthError('LICENCIA VENCIDA. El acceso al sistema está restringido hasta renovar su plan.');
+            setIsInitializing(false);
+            return;
+        }
+
         const mappedUser = dbToUser(dbUser);
         setCurrentUser(mappedUser);
         localStorage.setItem('op_user', JSON.stringify(mappedUser));
@@ -399,7 +423,6 @@ const AppContent: React.FC = () => {
             setSelectedRouteId('all');
         }
 
-        await loadBusinessData(mappedUser.businessId);
         setCurrentView(mappedUser.role === UserRole.ADMIN ? 'admin_dashboard' : 'collector_dashboard');
       } else {
         setAuthError('Contraseña incorrecta.');
@@ -413,10 +436,15 @@ const AppContent: React.FC = () => {
 
   const handleRegister = async (data: any) => {
     try {
+        // Modo "Solicitud de Licencia":
+        // Solo se envía el correo al administrador del sistema. 
+        // NO se crea el usuario automáticamente en la base de datos.
         const emailSent = await sendLicenseRequestEmail(data);
+        
         if (!emailSent) {
             throw new Error("No se pudo enviar el correo de solicitud. Por favor verifique su conexión.");
         }
+
         return true;
     } catch (e: any) {
         console.error("License Request Error:", e);
@@ -578,7 +606,7 @@ const AppContent: React.FC = () => {
 
     switch (currentView) {
       case 'admin_dashboard':
-        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
+        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} subscription={subscription} />;
       case 'collector_dashboard':
         return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
       case 'credits':
@@ -615,9 +643,9 @@ const AppContent: React.FC = () => {
       case 'liquidation':
         return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={visibleRoutes} transactions={transactions} />;
       case 'users':
-        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} />;
+        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} subscription={subscription} />;
       case 'routes_mgmt':
-        return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={handleRefreshData} onAddTransaction={persistRouteTransaction} />;
+        return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={handleRefreshData} onAddTransaction={persistRouteTransaction} subscription={subscription} />;
       case 'profile':
         return <UserProfile user={currentUser} users={users} onUpdate={(u) => setCurrentUser(u)} />;
       case 'credit_details': {
@@ -631,7 +659,7 @@ const AppContent: React.FC = () => {
         return <CreditVisits client={clVisits} credit={crVisits} payments={payments.filter((p) => p.creditId === selectedCreditId)} onBack={() => setCurrentView('credits')} onUpdatePayment={async (pid, amt) => { await supabase.from('payments').update({ amount: amt }).eq('id', pid); await loadBusinessData(currentUser.businessId); }} />;
       }
       default:
-        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
+        return <AdminDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} selectedRouteId={selectedRouteId} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} subscription={subscription} />;
     }
   };
 

@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Route, User, UserRole, RouteTransaction } from '../types';
+import { Route, User, UserRole, RouteTransaction, Subscription } from '../types';
 import { TODAY_STR } from '../constants';
 import { supabase } from '../lib/supabase';
 
@@ -10,9 +11,10 @@ interface RouteManagementProps {
   transactions: RouteTransaction[];
   onSave: () => void;
   onAddTransaction: (t: any) => void;
+  subscription: Subscription | null;
 }
 
-const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, transactions, onSave, onAddTransaction }) => {
+const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, transactions, onSave, onAddTransaction, subscription }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRoute, setEditingRoute] = useState<Route | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -24,6 +26,9 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
   const [fundAmount, setFundAmount] = useState('');
   const [fundDescription, setFundDescription] = useState('');
 
+  // VERIFICAR LÍMITE DE RUTAS
+  const canAddRoute = subscription ? routes.length < subscription.maxRoutes : false;
+
   const routeHistory = useMemo(() => {
     if (!editingRoute) return [];
     return transactions
@@ -34,6 +39,11 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
   const handleCreateRoute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRouteName.trim() || !initialBase) return;
+
+    if (!canAddRoute) {
+        setNotification({ type: 'error', message: `Límite de rutas (${subscription?.maxRoutes}) alcanzado según su plan actual.` });
+        return;
+    }
 
     try {
         const { data: routeData, error: rErr } = await supabase.from('routes').insert({
@@ -91,7 +101,6 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
     }
   };
 
-  // CORRECCIÓN 7: Implementación de renombrado de ruta
   const handleUpdateRouteName = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingRoute && newRouteName.trim() && newRouteName.trim() !== editingRoute.name) {
@@ -101,7 +110,6 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
           
           onSave();
           setNotification({ type: 'success', message: 'Nombre de ruta actualizado.' });
-          // Actualizar el estado local para reflejar el cambio en la UI inmediatamente
           setEditingRoute({ ...editingRoute, name: newRouteName.trim() });
       } catch (err: any) {
           setNotification({ type: 'error', message: `Error al renombrar: ${err.message}` });
@@ -116,12 +124,21 @@ const RouteManagement: React.FC<RouteManagementProps> = ({ routes, users, user, 
           <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Gestión de Rutas</h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Control de zonas y auditoría de fondos de base.</p>
         </div>
-        <button 
-          onClick={() => { setShowForm(!showForm); setEditingRoute(null); setNotification(null); }}
-          className={`px-8 py-3.5 rounded-2xl font-black transition shadow-xl flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest text-xs ${showForm ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-        >
-          {showForm ? 'Cerrar' : 'Nueva Ruta'}
-        </button>
+        
+        <div className="flex items-center gap-2">
+            {!canAddRoute && !showForm && (
+                <div className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-rose-200 dark:border-rose-800">
+                    Límite Alcanzado
+                </div>
+            )}
+            <button 
+            onClick={() => { setShowForm(!showForm); setEditingRoute(null); setNotification(null); }}
+            disabled={!showForm && !canAddRoute}
+            className={`px-8 py-3.5 rounded-2xl font-black transition shadow-xl flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest text-xs ${showForm ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800' : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed'}`}
+            >
+            {showForm ? 'Cerrar' : 'Nueva Ruta'}
+            </button>
+        </div>
       </header>
 
       {notification && (

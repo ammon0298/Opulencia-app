@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { User, Route, Credit, Expense, Client, Payment } from '../types';
+import { User, Route, Credit, Expense, Client, Payment, Subscription } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
 import { useGlobal } from '../contexts/GlobalContext';
 import AIAssistant from '../components/AIAssistant';
@@ -17,9 +17,10 @@ interface DashboardProps {
     payments?: Payment[]; 
   };
   selectedRouteId: string;
+  subscription: Subscription | null;
 }
 
-const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stats, selectedRouteId }) => {
+const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stats, selectedRouteId, subscription }) => {
   const { theme, t } = useGlobal();
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -27,6 +28,31 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
   const [selectedPeriod, setSelectedPeriod] = useState(() => TODAY_STR.substring(0, 4) + TODAY_STR.substring(5, 7));
   const selYear = parseInt(selectedPeriod.substring(0, 4));
   const selMonth = parseInt(selectedPeriod.substring(4, 6)) - 1;
+
+  // Calculo de días restantes de suscripción
+  const subscriptionStatus = useMemo(() => {
+    if (!subscription) return null;
+    const end = new Date(subscription.endDate);
+    const now = new Date(TODAY_STR);
+    const diffTime = end.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let color = 'bg-emerald-500';
+    let text = 'text-emerald-700 dark:text-emerald-400';
+    let bg = 'bg-emerald-100 dark:bg-emerald-900/30';
+    
+    if (diffDays <= 1) {
+        color = 'bg-rose-600';
+        text = 'text-rose-700 dark:text-rose-400';
+        bg = 'bg-rose-100 dark:bg-rose-900/30';
+    } else if (diffDays <= 7) {
+        color = 'bg-amber-500';
+        text = 'text-amber-700 dark:text-amber-400';
+        bg = 'bg-amber-100 dark:bg-amber-900/30';
+    }
+
+    return { days: diffDays, color, text, bg, plan: subscription.planName };
+  }, [subscription]);
 
   const availablePeriods = useMemo(() => {
     if (stats.credits.length === 0) {
@@ -98,26 +124,20 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
   // CÁLCULO DE MÉTRICAS GLOBALES (Históricas y Totales)
   const metrics = useMemo(() => {
     let overdueAmount = 0;           
-    let totalInvested = 0; // Capital prestado (suma de capitales)
-    let totalInterestExpected = 0; // Interés total esperado (Total a pagar - Capital)
-    let totalRecoveredCapital = 0; // Cuánto del capital se ha recuperado
-    let totalRealizedProfit = 0; // Cuánto del interés ya es ganancia
+    let totalInvested = 0; 
+    let totalInterestExpected = 0; 
+    let totalRecoveredCapital = 0; 
+    let totalRealizedProfit = 0; 
     
-    // Usamos los pagos reales filtrados por ruta para calcular recuperación
     if (stats.payments && stats.payments.length > 0) {
         stats.credits.forEach(cr => {
-            // Sumar todos los pagos históricos para este crédito
             const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
-            
-            // Proporción matemática simple: Cuánto de cada dólar es capital vs interés
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
-            
             totalRecoveredCapital += creditPayments * capitalRatio;
             totalRealizedProfit += creditPayments * profitRatio;
         });
     } else {
-        // Fallback si no hay pagos cargados (usa totalPaid del crédito)
         stats.credits.forEach(cr => {
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
@@ -168,15 +188,13 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     };
   }, [stats]);
 
-  // CÁLCULO ESTRICTO DE "HOY" (Solo pagos con fecha de hoy)
   const todayCollected = useMemo(() => {
     if (!stats.payments) return 0;
     return stats.payments
-      .filter(p => p.date.startsWith(TODAY_STR)) // Filtrar estrictamente por el string de fecha YYYY-MM-DD
+      .filter(p => p.date.startsWith(TODAY_STR))
       .reduce((acc, p) => acc + p.amount, 0);
   }, [stats.payments]);
 
-  // CÁLCULO DE GRÁFICA (REAL VS META)
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
@@ -188,7 +206,6 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       let targetForDay = 0;
       let actualCollected = 0;
 
-      // 1. Calcular META TEÓRICA (Cuánto debí cobrar)
       stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
         const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
@@ -196,7 +213,6 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
         }
       });
 
-      // 2. Calcular RECAUDO REAL (Cuánto entró realmente ese día según la tabla de pagos)
       if (stats.payments) {
           actualCollected = stats.payments
             .filter(p => p.date.startsWith(currentDayStr))
@@ -231,11 +247,27 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
 
   return (
     <div className="space-y-8 animate-fadeIn pb-20">
-      <header className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+      <header className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col xl:flex-row justify-between items-center gap-6">
         <div>
           <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">{t('dashboard')}</span>
           <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white tracking-tight mt-2">{t('global_vision')}</h2>
         </div>
+        
+        {/* SEMÁFORO DE SUSCRIPCIÓN */}
+        {subscriptionStatus && (
+            <div className={`px-6 py-3 rounded-2xl border border-transparent shadow-sm flex items-center gap-4 ${subscriptionStatus.bg}`}>
+                <div className="text-right">
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${subscriptionStatus.text}`}>
+                        {subscriptionStatus.plan.replace('_', ' ')} • EXPIRA: {new Date(subscription?.endDate || '').toLocaleDateString()}
+                    </p>
+                    <p className={`text-xl font-black ${subscriptionStatus.text}`}>
+                        {subscriptionStatus.days} Días Restantes
+                    </p>
+                </div>
+                <div className={`w-4 h-4 rounded-full animate-pulse shadow-lg ${subscriptionStatus.color}`}></div>
+            </div>
+        )}
+
         <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center">
              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">{t('date')}:</span>
              <select 
@@ -259,23 +291,15 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* CORRECCIÓN: Usar todayCollected en lugar de la suma histórica */}
         <StatCard title={t('collected_today')} value={`$${todayCollected.toLocaleString()}`} color="indigo" icon={<IconCash />} />
-        
-        {/* Capital en calle es lo invertido activo */}
         <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
-        
         <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
-        
-        {/* Utilidad proyectada es el total de intereses que se espera ganar de los créditos activos */}
         <StatCard title={t('projected_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
-        
         <StatCard title={t('total_expenses')} value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
         <StatCard title={t('total_clients')} value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Retorno Capital es el histórico recuperado */}
         <ProgressCard title={t('return_capital')} label1={t('return_capital')} val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2={t('projected_profit')} val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
         <ProgressCard title={t('pending_portfolio')} label1={t('capital_street')} val1={metrics.totalPendingToCollect} label2={t('projected_profit')} val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
       </div>
@@ -304,7 +328,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
   );
 };
 
-// UI Components con Dark Mode mejorado
+// UI Components
 const StatCard = ({ title, value, color, icon }: any) => {
   const colors: any = { indigo: 'bg-indigo-600', emerald: 'bg-emerald-600', rose: 'bg-rose-600', amber: 'bg-amber-600', violet: 'bg-violet-600', red: 'bg-red-600' };
   return (
