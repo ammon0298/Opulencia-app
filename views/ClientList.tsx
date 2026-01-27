@@ -18,7 +18,8 @@ interface ClientListProps {
   onSearchChange?: (term: string) => void; 
 }
 
-type FilterType = 'mora' | 'falta1' | 'falta3' | 'pagados' | 'todos' | 'perdidos';
+// NUEVO TIPO DE FILTRO: 'hoy' agregado
+type FilterType = 'mora' | 'hoy' | 'falta1' | 'falta3' | 'pagados' | 'todos' | 'perdidos';
 
 const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, initialSearchTerm = '', onSearchChange }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
@@ -42,28 +43,24 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
   // LÓGICA DE SEMÁFORO ACTUALIZADA (Basada en Hitos de Cuota)
   const getCreditStatusInfo = (credit: Credit) => {
     if (credit.status === 'Lost') {
-        return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isLost: true };
+        return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isDueToday: false, isLost: true };
     }
 
     // 1. Calcular cuántas cuotas ENTERAS ha pagado el cliente con su dinero acumulado
-    // Se usa un pequeño epsilon (0.1) para tolerar decimales flotantes
     const paidFullInstallments = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
     
     const isFinished = paidFullInstallments >= credit.totalInstallments || credit.status === 'Completed';
     
     if (isFinished) {
-         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isLost: false };
+         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isDueToday: false, isLost: false };
     }
 
     // 2. Determinar la FECHA DE VENCIMIENTO de la SIGUIENTE cuota (la que toca pagar ahora)
-    // Si pagó 0, la siguiente es la #1 (índice 0). Si pagó 1, la siguiente es la #2 (índice 1).
     const baseDateStr = credit.firstPaymentDate || credit.startDate;
     let nextInstallmentDueDate: Date;
 
     if (credit.frequency === 'Daily') {
         // addBusinessDays suma días hábiles saltando domingos
-        // Si firstPaymentDate es Lunes y pagó 0 cuotas, add(0) devuelve Lunes.
-        // Si pagó 1 cuota, add(1) devuelve Martes.
         nextInstallmentDueDate = addBusinessDays(baseDateStr, paidFullInstallments);
     } else {
         const base = new Date(baseDateStr + 'T00:00:00');
@@ -83,20 +80,22 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     nextInstallmentDueDate.setHours(0,0,0,0);
     todayDate.setHours(0,0,0,0);
 
-    // ES MORA SOLAMENTE SI: HOY es ESTRICTAMENTE MAYOR que la fecha de vencimiento.
-    // Ejemplo: Si vencía ayer (20) y hoy es (21) -> Mora.
-    // Si vence hoy (21) y hoy es (21) -> Pendiente (Azul).
-    // Si vence mañana (22) y hoy es (21) -> Al día (Azul).
-    const isCurrentlyOverdue = todayDate > nextInstallmentDueDate;
+    // LÓGICA AJUSTADA:
+    // MORA (Purple): Solo si HOY es > Fecha Vencimiento. (Si vence 31 Ene y hoy es 1 Feb).
+    // HOY (Blue): Si HOY == Fecha Vencimiento. (Si vence 31 Ene y hoy es 31 Ene).
+    const isCurrentlyOverdue = todayDate.getTime() > nextInstallmentDueDate.getTime();
+    const isDueToday = todayDate.getTime() === nextInstallmentDueDate.getTime();
 
     const pendingCount = credit.totalInstallments - paidFullInstallments;
     
     let status: FilterType = 'todos';
+    
     if (isCurrentlyOverdue) status = 'mora';
+    else if (isDueToday) status = 'hoy'; // Prioridad: Si es hoy, es Azul.
     else if (pendingCount === 1) status = 'falta1';
     else if (pendingCount > 0 && pendingCount <= 3) status = 'falta3';
 
-    return { isFinished, pendingCount, status, isCurrentlyOverdue, isLost: false };
+    return { isFinished, pendingCount, status, isCurrentlyOverdue, isDueToday, isLost: false };
   };
 
   const creditItems = useMemo(() => {
@@ -131,7 +130,9 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
       });
   }, [clients, credits, users, routes, searchTerm, activeFilter]);
 
+  // Listas separadas para secciones específicas si fuera necesario
   const activeCreditItems = creditItems.filter(item => !item.info.isFinished && !item.info.isLost);
+  
   const completedCreditItems = credits.map(credit => {
         const client = clients.find(c => c.id === credit.clientId);
         if (!client) return null;
@@ -194,7 +195,8 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
   const getCardStyle = (isFinished: boolean, status: FilterType) => {
     if (status === 'perdidos') return 'bg-rose-50 border-rose-300 shadow-md opacity-80';
     if (isFinished) return 'bg-emerald-100/90 border-emerald-500 shadow-md shadow-emerald-100/50';
-    if (status === 'mora') return 'bg-purple-100 border-purple-500 shadow-md shadow-purple-100/50';
+    if (status === 'mora') return 'bg-purple-50 border-purple-500 shadow-md shadow-purple-100/50';
+    if (status === 'hoy') return 'bg-blue-50 border-blue-500 shadow-md shadow-blue-100/50'; // ESTILO AZUL
     if (status === 'falta1') return 'bg-rose-100 border-rose-500 shadow-md shadow-rose-100/50';
     if (status === 'falta3') return 'bg-amber-100 border-amber-500 shadow-md shadow-amber-100/50';
     return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
@@ -222,6 +224,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 
         <div className="flex flex-wrap gap-3 mb-8">
           <FilterBadge color="bg-indigo-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
+          <FilterBadge color="bg-blue-500" label="Cobro Hoy" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} /> {/* BOTÓN AZUL */}
           <FilterBadge color="bg-purple-600" label={t('mora_credits')} active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
           <FilterBadge color="bg-rose-600" label={t('missing_1')} active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
           <FilterBadge color="bg-amber-500" label={t('missing_3')} active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
@@ -340,27 +343,20 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   let expectedInstallments = 0;
 
   if (baseDate > todayDate) {
-      // Si la fecha de inicio es futura, no se espera nada
       expectedInstallments = 0;
   } else if (credit.frequency === 'Daily') {
-     // Cuántos días hábiles han pasado hasta AYER (fecha de corte de mora)
-     // Si hoy es Martes (1 día después de Lunes), countBusinessDays(Lunes, Martes) = 1.
-     // Eso significa que debió pagar 1 cuota ayer.
      expectedInstallments = countBusinessDays(baseDateStr, TODAY_STR);
   } else {
      const diffDays = Math.floor((todayDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
      let cycleDays = 30;
      if (credit.frequency === 'Weekly') cycleDays = 7;
      
-     // Cuántos ciclos COMPLETOS han pasado hasta hoy
      expectedInstallments = Math.floor(diffDays / cycleDays);
   }
   
-  // Limitar esperado al total de cuotas del crédito
   const cappedExpectedInstallments = Math.min(credit.totalInstallments, expectedInstallments);
   amountStrictlyExpected = cappedExpectedInstallments * credit.installmentValue;
   
-  // Mora es la diferencia entre lo que se debió acumular hasta AYER y lo que se ha pagado realmente
   const debeMora = Math.max(0, amountStrictlyExpected - credit.totalPaid);
 
   const handleAction = (amount: number, label: string) => {
@@ -376,6 +372,15 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
       onClick={() => onViewDetails(credit.id)}
       className={`${cardStyle} cursor-pointer p-5 border-2 rounded-[2.5rem] flex flex-col xl:flex-row xl:items-center justify-between gap-6 transition-all hover:translate-x-1 shadow-sm group relative`}
     >
+      {/* Badge Estado Visual Superior Derecho */}
+      <div className="absolute top-0 right-0">
+         {info.isCurrentlyOverdue ? (
+            <div className="bg-purple-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">MORA</div>
+         ) : info.isDueToday ? (
+            <div className="bg-blue-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">COBRO HOY</div>
+         ) : null}
+      </div>
+
       <div className="flex items-center gap-5 min-w-0 xl:w-1/3">
         <button 
           onClick={(e) => {
