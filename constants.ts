@@ -52,6 +52,9 @@ export const COUNTRY_DATA = [
 export const addBusinessDays = (startDateStr: string, daysToAdd: number): Date => {
   const current = new Date(startDateStr + 'T00:00:00');
   let added = 0;
+  // Si daysToAdd es 0, devolvemos la misma fecha
+  if (daysToAdd === 0) return current;
+  
   while (added < daysToAdd) {
     current.setDate(current.getDate() + 1);
     // 0 = Domingo. Si es Domingo, no aumentamos el contador 'added', 

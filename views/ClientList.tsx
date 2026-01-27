@@ -61,6 +61,8 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 
     if (credit.frequency === 'Daily') {
         // addBusinessDays suma días hábiles saltando domingos
+        // Si pagó 0, la siguiente es la 1ra (índice 0, fecha base)
+        // Si pagó 1, la siguiente es la 2da (índice 1, fecha base + 1 día hábil)
         nextInstallmentDueDate = addBusinessDays(baseDateStr, paidFullInstallments);
     } else {
         const base = new Date(baseDateStr + 'T00:00:00');
@@ -74,15 +76,21 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     }
 
     // 3. Comparar HOY vs LA FECHA DE LA SIGUIENTE CUOTA
+    // Usar TODAY_STR local para evitar UTC drift
     const todayDate = new Date(TODAY_STR + 'T00:00:00');
     
-    // Normalizar horas para comparación pura de fecha
+    // Normalizar horas para comparación pura de fecha (00:00:00)
     nextInstallmentDueDate.setHours(0,0,0,0);
     todayDate.setHours(0,0,0,0);
 
-    // LÓGICA AJUSTADA:
-    // MORA (Purple): Solo si HOY es > Fecha Vencimiento. (Si vence 31 Ene y hoy es 1 Feb).
-    // HOY (Blue): Si HOY == Fecha Vencimiento. (Si vence 31 Ene y hoy es 31 Ene).
+    // LÓGICA AJUSTADA Y BLINDADA:
+    // MORA (Purple): Solo si HOY es > Fecha Vencimiento.
+    // Ej: Vencía ayer (Miercoles), Hoy es Jueves. Jueves > Miercoles = MORA.
+    // HOY (Blue): Si HOY == Fecha Vencimiento.
+    // Ej: Vence hoy (Jueves), Hoy es Jueves. Jueves == Jueves = HOY.
+    // AL DIA (Adelantado): Si HOY < Fecha Vencimiento.
+    // Ej: Vence mañana (Viernes), Hoy es Jueves. Jueves < Viernes = NORMAL.
+
     const isCurrentlyOverdue = todayDate.getTime() > nextInstallmentDueDate.getTime();
     const isDueToday = todayDate.getTime() === nextInstallmentDueDate.getTime();
 
@@ -94,6 +102,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     else if (isDueToday) status = 'hoy'; // Prioridad: Si es hoy, es Azul.
     else if (pendingCount === 1) status = 'falta1';
     else if (pendingCount > 0 && pendingCount <= 3) status = 'falta3';
+    // Si no entra en ninguno, es 'todos' (normal/adelantado)
 
     return { isFinished, pendingCount, status, isCurrentlyOverdue, isDueToday, isLost: false };
   };
@@ -199,6 +208,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     if (status === 'hoy') return 'bg-blue-50 border-blue-500 shadow-md shadow-blue-100/50'; // ESTILO AZUL
     if (status === 'falta1') return 'bg-rose-100 border-rose-500 shadow-md shadow-rose-100/50';
     if (status === 'falta3') return 'bg-amber-100 border-amber-500 shadow-md shadow-amber-100/50';
+    // Estilo por defecto (AL DÍA / ADELANTADO)
     return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
   };
 
@@ -336,6 +346,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
 
   // CÁLCULO DE DEUDA DE MORA (Sincronizado con lógica de Hitos de Cuota)
   let amountStrictlyExpected = 0;
+  // Usar la fecha local exacta para consistencia con la lógica de estado
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const baseDateStr = credit.firstPaymentDate || credit.startDate;
   const baseDate = new Date(baseDateStr + 'T00:00:00');
@@ -378,7 +389,9 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
             <div className="bg-purple-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">MORA</div>
          ) : info.isDueToday ? (
             <div className="bg-blue-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">COBRO HOY</div>
-         ) : null}
+         ) : (
+            <div className="bg-emerald-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-sm">AL DÍA</div>
+         )}
       </div>
 
       <div className="flex items-center gap-5 min-w-0 xl:w-1/3">
@@ -443,9 +456,9 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
                             <span className="text-sm font-black text-rose-700 dark:text-rose-300 group-hover/btn:text-white">${debeMora.toLocaleString()}</span>
                         </button>
                     ) : (
-                        <div className="flex flex-col items-center justify-center p-2 bg-slate-50/50 dark:bg-slate-800/50 border border-transparent rounded-xl opacity-50 cursor-default">
-                            <span className="text-[8px] font-black uppercase text-slate-300">AL DÍA</span>
-                            <span className="text-sm font-black text-slate-300">--</span>
+                        <div className="flex flex-col items-center justify-center p-2 bg-emerald-50/50 dark:bg-emerald-900/20 border border-transparent rounded-xl opacity-80 cursor-default">
+                            <span className="text-[8px] font-black uppercase text-emerald-600 dark:text-emerald-400">AL DÍA</span>
+                            <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">--</span>
                         </div>
                     )}
 

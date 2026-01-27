@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -187,6 +186,7 @@ const creditToDb = (c: Credit) => ({
   total_to_pay: c.totalToPay,
   installment_value: c.installmentValue,
   total_installments: c.totalInstallments,
+  // Fix: use paidInstallments property correctly
   paid_installments: c.paidInstallments ?? 0,
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
@@ -280,13 +280,30 @@ const AppContent: React.FC = () => {
       }
 
       if (clientsData) setClients(clientsData.map(dbToClient));
-      if (creditsData) setCredits(creditsData.map(dbToCredit));
       if (routesData) setRoutes(routesData.map(dbToRoute));
       if (expensesData) setExpenses(expensesData.map(dbToExpense));
-      if (paymentsData) setPayments(paymentsData.map(dbToPayment));
       if (usersData) setUsers(usersData.map(dbToUser));
       if (transData) setTransactions(transData.map(dbToTx));
       if (subData) setSubscription(dbToSubscription(subData));
+
+      // CORRECCIÓN CRÍTICA: Calcular totalPaid real sumando los pagos
+      // Esto soluciona el bug de créditos que aparecen en mora a pesar de tener pagos,
+      // ya que la columna total_paid en la tabla credits podría no estar sincronizada.
+      const mappedPayments = paymentsData ? paymentsData.map(dbToPayment) : [];
+      setPayments(mappedPayments);
+
+      if (creditsData) {
+          const mappedCredits = creditsData.map(c => {
+              const appCredit = dbToCredit(c);
+              const realTotalPaid = mappedPayments
+                  .filter(p => p.creditId === appCredit.id)
+                  .reduce((sum, p) => sum + p.amount, 0);
+              
+              // Usar el valor calculado para garantizar consistencia en la UI
+              return { ...appCredit, totalPaid: realTotalPaid };
+          });
+          setCredits(mappedCredits);
+      }
 
       // VALIDACIÓN DE SUSCRIPCIÓN ACTIVA AL CARGAR
       if (subData) {
