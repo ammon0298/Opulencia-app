@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Client, Credit, User, UserRole, Route } from '../types';
-import { TODAY_STR, countBusinessDays } from '../constants';
+import { TODAY_STR, countBusinessDays, addBusinessDays } from '../constants';
 import { useGlobal } from '../contexts/GlobalContext';
 
 interface ClientListProps {
@@ -39,58 +39,60 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     }
   };
 
+  // LÓGICA DE SEMÁFORO ACTUALIZADA (Basada en Hitos de Cuota)
   const getCreditStatusInfo = (credit: Credit) => {
     if (credit.status === 'Lost') {
         return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isLost: true };
     }
 
-    const isFinished = credit.totalPaid >= credit.totalToPay || credit.status === 'Completed';
+    // 1. Calcular cuántas cuotas ENTERAS ha pagado el cliente con su dinero acumulado
+    // Se usa un pequeño epsilon (0.1) para tolerar decimales flotantes
+    const paidFullInstallments = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
     
-    // CÁLCULO DE MORA ESTRICTA (Solo cuotas anteriores a HOY)
-    let strictPastDueInstallments = 0;
-    const todayDate = new Date(TODAY_STR + 'T00:00:00');
-    const startDate = new Date(credit.startDate + 'T00:00:00');
+    const isFinished = paidFullInstallments >= credit.totalInstallments || credit.status === 'Completed';
+    
+    if (isFinished) {
+         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isLost: false };
+    }
+
+    // 2. Determinar la FECHA DE VENCIMIENTO de la SIGUIENTE cuota (la que toca pagar ahora)
+    // Si pagó 0, la siguiente es la #1 (índice 0). Si pagó 1, la siguiente es la #2 (índice 1).
+    const baseDateStr = credit.firstPaymentDate || credit.startDate;
+    let nextInstallmentDueDate: Date;
 
     if (credit.frequency === 'Daily') {
-       // Contamos días hábiles desde inicio hasta hoy
-       const daysUpToToday = countBusinessDays(credit.startDate, TODAY_STR);
-       
-       // Si hoy es día hábil, la función countBusinessDays lo incluye.
-       // Para MORA, debemos excluir el día de hoy (porque hoy es "Pendiente", no "Mora").
-       const isTodayBusinessDay = todayDate.getDay() !== 0; 
-       
-       // Restamos 1 si hoy es laborable para obtener lo que debió pagarse HASTA AYER.
-       strictPastDueInstallments = Math.max(0, daysUpToToday - (isTodayBusinessDay ? 1 : 0));
-
+        // addBusinessDays suma días hábiles saltando domingos
+        // Si firstPaymentDate es Lunes y pagó 0 cuotas, add(0) devuelve Lunes.
+        // Si pagó 1 cuota, add(1) devuelve Martes.
+        nextInstallmentDueDate = addBusinessDays(baseDateStr, paidFullInstallments);
     } else {
-       // Para Semanal/Mensual, calculamos ciclos completos pasados
-       const diffTime = todayDate.getTime() - startDate.getTime();
-       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
-       
-       let cycleDays = 30;
-       if (credit.frequency === 'Weekly') cycleDays = 7;
-       
-       // Cuántos ciclos completos han pasado
-       const inclusive = Math.floor(diffDays / cycleDays);
-       
-       // Si hoy cae EXACTAMENTE en el día de cobro (residuo 0), no es mora todavía.
-       const remainder = diffDays % cycleDays;
-       strictPastDueInstallments = remainder === 0 ? Math.max(0, inclusive - 1) : inclusive;
+        const base = new Date(baseDateStr + 'T00:00:00');
+        nextInstallmentDueDate = new Date(base);
+        
+        if (credit.frequency === 'Weekly') {
+            nextInstallmentDueDate.setDate(base.getDate() + (paidFullInstallments * 7));
+        } else if (credit.frequency === 'Monthly') {
+            nextInstallmentDueDate.setMonth(base.getMonth() + paidFullInstallments);
+        }
     }
+
+    // 3. Comparar HOY vs LA FECHA DE LA SIGUIENTE CUOTA
+    const todayDate = new Date(TODAY_STR + 'T00:00:00');
     
-    // Dinero que DEBIÓ entrar estrictamente antes de hoy
-    const amountStrictlyExpected = Math.min(credit.totalInstallments, strictPastDueInstallments) * credit.installmentValue;
-    
-    // Es MORA solo si lo pagado es MENOR a lo que se esperaba hasta AYER.
-    // Si pagó todo hasta ayer, pero debe lo de hoy, NO es mora (es azul/pendiente).
-    // Si pagó hasta el 28 de Enero y hoy es 27, totalPaid > amountStrictlyExpected -> False (No Mora).
-    const isCurrentlyOverdue = !isFinished && credit.totalPaid < amountStrictlyExpected;
-    
-    const pendingCount = credit.totalInstallments - credit.paidInstallments;
+    // Normalizar horas para comparación pura de fecha
+    nextInstallmentDueDate.setHours(0,0,0,0);
+    todayDate.setHours(0,0,0,0);
+
+    // ES MORA SOLAMENTE SI: HOY es ESTRICTAMENTE MAYOR que la fecha de vencimiento.
+    // Ejemplo: Si vencía ayer (20) y hoy es (21) -> Mora.
+    // Si vence hoy (21) y hoy es (21) -> Pendiente (Azul).
+    // Si vence mañana (22) y hoy es (21) -> Al día (Azul).
+    const isCurrentlyOverdue = todayDate > nextInstallmentDueDate;
+
+    const pendingCount = credit.totalInstallments - paidFullInstallments;
     
     let status: FilterType = 'todos';
-    if (isFinished) status = 'pagados';
-    else if (isCurrentlyOverdue) status = 'mora';
+    if (isCurrentlyOverdue) status = 'mora';
     else if (pendingCount === 1) status = 'falta1';
     else if (pendingCount > 0 && pendingCount <= 3) status = 'falta3';
 
@@ -103,7 +105,6 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         const client = clients.find(c => c.id === credit.clientId);
         if (!client) return null;
         
-        // Cada crédito se evalúa independientemente aquí
         const info = getCreditStatusInfo(credit);
         
         const route = routes.find(r => r.id === client.routeId);
@@ -330,27 +331,37 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   const abonoActual = credit.totalPaid % credit.installmentValue;
   const debeCuotaActual = Math.max(0, credit.installmentValue - abonoActual);
 
-  // Cálculo de deuda esperada (Sincronizado con la lógica de semáforo estricta)
-  let expectedInstallments = 0;
+  // CÁLCULO DE DEUDA DE MORA (Sincronizado con lógica de Hitos de Cuota)
+  let amountStrictlyExpected = 0;
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
+  const baseDateStr = credit.firstPaymentDate || credit.startDate;
+  const baseDate = new Date(baseDateStr + 'T00:00:00');
   
-  if (credit.frequency === 'Daily') {
-     const daysUpToToday = countBusinessDays(credit.startDate, TODAY_STR);
-     const isTodayBusinessDay = todayDate.getDay() !== 0; 
-     // Para el cálculo de "DebeMora", consideramos lo que DEBIÓ pagar hasta AYER.
-     expectedInstallments = Math.max(0, daysUpToToday - (isTodayBusinessDay ? 1 : 0));
+  let expectedInstallments = 0;
+
+  if (baseDate > todayDate) {
+      // Si la fecha de inicio es futura, no se espera nada
+      expectedInstallments = 0;
+  } else if (credit.frequency === 'Daily') {
+     // Cuántos días hábiles han pasado hasta AYER (fecha de corte de mora)
+     // Si hoy es Martes (1 día después de Lunes), countBusinessDays(Lunes, Martes) = 1.
+     // Eso significa que debió pagar 1 cuota ayer.
+     expectedInstallments = countBusinessDays(baseDateStr, TODAY_STR);
   } else {
-     const startDate = new Date(credit.startDate + 'T00:00:00');
-     const diffDays = Math.floor((todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+     const diffDays = Math.floor((todayDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
      let cycleDays = 30;
      if (credit.frequency === 'Weekly') cycleDays = 7;
-     const inclusive = Math.floor(diffDays / cycleDays);
-     const remainder = diffDays % cycleDays;
-     expectedInstallments = remainder === 0 ? Math.max(0, inclusive - 1) : inclusive;
+     
+     // Cuántos ciclos COMPLETOS han pasado hasta hoy
+     expectedInstallments = Math.floor(diffDays / cycleDays);
   }
   
-  const amountExpected = Math.min(credit.totalInstallments, expectedInstallments) * credit.installmentValue;
-  const debeMora = Math.max(0, amountExpected - credit.totalPaid);
+  // Limitar esperado al total de cuotas del crédito
+  const cappedExpectedInstallments = Math.min(credit.totalInstallments, expectedInstallments);
+  amountStrictlyExpected = cappedExpectedInstallments * credit.installmentValue;
+  
+  // Mora es la diferencia entre lo que se debió acumular hasta AYER y lo que se ha pagado realmente
+  const debeMora = Math.max(0, amountStrictlyExpected - credit.totalPaid);
 
   const handleAction = (amount: number, label: string) => {
     onQuickPayment(credit.id, amount);
