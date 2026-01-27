@@ -14,18 +14,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
   return (
     <div className="min-h-screen bg-slate-950 font-inter selection:bg-indigo-500 selection:text-white overflow-x-hidden">
       {/* Navbar de Alta Dirección */}
-      <nav className="fixed w-full z-[100] bg-white/80 dark:bg-slate-950/80 backdrop-blur-3xl border-b border-slate-200 dark:border-white/5 py-4 md:py-6 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-6 md:px-8 flex items-center justify-between gap-2">
+      <nav className="fixed w-full z-[100] bg-white/80 dark:bg-slate-950/80 backdrop-blur-3xl border-b border-slate-200 dark:border-white/5 py-3 md:py-6 transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 md:gap-4 group cursor-pointer shrink-0">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-indigo-600 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-500/20 group-hover:rotate-12 transition-all">O</div>
-            <span className="text-lg md:text-2xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">Opulencia</span>
+            <div className="w-8 h-8 md:w-12 md:h-12 bg-indigo-600 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-500/20 group-hover:rotate-12 transition-all text-xs md:text-base">O</div>
+            {/* Ocultamos el texto en móviles (hidden sm:block) para dar espacio al botón de login */}
+            <span className="hidden sm:block text-lg md:text-2xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">Opulencia</span>
           </div>
-          <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex items-center gap-2 md:gap-6">
             
             {/* Theme Toggle */}
             <button 
                 onClick={toggleTheme} 
-                className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors"
+                className="p-1.5 md:p-2 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors"
                 title="Cambiar Tema"
             >
                 {theme === 'dark' ? '☀️' : '🌙'}
@@ -36,22 +37,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                 <select 
                     value={language} 
                     onChange={(e) => setLanguage(e.target.value as Language)}
-                    className="bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg py-2 pl-3 pr-8 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                    className="bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg py-1.5 pl-2 pr-6 md:py-2 md:pl-3 md:pr-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
-                    <option value="es" className="text-slate-900">🇪🇸 ESP</option>
-                    <option value="en" className="text-slate-900">🇺🇸 ENG</option>
-                    <option value="pt" className="text-slate-900">🇧🇷 POR</option>
-                    <option value="fr" className="text-slate-900">🇫🇷 FRA</option>
+                    <option value="es" className="text-slate-900">ESP</option>
+                    <option value="en" className="text-slate-900">ENG</option>
+                    <option value="pt" className="text-slate-900">POR</option>
+                    <option value="fr" className="text-slate-900">FRA</option>
                 </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-white/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                <div className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-white/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 md:h-3 md:w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </div>
             </div>
 
-            <button onClick={onRegister} className="text-[10px] font-black text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white transition-colors uppercase tracking-[0.3em] hidden md:block">
+            <button onClick={onRegister} className="text-[10px] font-black text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white transition-colors uppercase tracking-[0.3em] hidden lg:block">
                 {t('landing_cta_license')}
             </button>
-            <MagneticButton onClick={onLogin} className="bg-slate-900 dark:bg-white text-white dark:text-slate-950 px-5 py-2.5 md:px-10 md:py-4 rounded-xl md:rounded-2xl text-[10px] font-black hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white dark:hover:text-white transition-all shadow-2xl active:scale-95 uppercase tracking-[0.2em] border-b-2 md:border-b-4 border-slate-700 dark:border-slate-200 hover:border-indigo-900 whitespace-nowrap">
+            <MagneticButton onClick={onLogin} className="bg-slate-900 dark:bg-white text-white dark:text-slate-950 px-4 py-2 md:px-10 md:py-4 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white dark:hover:text-white transition-all shadow-2xl active:scale-95 uppercase tracking-widest md:tracking-[0.2em] border-b-2 md:border-b-4 border-slate-700 dark:border-slate-200 hover:border-indigo-900 whitespace-nowrap">
               {t('landing_cta_login')}
             </MagneticButton>
           </div>
