@@ -11,6 +11,19 @@ const getLocalISOString = () => {
   return `${year}-${month}-${day}`;
 };
 
+// Obtiene la FECHA Y HORA exacta del sistema local (sin convertir a UTC)
+// Formato: YYYY-MM-DDTHH:mm:ss (Compatible con ISO 8601 para DB)
+export const getCurrentLocalTimestamp = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
 export const TODAY_STR = getLocalISOString();
 const B_ID = 'business_001'; 
 

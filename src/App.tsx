@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -22,7 +23,7 @@ import { supabase } from './lib/supabase';
 import { verifyPassword, hashPassword, generateOTP } from './utils/security';
 import { GlobalProvider } from './contexts/GlobalContext';
 import { sendLicenseRequestEmail, sendOTPEmail } from './utils/email';
-import { TODAY_STR } from './constants';
+import { TODAY_STR, getCurrentLocalTimestamp } from './constants';
 
 // UUID v4 check (suficiente para nuestro caso)
 const isUuid = (v: string) =>
@@ -627,7 +628,8 @@ const AppContent: React.FC = () => {
       case 'collector_dashboard':
         return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
       case 'credits':
-        return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: new Date().toISOString(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
+        // FIX: Use getCurrentLocalTimestamp() for payment date to respect device local time instead of UTC
+        return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: getCurrentLocalTimestamp(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
       case 'client_management':
         return (
           <ClientManagement 

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Client, Credit, Route, User, Expense, Payment, RouteTransaction } from '../types';
-import { addBusinessDays } from '../constants';
+import { addBusinessDays, TODAY_STR } from '../constants';
 
 interface NewCreditProps {
   clients: Client[];
@@ -22,9 +23,10 @@ const NewCredit: React.FC<NewCreditProps> = ({ clients, user, allCredits, allExp
 
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
+  // FIX: Use TODAY_STR (local date) instead of new Date().toISOString() (UTC) to avoid timezone shifts
   const [formData, setFormData] = useState({
-    startDate: new Date().toISOString().split('T')[0],
-    firstPaymentDate: new Date().toISOString().split('T')[0],
+    startDate: TODAY_STR,
+    firstPaymentDate: TODAY_STR,
     capital: 0,
     interestRate: 20,
     installments: 30,

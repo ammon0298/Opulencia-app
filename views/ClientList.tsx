@@ -18,8 +18,8 @@ interface ClientListProps {
   onSearchChange?: (term: string) => void; 
 }
 
-// NUEVO TIPO DE FILTRO: 'hoy' agregado
-type FilterType = 'mora' | 'hoy' | 'falta1' | 'falta3' | 'pagados' | 'todos' | 'perdidos';
+// NUEVO TIPO DE FILTRO: 'aldia' agregado para clientes que ya pagaron la cuota de hoy
+type FilterType = 'mora' | 'hoy' | 'aldia' | 'falta1' | 'falta3' | 'pagados' | 'todos' | 'perdidos';
 
 const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, initialSearchTerm = '', onSearchChange }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
@@ -43,7 +43,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
   // LÓGICA DE SEMÁFORO ACTUALIZADA (Basada en Hitos de Cuota)
   const getCreditStatusInfo = (credit: Credit) => {
     if (credit.status === 'Lost') {
-        return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isDueToday: false, isLost: true };
+        return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: false, isLost: true };
     }
 
     // 1. Calcular cuántas cuotas ENTERAS ha pagado el cliente con su dinero acumulado
@@ -52,7 +52,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     const isFinished = paidFullInstallments >= credit.totalInstallments || credit.status === 'Completed';
     
     if (isFinished) {
-         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isDueToday: false, isLost: false };
+         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: true, isLost: false };
     }
 
     // 2. Determinar la FECHA DE VENCIMIENTO de la SIGUIENTE cuota (la que toca pagar ahora)
@@ -88,11 +88,12 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     // Ej: Vencía ayer (Miercoles), Hoy es Jueves. Jueves > Miercoles = MORA.
     // HOY (Blue): Si HOY == Fecha Vencimiento.
     // Ej: Vence hoy (Jueves), Hoy es Jueves. Jueves == Jueves = HOY.
-    // AL DIA (Adelantado): Si HOY < Fecha Vencimiento.
-    // Ej: Vence mañana (Viernes), Hoy es Jueves. Jueves < Viernes = NORMAL.
+    // AL DIA (Emerald): Si HOY < Fecha Vencimiento.
+    // Ej: Vence mañana (Viernes), Hoy es Jueves. Jueves < Viernes = AL DÍA (Ya pagó lo de hoy o adelantó).
 
     const isCurrentlyOverdue = todayDate.getTime() > nextInstallmentDueDate.getTime();
     const isDueToday = todayDate.getTime() === nextInstallmentDueDate.getTime();
+    const isPaidUpToDate = nextInstallmentDueDate.getTime() > todayDate.getTime();
 
     const pendingCount = credit.totalInstallments - paidFullInstallments;
     
@@ -102,9 +103,13 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     else if (isDueToday) status = 'hoy'; // Prioridad: Si es hoy, es Azul.
     else if (pendingCount === 1) status = 'falta1';
     else if (pendingCount > 0 && pendingCount <= 3) status = 'falta3';
-    // Si no entra en ninguno, es 'todos' (normal/adelantado)
+    else if (isPaidUpToDate) status = 'aldia'; // Prioridad: Si la próxima cuota es mañana o después, está "Al Día".
+    
+    // Nota: 'aldia' tiene prioridad visual sobre 'falta1' o 'falta3' si está al día hoy. 
+    // Si se prefiere mostrar 'falta1' aunque esté al día, mover esa condición arriba.
+    // En este caso, "Al Día" (Verde) es lo que pide el usuario visualizar.
 
-    return { isFinished, pendingCount, status, isCurrentlyOverdue, isDueToday, isLost: false };
+    return { isFinished, pendingCount, status, isCurrentlyOverdue, isDueToday, isPaidUpToDate, isLost: false };
   };
 
   const creditItems = useMemo(() => {
@@ -206,10 +211,11 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     if (status === 'perdidos') return 'bg-rose-50 border-rose-300 shadow-md opacity-80';
     if (isFinished) return 'bg-emerald-100/90 border-emerald-500 shadow-md shadow-emerald-100/50';
     if (status === 'mora') return 'bg-purple-50 border-purple-500 shadow-md shadow-purple-100/50';
-    if (status === 'hoy') return 'bg-blue-50 border-blue-500 shadow-md shadow-blue-100/50'; // ESTILO AZUL
+    if (status === 'hoy') return 'bg-blue-50 border-blue-500 shadow-md shadow-blue-100/50'; 
+    if (status === 'aldia') return 'bg-emerald-50 border-emerald-500 shadow-md shadow-emerald-100/50'; // ESTILO VERDE ESMERALDA (AL DÍA)
     if (status === 'falta1') return 'bg-rose-100 border-rose-500 shadow-md shadow-rose-100/50';
     if (status === 'falta3') return 'bg-amber-100 border-amber-500 shadow-md shadow-amber-100/50';
-    // Estilo por defecto (AL DÍA / ADELANTADO)
+    // Estilo por defecto (Si no entra en categorías específicas)
     return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
   };
 
@@ -235,7 +241,8 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 
         <div className="flex flex-wrap gap-3 mb-8">
           <FilterBadge color="bg-indigo-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
-          <FilterBadge color="bg-blue-500" label="Cobro Hoy" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} /> {/* BOTÓN AZUL */}
+          <FilterBadge color="bg-blue-500" label="Cobro Hoy" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} />
+          <FilterBadge color="bg-emerald-500" label="Al Día" active={activeFilter === 'aldia'} onClick={() => setActiveFilter('aldia')} /> {/* BOTÓN VERDE ESMERALDA */}
           <FilterBadge color="bg-purple-600" label={t('mora_credits')} active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
           <FilterBadge color="bg-rose-600" label={t('missing_1')} active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
           <FilterBadge color="bg-amber-500" label={t('missing_3')} active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
@@ -390,8 +397,10 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
             <div className="bg-purple-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">MORA</div>
          ) : info.isDueToday ? (
             <div className="bg-blue-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">COBRO HOY</div>
-         ) : (
+         ) : info.isPaidUpToDate ? (
             <div className="bg-emerald-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-sm">AL DÍA</div>
+         ) : (
+            <div className="bg-slate-400 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-sm">PENDIENTE</div>
          )}
       </div>
 
