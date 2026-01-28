@@ -143,7 +143,7 @@ export const translations = {
     // MODULO 3: Retención
     landing_mod3_tag: 'Rotación',
     landing_mod3_title: 'No Pierda Buenos Clientes.',
-    landing_mod3_desc: 'El dinero quieto pierde valor. El sistema detecta automáticamente cuando un buen cliente está por terminar y le sugiere una renovación inmediata antes de que busque a la competencia.',
+    landing_mod3_desc: 'El dinero quieto pierde valor. El sistema detecta automáticamente cuando un buen cliente está por terminar e sugiere una renovación inmediata antes de que busque a la competencia.',
     landing_mod3_card_title: 'Alerta de Oportunidad',
     landing_mod3_card_desc: 'Aviso: "Doña María termina pagos mañana. Historial Perfecto. Ofrecer renovación ya."',
 
@@ -166,9 +166,9 @@ export const translations = {
     // MODULO 6: Auditoría GPS (EL GANCHO)
     landing_mod6_tag: 'Auditoría',
     landing_mod6_title: 'Sepa Dónde Están. Ahora Mismo.',
-    landing_mod6_desc: '¿Le dicen que están cobrando pero están en su casa? Se acabó. Rastreo GPS en tiempo real y validación de visita obligatoria para registrar cualquier movimiento.',
+    landing_mod6_desc: '¿Le dicen que están cobrando pero están en su casa? Se acabó. Rastreo GPS en tiempo real para agendar rutas eficientes y asegurar la ubicación de cada cliente.',
     landing_mod6_item1_t: 'Ruta Anti-Mentiras', landing_mod6_item1_d: 'El sistema marca la ruta óptima. Usted ve si se desvían.',
-    landing_mod6_item2_t: 'Registro en Sitio', landing_mod6_item2_d: 'No permite registrar pago si el GPS no coincide con la casa del cliente.',
+    landing_mod6_item2_t: 'Geolocalización Precisa', landing_mod6_item2_d: 'La App guarda la ubicación exacta para evitar que los clientes se pierdan y optimizar las rutas.',
 
     // MODULO 7: Arqueo
     landing_mod7_tag: 'Verdad',
@@ -385,9 +385,9 @@ export const translations = {
 
     landing_mod6_tag: 'Audit',
     landing_mod6_title: 'Know Where They Are. Right Now.',
-    landing_mod6_desc: 'They tell you they are collecting but are at home? No more. Real-time GPS tracking and mandatory visit validation to register any movement.',
+    landing_mod6_desc: 'They tell you they are collecting but are at home? No more. Real-time GPS tracking for efficient route scheduling and exact client location.',
     landing_mod6_item1_t: 'Anti-Lie Route', landing_mod6_item1_d: 'The system marks the optimal route. You see if they deviate.',
-    landing_mod6_item2_t: 'On-Site Log', landing_mod6_item2_d: 'Does not allow payment registration if GPS doesn\'t match client home.',
+    landing_mod6_item2_t: 'Precise Geolocation', landing_mod6_item2_d: 'The App saves the exact location to prevent clients from getting lost and to optimize route scheduling.',
 
     landing_mod7_tag: 'Truth',
     landing_mod7_title: 'Cash Closing Without Excuses.',
@@ -611,9 +611,9 @@ export const translations = {
     landing_mod5_badge2: '-$20.00 Gasolina (Aprovado)',
     landing_mod6_tag: 'Auditoria',
     landing_mod6_title: 'Saiba Onde Estão. Agora Mesmo.',
-    landing_mod6_desc: 'Dizem que estão cobrando mas estão em casa? Acabou. Rastreamento GPS em tempo real e validação de visita obrigatória para registrar qualquer movimento.',
+    landing_mod6_desc: 'Dizem que estão cobrando mas estão em casa? Acabou. Rastreamento GPS em tempo real e agendamento de rotas eficiente para garantir a localização de cada cliente.',
     landing_mod6_item1_t: 'Rota Anti-Mentiras', landing_mod6_item1_d: 'O sistema marca a rota ideal. Você vê se desviam.',
-    landing_mod6_item2_t: 'Registro no Local', landing_mod6_item2_d: 'Não permite registrar pagamento se o GPS não coincidir com a casa do cliente.',
+    landing_mod6_item2_t: 'Geolocalização Precisa', landing_mod6_item2_d: 'O App salva a localização exata para evitar que os clientes se percam e otimizar o agendamento de rotas.',
     landing_mod7_tag: 'Verdade',
     landing_mod7_title: 'Fechamento de Caixa Sem Desculpas.',
     landing_mod7_desc: 'No final do dia, a matemática não mente. O sistema diz exatamente quanto dinheiro o cobrador deve entregar. Se faltar dinheiro, o sistema marca em vermelho.',
@@ -804,9 +804,9 @@ export const translations = {
     landing_mod5_badge2: '-$20.00 Essence (Approuvé)',
     landing_mod6_tag: 'Audit',
     landing_mod6_title: 'Sachez Où Ils Sont. Maintenant.',
-    landing_mod6_desc: 'Ils vous disent qu\'ils encaissent mais sont chez eux ? C\'est fini. Suivi GPS en temps réel et validation de visite obligatoire pour enregistrer tout mouvement.',
+    landing_mod6_desc: 'Ils vous disent qu\'ils encaissent mais sont chez eux ? C\'est fini. Suivi GPS en temps réel et planification efficace des itinéraires pour localiser chaque client.',
     landing_mod6_item1_t: 'Route Anti-Mensonge', landing_mod6_item1_d: 'Le système marque la route optimale. Vous voyez s\'ils dévient.',
-    landing_mod6_item2_t: 'Enregistrement sur Site', landing_mod6_item2_d: 'Interdit d\'enregistrer un paiement si le GPS ne correspond pas à la maison du client.',
+    landing_mod6_item2_t: 'Géolocalisation Précise', landing_mod6_item2_d: 'L\'application enregistre l\'emplacement exact pour une planification efficace et garantit qu\'aucun client ne se perde.',
     landing_mod7_tag: 'Vérité',
     landing_mod7_title: 'Clôture de Caisse Sans Excuses.',
     landing_mod7_desc: 'À la fin de la journée, les maths ne mentent pas. Le système vous dit exactement combien d\'argent le recouvreur doit remettre. S\'il manque de l\'argent, le système le marque en rouge.',
