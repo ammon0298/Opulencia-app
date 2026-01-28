@@ -19,7 +19,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
           
           {/* Logo y Nombre - Ajustados para ser visibles pero compactos */}
           <div className="flex items-center gap-1.5 md:gap-4 group cursor-pointer shrink-0">
-            <div className="w-7 h-7 md:w-12 md:h-12 bg-indigo-600 rounded-lg md:rounded-2xl flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-500/20 group-hover:rotate-12 transition-all text-[10px] md:text-base">O</div>
+            <div className="w-7 h-7 md:w-12 md:h-12 bg-indigo-600 rounded-lg md:rounded-2xl flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-500/20 group-hover:rotate-12 transition-all text-[10px] md:text-xl">$</div>
             <span className="text-sm md:text-2xl font-black text-slate-800 dark:text-white tracking-tight md:tracking-tighter uppercase">Opulencia</span>
           </div>
 
@@ -51,10 +51,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 md:h-3 md:w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </div>
             </div>
-
-            <button onClick={onRegister} className="text-[10px] font-black text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white transition-colors uppercase tracking-[0.3em] hidden lg:block">
-                {t('landing_cta_license')}
-            </button>
             
             <MagneticButton onClick={onLogin} className="bg-slate-900 dark:bg-white text-white dark:text-slate-950 px-3 py-1.5 md:px-10 md:py-4 rounded-lg md:rounded-2xl text-[10px] font-black hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white dark:hover:text-white transition-all shadow-xl active:scale-95 uppercase border-b-2 md:border-b-4 border-slate-700 dark:border-slate-200 hover:border-indigo-900 whitespace-nowrap">
               {t('landing_cta_login')}
@@ -153,7 +149,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
          </div>
       </section>
 
-      {/* 01: Analítica Predictiva */}
+      {/* 01: Claridad vs Caos */}
       <ModuleSection 
         index="01" 
         tag={t('landing_mod1_tag')} 
@@ -166,7 +162,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         ]}
       />
 
-      {/* 02: Gestión de Riesgo */}
+      {/* 02: Priorización de Cobro */}
       <ModuleSection 
         index="02" 
         tag={t('landing_mod2_tag')} 
@@ -182,7 +178,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         ]}
       />
 
-      {/* 03: Motor Predictivo */}
+      {/* 03: Retención / Rotación */}
       <ModuleSection 
         index="03" 
         tag={t('landing_mod3_tag')} 
@@ -196,7 +192,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         }}
       />
 
-      {/* 04: Diccionario Maestro */}
+      {/* 04: Blindaje Anti-Robo */}
       <ModuleSection 
         index="04" 
         tag={t('landing_mod4_tag')} 
@@ -207,12 +203,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         smallItems={[
           { t: t('landing_mod4_item1_t'), d: t('landing_mod4_item1_d') },
           { t: t('landing_mod4_item2_t'), d: t('landing_mod4_item2_d') },
-          // Removed Score Crediticio item as requested
           { t: t('landing_mod4_item4_t'), d: t('landing_mod4_item4_d') }
         ]}
       />
 
-      {/* 05: Mitigación de Fugas */}
+      {/* 05: Fugas de Dinero */}
       <ModuleSection 
         index="05" 
         tag={t('landing_mod5_tag')} 
@@ -222,7 +217,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         expenseBadges={[t('landing_mod5_badge1'), t('landing_mod5_badge2')]}
       />
 
-      {/* 06: Supervisión Táctica */}
+      {/* 06: Auditoría GPS (EL GANCHO) */}
       <ModuleSection 
         index="06" 
         tag={t('landing_mod6_tag')} 
@@ -236,7 +231,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         ]}
       />
 
-      {/* 07: Arqueo Digital */}
+      {/* 07: Arqueo */}
       <ModuleSection 
         index="07" 
         tag={t('landing_mod7_tag')} 
@@ -247,7 +242,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         t={t}
       />
 
-      {/* 08: Inteligencia Artificial */}
+      {/* 08: IA / Consultoría */}
       <ModuleSection 
         index="08" 
         tag={t('landing_mod8_tag')} 
@@ -271,8 +266,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
             <p className="text-slate-500 font-medium text-lg md:text-xl mt-8 max-w-2xl mx-auto px-4">{t('landing_pricing_desc')}</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
-            {/* TARJETA 1: PLAN OPU ASCENSO */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-16">
+            {/* TARJETA 1: PLAN CONTROL (Ahora con mismas funciones que Expansión) */}
             <PricingCard 
               title={t('landing_plan1_title')}
               subtitle={t('landing_plan1_subtitle')}
@@ -281,15 +276,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
               features={[
                 t('landing_plan1_f1'),
                 t('landing_plan1_f2'),
-                t('landing_plan1_f3'),
-                t('landing_plan1_f4')
+                t('landing_plan1_f3'), // GPS Audit
+                t('landing_plan1_f4'), // AI Fraud
+                t('landing_plan1_f5')  // Priority Support
               ]}
               footerNote={t('landing_plan1_footer')}
               onSelect={onRegister}
               t={t}
             />
 
-            {/* TARJETA 2: PLAN OPU DOMINIO */}
+            {/* TARJETA 2: PLAN EXPANSIÓN */}
             <PricingCard 
               title={t('landing_plan2_title')}
               subtitle={t('landing_plan2_subtitle')}
@@ -308,7 +304,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
               t={t} 
             />
 
-            {/* TARJETA 3: LEGADO OPULENTE (PROMOCIONAL) */}
+            {/* TARJETA 3: MEMBRESÍA FUNDADOR (LANZAMIENTO - PRECIO CONGELADO) */}
             <PromoCard 
               title={t('landing_plan3_title')}
               subtitle={t('landing_plan3_subtitle')}
@@ -323,6 +319,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
               onSelect={onRegister}
             />
           </div>
+
+          {/* BANNER PLAN CUSTOM / NEGOCIACIÓN */}
+          <CustomPlanBanner onRegister={onRegister} t={t} />
+
+          {/* BANNER MÉTODOS DE PAGO */}
+          <PaymentMethodsBar t={t} />
+
         </div>
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-100 dark:bg-indigo-50 blur-[120px] rounded-full -mr-48 -mb-48 opacity-50"></div>
       </section>
@@ -332,7 +335,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 md:gap-0">
             <div className="flex flex-col items-center md:items-start gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-slate-950 text-xl font-black shadow-lg">O</div>
+                    <div className="w-10 h-10 bg-slate-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-slate-950 text-xl font-black shadow-lg">$</div>
                     <h4 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">OPULENCIA</h4>
                 </div>
                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{t('landing_footer_desc')}</p>
@@ -340,6 +343,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
 
             <div className="flex gap-6">
                <SocialIcon path="M12.52 2h2.02c.15 1.24.76 2.43 1.73 3.34.97.9 2.2 1.4 3.53 1.45v2.06c-1.23.04-2.43-.28-3.46-.92v6.94a5.77 5.77 0 1 1-5.77-5.77c.32 0 .64.03.95.1v2.16a3.71 3.71 0 1 0 2.82 3.59V2z" />
+               <SocialIcon path="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" />
                <SocialIcon path="M12 2.163c3.204 0 3.584.012 4.85.072 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
             </div>
         </div>
@@ -351,7 +355,69 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
   );
 };
 
-// --- COMPONENTES AUXILIARES ---
+// --- NUEVO COMPONENTE: BANNER PLAN CUSTOM ---
+const CustomPlanBanner = ({ onRegister, t }: any) => (
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-950 dark:from-slate-800 dark:to-slate-900 rounded-[3rem] p-10 md:p-16 text-white text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden group mb-12">
+        {/* Decoración Fondo */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] -mr-32 -mt-32 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] -ml-20 -mb-20 pointer-events-none"></div>
+        
+        <div className="relative z-10 max-w-2xl">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                Enterprise
+            </span>
+            <h3 className="text-3xl md:text-5xl font-black mb-4 tracking-tight leading-tight">{t('landing_custom_title')}</h3>
+            <p className="text-indigo-200 text-lg font-medium leading-relaxed mb-6">
+                {t('landing_custom_desc')}
+            </p>
+        </div>
+
+        <div className="relative z-10 shrink-0">
+            <MagneticButton onClick={onRegister} className="bg-white text-slate-950 hover:bg-indigo-50 px-10 py-5 rounded-full font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95 border-b-4 border-indigo-100 hover:border-white">
+                {t('landing_custom_cta')}
+            </MagneticButton>
+        </div>
+    </div>
+);
+
+// --- NUEVO COMPONENTE: BANNER MÉTODOS DE PAGO ---
+const PaymentMethodsBar = ({ t }: any) => (
+    <div className="mt-12 text-center">
+        <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-6">{t('landing_payments_title')}</p>
+        <div className="flex flex-wrap justify-center items-center gap-6 md:gap-12 opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
+            {/* USDT */}
+            <div className="flex items-center gap-2" title="Tether (USDT)">
+                <div className="w-8 h-8 rounded-full bg-[#26A17B] text-white flex items-center justify-center font-bold text-[10px]">₮</div>
+                <span className="font-bold text-slate-600 dark:text-slate-300">USDT</span>
+            </div>
+            {/* Bitcoin */}
+            <div className="flex items-center gap-2" title="Bitcoin">
+                <div className="w-8 h-8 rounded-full bg-[#F7931A] text-white flex items-center justify-center font-bold text-sm">₿</div>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Bitcoin</span>
+            </div>
+            {/* USDC */}
+            <div className="flex items-center gap-2" title="USD Coin">
+                <div className="w-8 h-8 rounded-full bg-[#2775CA] text-white flex items-center justify-center font-bold text-[10px]">$</div>
+                <span className="font-bold text-slate-600 dark:text-slate-300">USDC</span>
+            </div>
+            {/* Western Union */}
+            <div className="flex items-center gap-2" title="Western Union">
+                <div className="w-8 h-8 bg-black text-[#FFDA00] flex items-center justify-center font-black text-[10px] tracking-tighter">WU</div>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Western Union</span>
+            </div>
+            {/* Transferencias */}
+            <div className="flex items-center gap-2" title="Transferencias Bancarias (Nequi/Bancolombia)">
+                <div className="w-8 h-8 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                </div>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Transferencia Bancaria</span>
+            </div>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-4 max-w-md mx-auto">{t('landing_payments_desc')}</p>
+    </div>
+);
+
+// --- COMPONENTES AUXILIARES EXISTENTES ---
 
 const MagneticButton = ({ children, className, onClick }: any) => {
     const btnRef = useRef<HTMLButtonElement>(null);

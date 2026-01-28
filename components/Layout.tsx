@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, UserRole, Route } from '../types';
 import { useGlobal } from '../contexts/GlobalContext';
@@ -83,7 +84,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, navigateTo, currentView
         <div className="h-full flex flex-col p-6">
           <div className="mb-10 hidden md:block">
             <h1 className="text-2xl font-black text-indigo-600 flex items-center gap-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-xs">O</div>
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">$</div>
               Opulencia
             </h1>
             <div className="mt-2 text-[10px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800 inline-block shadow-sm">

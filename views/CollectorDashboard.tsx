@@ -169,12 +169,10 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     };
   }, [stats]);
 
-  // CÁLCULO ESTRICTO DE "HOY" (Solo pagos con fecha de hoy)
-  const todayCollected = useMemo(() => {
+  // CORRECCIÓN: Total Recaudado (Acumulado Histórico) en lugar de solo Hoy
+  const totalCollectedGlobal = useMemo(() => {
     if (!stats.payments) return 0;
-    return stats.payments
-      .filter(p => p.date.startsWith(TODAY_STR))
-      .reduce((acc, p) => acc + p.amount, 0);
+    return stats.payments.reduce((acc, p) => acc + p.amount, 0);
   }, [stats.payments]);
 
   // CÁLCULO DE GRÁFICA REAL VS META (Igual que Admin)
@@ -260,8 +258,8 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* CORREGIDO: Usando todayCollected real */}
-        <StatCard title={t('collected_today')} value={`$${todayCollected.toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        {/* CORREGIDO: Usando totalCollectedGlobal para mostrar el acumulado total */}
+        <StatCard title={t('total_collected')} value={`$${totalCollectedGlobal.toLocaleString()}`} color="indigo" icon={<IconCash />} />
         
         <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
         <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />

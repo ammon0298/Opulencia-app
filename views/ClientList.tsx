@@ -208,13 +208,27 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
   };
 
   const getCardStyle = (isFinished: boolean, status: FilterType) => {
-    if (status === 'perdidos') return 'bg-rose-50 border-rose-300 shadow-md opacity-80';
-    if (isFinished) return 'bg-emerald-100/90 border-emerald-500 shadow-md shadow-emerald-100/50';
-    if (status === 'mora') return 'bg-purple-50 border-purple-500 shadow-md shadow-purple-100/50';
-    if (status === 'hoy') return 'bg-blue-50 border-blue-500 shadow-md shadow-blue-100/50'; 
-    if (status === 'aldia') return 'bg-emerald-50 border-emerald-500 shadow-md shadow-emerald-100/50'; // ESTILO VERDE ESMERALDA (AL DÍA)
-    if (status === 'falta1') return 'bg-rose-100 border-rose-500 shadow-md shadow-rose-100/50';
-    if (status === 'falta3') return 'bg-amber-100 border-amber-500 shadow-md shadow-amber-100/50';
+    if (status === 'perdidos') 
+        return 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 shadow-md opacity-80';
+    
+    if (isFinished) 
+        return 'bg-emerald-100/90 dark:bg-emerald-900/30 border-emerald-500 shadow-md shadow-emerald-100/50 dark:shadow-none';
+    
+    if (status === 'mora') 
+        return 'bg-purple-50 dark:bg-purple-900/20 border-purple-500 shadow-md shadow-purple-100/50 dark:shadow-none';
+    
+    if (status === 'hoy') 
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 shadow-md shadow-blue-100/50 dark:shadow-none'; 
+    
+    if (status === 'aldia') 
+        return 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 dark:border-emerald-500/50 shadow-md shadow-emerald-100/50 dark:shadow-none'; // ESTILO CORREGIDO PARA DARK MODE
+    
+    if (status === 'falta1') 
+        return 'bg-rose-100 dark:bg-rose-900/20 border-rose-500 shadow-md shadow-rose-100/50 dark:shadow-none';
+    
+    if (status === 'falta3') 
+        return 'bg-amber-100 dark:bg-amber-900/20 border-amber-500 shadow-md shadow-amber-100/50 dark:shadow-none';
+    
     // Estilo por defecto (Si no entra en categorías específicas)
     return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
   };

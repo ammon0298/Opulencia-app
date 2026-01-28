@@ -188,12 +188,14 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     };
   }, [stats]);
 
-  const todayCollected = useMemo(() => {
+  // CORRECCIÓN: Total Recaudado (Acumulado Histórico) en lugar de solo Hoy
+  const totalCollectedGlobal = useMemo(() => {
     if (!stats.payments) return 0;
-    return stats.payments
-      .filter(p => p.date.startsWith(TODAY_STR))
-      .reduce((acc, p) => acc + p.amount, 0);
+    return stats.payments.reduce((acc, p) => acc + p.amount, 0);
   }, [stats.payments]);
+
+  // Se mantiene el cálculo de hoy solo para la gráfica si es necesario, 
+  // pero el KPI principal ahora usa totalCollectedGlobal
 
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
@@ -291,7 +293,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard title={t('collected_today')} value={`$${todayCollected.toLocaleString()}`} color="indigo" icon={<IconCash />} />
+        {/* Se usa t('total_collected') para reflejar que es el acumulado general */}
+        <StatCard title={t('total_collected')} value={`$${totalCollectedGlobal.toLocaleString()}`} color="indigo" icon={<IconCash />} />
         <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
         <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
         <StatCard title={t('projected_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
