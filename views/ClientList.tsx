@@ -10,7 +10,7 @@ interface ClientListProps {
   users: User[];
   user: User;
   routes: Route[];
-  onPayment: (creditId: string, amount: number) => void;
+  onPayment: (creditId: string, amount: number) => Promise<void>; // Updated to Promise for async handling
   onViewDetails: (creditId: string) => void;
   onViewVisits: (creditId: string) => void; 
   onEditClient: (clientId: string) => void;
@@ -190,10 +190,11 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     setPaymentAmount(0); 
   };
 
-  const handleConfirmPayment = () => {
+  // Se modificó para que sea async y espere la respuesta de la base de datos
+  const handleConfirmPayment = async () => {
     if (paymentModal.credit && paymentAmount >= 0) {
-      onPayment(paymentModal.credit.id, paymentAmount);
-      setPaymentModal({ isOpen: false });
+      await onPayment(paymentModal.credit.id, paymentAmount);
+      // No cerramos el modal aquí, el PaymentModal maneja su propio ciclo de éxito/cierre
     }
   };
 
@@ -507,13 +508,48 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
 };
 
 const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm, t }: any) => {
+  const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const saldoTotal = Math.max(0, credit.totalToPay - credit.totalPaid);
+
+  const handleSubmit = async () => {
+    if (amount < 0) return;
+    setStatus('processing');
+    try {
+        await onConfirm(); // Realiza la inserción en DB y recarga
+        setStatus('success');
+        // Esperar 2 segundos para que el usuario vea el check de éxito
+        setTimeout(() => {
+            onClose();
+        }, 2000);
+    } catch (error) {
+        console.error("Error payment:", error);
+        setStatus('idle');
+        // Aquí podrías agregar manejo de error visual si lo deseas
+    }
+  };
 
   return (
     <div className="fixed inset-0 w-full h-full bg-slate-900/90 flex items-center justify-center p-4 z-[9999] backdrop-blur-md animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm shadow-2xl border border-white dark:border-slate-700 animate-slideUp flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm shadow-2xl border border-white dark:border-slate-700 animate-slideUp flex flex-col overflow-hidden relative">
+        
+        {/* VISTA DE ÉXITO */}
+        {status === 'success' && (
+            <div className="absolute inset-0 bg-emerald-600 z-50 flex flex-col items-center justify-center text-white animate-fadeIn p-6 text-center">
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-2xl animate-bounce">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                </div>
+                <h3 className="text-3xl font-black uppercase tracking-tight mb-2">¡Pago Exitoso!</h3>
+                <p className="text-emerald-100 font-medium text-sm mb-4">El abono ha sido registrado en la base de datos.</p>
+                <div className="bg-white/20 px-6 py-2 rounded-xl backdrop-blur-sm">
+                    <p className="text-2xl font-black">${amount.toLocaleString()}</p>
+                </div>
+            </div>
+        )}
+
         <header className="bg-slate-900 dark:bg-slate-800 p-6 text-center relative shrink-0">
-          <button onClick={onClose} className="absolute right-5 top-5 text-slate-500 hover:text-white transition">
+          <button onClick={onClose} disabled={status === 'processing'} className="absolute right-5 top-5 text-slate-500 hover:text-white transition disabled:opacity-50">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
           <div className="inline-flex items-center gap-2 bg-indigo-500/20 px-3 py-1 rounded-full mb-3 border border-indigo-500/30">
@@ -538,7 +574,8 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm, t
                   autoFocus 
                   value={amount || ''}
                   onChange={(e) => setAmount(Math.max(0, Math.min(saldoTotal, parseFloat(e.target.value) || 0)))}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] pl-12 pr-6 py-6 font-black text-slate-800 dark:text-white text-4xl outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-50 dark:focus:ring-indigo-900 transition-all shadow-inner text-center"
+                  disabled={status === 'processing'}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] pl-12 pr-6 py-6 font-black text-slate-800 dark:text-white text-4xl outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-50 dark:focus:ring-indigo-900 transition-all shadow-inner text-center disabled:opacity-50"
                   placeholder="0.00"
                 />
              </div>
@@ -546,13 +583,20 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm, t
 
           <div className="flex flex-col gap-3 pt-4">
             <button 
-              disabled={amount < 0}
-              onClick={onConfirm} 
-              className="w-full font-black py-5 rounded-[2rem] shadow-2xl transition transform active:scale-95 uppercase tracking-[0.2em] text-xs bg-indigo-600 hover:bg-indigo-700 text-white border-b-4 border-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={amount < 0 || status === 'processing'}
+              onClick={handleSubmit} 
+              className={`w-full font-black py-5 rounded-[2rem] shadow-2xl transition transform active:scale-95 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2
+                ${status === 'processing' ? 'bg-slate-400 cursor-wait text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-b-4 border-indigo-900'}
+              `}
             >
-              {t('register_payment')}
+              {status === 'processing' ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    GUARDANDO...
+                  </>
+              ) : t('register_payment')}
             </button>
-            <button onClick={onClose} className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 font-black py-4 rounded-2xl transition uppercase tracking-widest text-[9px] border border-slate-200 dark:border-slate-700">{t('cancel')}</button>
+            <button onClick={onClose} disabled={status === 'processing'} className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 font-black py-4 rounded-2xl transition uppercase tracking-widest text-[9px] border border-slate-200 dark:border-slate-700 disabled:opacity-50">{t('cancel')}</button>
           </div>
         </div>
       </div>

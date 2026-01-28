@@ -69,10 +69,11 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
         return;
     }
 
-    if (!proofImage) {
-        setErrorMsg("⚠️ SEGURIDAD: Es OBLIGATORIO adjuntar foto del recibo o comprobante.");
-        return;
-    }
+    // La imagen ya no es obligatoria
+    // if (!proofImage) {
+    //     setErrorMsg("⚠️ SEGURIDAD: Es OBLIGATORIO adjuntar foto del recibo o comprobante.");
+    //     return;
+    // }
 
     const localDate = new Date().toISOString().split('T')[0];
 
@@ -85,7 +86,7 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
       name: formData.name,
       type: formData.type as any,
       concept: formData.concept,
-      proofImage: proofImage
+      proofImage: proofImage || undefined // Allow undefined if null
     };
     onAdd(newExpense);
     setShowForm(false);
@@ -202,8 +203,8 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
             {/* SECCIÓN DE EVIDENCIA FOTOGRÁFICA */}
             <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                    Evidencia Comprobante (Obligatorio)
-                    <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded text-[8px]">Requerido</span>
+                    Evidencia Comprobante (Opcional)
+                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded text-[8px]">Sugerido</span>
                 </label>
                 
                 <div className={`relative group border-2 border-dashed rounded-3xl p-6 transition-all text-center ${proofImage ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-indigo-400'}`}>
