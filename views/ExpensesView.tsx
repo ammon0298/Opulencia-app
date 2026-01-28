@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Expense, Route, User, UserRole } from '../types';
+import { TODAY_STR } from '../constants';
 
 interface ExpensesProps {
   expenses: Expense[];
@@ -75,7 +76,8 @@ const ExpensesView: React.FC<ExpensesProps> = ({ expenses, routes, user, onAdd, 
     //     return;
     // }
 
-    const localDate = new Date().toISOString().split('T')[0];
+    // CORRECCIÓN: Usar TODAY_STR (Fecha Local) en lugar de UTC
+    const localDate = TODAY_STR;
 
     const newExpense: Expense = {
       id: 'e' + Date.now(),
