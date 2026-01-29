@@ -60,20 +60,40 @@ const ClientMap: React.FC<ClientMapProps> = ({ clients, credits, payments }) => 
     if (!mapRef.current) return;
 
     if (!mapInstance.current) {
-      mapInstance.current = L.map(mapRef.current).setView([4.6097, -74.0817], 13);
-
-      const tileUrl = theme === 'dark' 
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
-        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        // Capa de Calles (Dinámica según tema)
+        const tileUrl = theme === 'dark' 
+            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
+            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
       
-      L.tileLayer(tileUrl, {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 20
-      }).addTo(mapInstance.current);
+        const streetLayer = L.tileLayer(tileUrl, {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+
+        // Capa de Satélite (Esri)
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
+        });
+
+        mapInstance.current = L.map(mapRef.current, {
+            center: [4.6097, -74.0817],
+            zoom: 13,
+            layers: [streetLayer] // Default
+        });
+
+        // Control de Capas
+        const baseMaps = {
+            "Mapa Callejero": streetLayer,
+            "Satélite": satelliteLayer
+        };
+        L.control.layers(baseMaps).addTo(mapInstance.current);
+
     } else {
+        // Actualizar solo la capa callejera si cambia el tema
         mapInstance.current.eachLayer((layer: any) => {
-            if (layer instanceof L.TileLayer) {
+            if (layer instanceof L.TileLayer && !layer._url.includes('arcgisonline')) {
                 const newUrl = theme === 'dark' 
                     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
                     : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';

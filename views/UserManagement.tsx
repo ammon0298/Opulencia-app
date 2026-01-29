@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { User, UserRole, Route, AccountStatus, Subscription } from '../types';
+import { User, UserRole, Route, AccountStatus, Subscription, Client } from '../types';
 import { COUNTRY_DATA } from '../constants';
 import { hashPassword } from '../utils/security';
 import { supabase } from '../lib/supabase';
@@ -13,9 +12,11 @@ interface UserManagementProps {
   currentUser: User;
   onSave: () => void;
   subscription: Subscription | null;
+  clients: Client[]; // Nuevo prop
+  selectedRouteId: string; // Nuevo prop
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentUser, onSave, subscription }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentUser, onSave, subscription, clients, selectedRouteId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -354,7 +355,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, routes, currentU
       )}
 
       {viewMode === 'map' ? (
-        <CollectorMap users={users} routes={routes} />
+        <CollectorMap users={users} routes={routes} clients={clients} selectedRouteId={selectedRouteId} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {collectors.map(c => (

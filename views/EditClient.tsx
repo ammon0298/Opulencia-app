@@ -72,16 +72,35 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     }
   }, [client]);
 
-  // Inicializar Mapa
+  // Inicializar Mapa con Capas (Satélite / Calle)
   useEffect(() => {
     if (!mapRef.current) return;
     
     if (!mapInstance.current) {
-        mapInstance.current = L.map(mapRef.current).setView([formData.coordinates.lat, formData.coordinates.lng], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        // Capa de Calles (CartoDB)
+        const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 20
-        }).addTo(mapInstance.current);
+        });
+
+        // Capa de Satélite (Esri World Imagery)
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
+        });
+
+        mapInstance.current = L.map(mapRef.current, {
+            center: [formData.coordinates.lat, formData.coordinates.lng],
+            zoom: 13,
+            layers: [streetLayer] // Capa por defecto
+        });
+
+        // Control de Capas
+        const baseMaps = {
+            "Mapa Callejero": streetLayer,
+            "Satélite": satelliteLayer
+        };
+        L.control.layers(baseMaps).addTo(mapInstance.current);
 
         markerRef.current = L.marker([formData.coordinates.lat, formData.coordinates.lng], { draggable: true })
             .addTo(mapInstance.current);

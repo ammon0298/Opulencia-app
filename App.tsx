@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -662,7 +661,8 @@ const AppContent: React.FC = () => {
       case 'liquidation':
         return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={visibleRoutes} transactions={transactions} />;
       case 'users':
-        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} subscription={subscription} />;
+        // ACTUALIZADO: Pasar 'clients' y 'selectedRouteId'
+        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} subscription={subscription} clients={clients} selectedRouteId={selectedRouteId} />;
       case 'routes_mgmt':
         return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={handleRefreshData} onAddTransaction={persistRouteTransaction} subscription={subscription} />;
       case 'profile':

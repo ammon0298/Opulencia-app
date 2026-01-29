@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -662,7 +661,8 @@ const AppContent: React.FC = () => {
       case 'liquidation':
         return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={visibleRoutes} transactions={transactions} />;
       case 'users':
-        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} subscription={subscription} />;
+        // ACTUALIZADO: Pasar 'clients' y 'selectedRouteId'
+        return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} subscription={subscription} clients={clients} selectedRouteId={selectedRouteId} />;
       case 'routes_mgmt':
         return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={handleRefreshData} onAddTransaction={persistRouteTransaction} subscription={subscription} />;
       case 'profile':
@@ -686,7 +686,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
-          <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">O</div>
+          <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">$</div>
           <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Iniciando...</p>
         </div>
       </div>

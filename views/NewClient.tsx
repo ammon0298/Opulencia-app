@@ -43,17 +43,35 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
   const markerRef = useRef<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Inicializar Mapa
+  // Inicializar Mapa con Capas (Satélite / Calle)
   useEffect(() => {
     if (!mapRef.current) return;
     if (mapInstance.current) return;
 
-    mapInstance.current = L.map(mapRef.current).setView([formData.coordinates.lat, formData.coordinates.lng], 13);
-    
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Capa de Calles (CartoDB)
+    const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         maxZoom: 20
-    }).addTo(mapInstance.current);
+    });
+
+    // Capa de Satélite (Esri World Imagery)
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19
+    });
+
+    mapInstance.current = L.map(mapRef.current, {
+        center: [formData.coordinates.lat, formData.coordinates.lng],
+        zoom: 13,
+        layers: [streetLayer] // Capa por defecto
+    });
+    
+    // Control de Capas
+    const baseMaps = {
+        "Mapa Callejero": streetLayer,
+        "Satélite": satelliteLayer
+    };
+    L.control.layers(baseMaps).addTo(mapInstance.current);
 
     markerRef.current = L.marker([formData.coordinates.lat, formData.coordinates.lng], { draggable: true })
         .addTo(mapInstance.current)
@@ -250,41 +268,39 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                 .replace(/\b(v\.le|vle)\s/g, 'viale ');
         }
 
-        // Limpieza de Códigos Postales (genérica para evitar conflictos)
+        // Limpieza de Códigos Postales (genérica para todos)
         cleanAddress = cleanAddress.replace(/\b[0-9]{5}(-?[0-9]{3,4})?\b/g, ''); 
 
         // Limpiar ciudad (ej: "Goiânia - GO" -> "Goiânia")
         const cleanCity = formData.city.split('-')[0].trim();
         const cleanState = formData.city.includes('-') ? formData.city.split('-')[1].trim() : '';
 
-        // Query principal estructurada
+        // Intento 1: Consulta Estructurada / Completa
         let query = `${cleanAddress}, ${cleanCity}, ${formData.country}`;
         if (cleanState) query += `, ${cleanState}`;
-        
+
         let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
         let data = await response.json();
-
-        // FALLBACK: Si falla, intentar una búsqueda más laxa (Solo Calle + Ciudad)
+        
+        // Intento 2: Fallback (Solo Calle y Ciudad) si falla
         if (!data || data.length === 0) {
-            // Quitar detalles de barrio o números complejos, buscar solo la vía principal
             const simpleStreet = cleanAddress.split(',')[0].split('-')[0].trim(); 
             const fallbackQuery = `${simpleStreet}, ${cleanCity}, ${formData.country}`;
-            console.log("Intentando fallback:", fallbackQuery);
             response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`);
             data = await response.json();
         }
-
+        
         if (data && data.length > 0) {
             const newLat = parseFloat(data[0].lat);
             const newLng = parseFloat(data[0].lon);
             setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
             setNotification({ type: 'success', message: 'Dirección encontrada. Ajuste el pin si es necesario.' });
         } else {
-            setNotification({ type: 'error', message: 'Ubicación aproximada no encontrada. Mueva el pin manualmente.' });
+            setNotification({ type: 'error', message: 'No se encontró. Use el pin manual.' });
         }
-    } catch (e) {
-        console.error(e);
-        setNotification({ type: 'error', message: 'Error de conexión con el servicio de mapas.' });
+    } catch (error) {
+        console.error("Error geocodificando:", error);
+        setNotification({ type: 'error', message: 'Error de red al buscar.' });
     } finally {
         setIsSearchingAddr(false);
     }
