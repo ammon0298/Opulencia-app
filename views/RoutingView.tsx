@@ -355,6 +355,11 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                    ESTADO: AL DÍA
                                </span>
                            )}
+                           {item.credit.isOverdue && !item.isPaid && (
+                               <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300">
+                                   ESTADO: EN MORA
+                               </span>
+                           )}
                          </div>
                       </div>
                     </div>
