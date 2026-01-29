@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, countBusinessDays } from '../constants';
@@ -26,17 +27,17 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
   const getVisitDetailsForCredit = (credit: Credit, dateStr: string) => {
     // Si el crédito está perdido, no aparece en ruta
-    if (credit.status === 'Lost') return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
+    if (credit.status === 'Lost') return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false };
 
     const checkDate = new Date(dateStr + 'T00:00:00');
     const startDate = new Date(credit.startDate + 'T00:00:00');
     
     // Si la fecha consultada es Domingo y el crédito es diario, no se cobra.
     if (credit.frequency === 'Daily' && checkDate.getDay() === 0) {
-       return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
+       return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false };
     }
 
-    if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
+    if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false };
 
     let isInstallmentDay = false;
     let installmentNum = 0;
@@ -56,7 +57,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
     // Si ya pasamos el total de cuotas y no debe nada, no mostrar
     if (installmentNum > credit.totalInstallments && !credit.isOverdue) {
-        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
+        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false };
     }
 
     const totalExpectedByDate = Math.min(credit.totalInstallments, installmentNum) * credit.installmentValue;
@@ -71,7 +72,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     
     const shouldShow = isInstallmentDay || (credit.isOverdue && !isPaidTotal) || (amountPaidToday > 0); // Mostrar si pagó adelantado
 
-    if (!shouldShow) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false };
+    if (!shouldShow) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false };
 
     let reasonLabel = credit.frequency === 'Daily' ? 'Ciclo Diario' : (credit.frequency === 'Weekly' ? 'Ciclo Semanal' : 'Ciclo Mensual');
     let suggestedAmount = credit.installmentValue;
@@ -90,7 +91,8 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
         realAmount: amountPaidToday,
         isPaid: isPaidTotal, // Esto es si va al día globalmente
         isFullPaymentToday, // Pagó la cuota de HOY completa
-        isPartialPaymentToday // Pagó algo pero incompleto hoy
+        isPartialPaymentToday, // Pagó algo pero incompleto hoy
+        isInstallmentDay
     };
   };
 
@@ -151,6 +153,10 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
       if (item.isPartialPaymentToday) 
         return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-500/30 shadow-orange-100 dark:shadow-none';
       
+      // NUEVO: COBRO HOY (AZUL) - Si es día de pago, no ha pagado y no está en mora crítica
+      if (item.isInstallmentDay && item.realAmount === 0 && !item.credit.isOverdue)
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-500/30 shadow-blue-100 dark:shadow-none';
+
       // Prioridad: No Pago (ROJIZO) solo si es pasado
       if (targetDate < TODAY_STR && item.realAmount === 0) 
         return 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 shadow-rose-100 dark:shadow-none';
@@ -255,6 +261,8 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                           <div className="bg-orange-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">ABONO PARCIAL</div>
                        ) : item.credit.isOverdue && !item.isPaid ? (
                           <div className="bg-purple-600 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">MORA ACTIVA</div>
+                       ) : item.isInstallmentDay && item.realAmount === 0 && !item.credit.isOverdue ? (
+                          <div className="bg-blue-600 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">COBRO HOY</div>
                        ) : targetDate < TODAY_STR && item.realAmount === 0 ? (
                           <div className="bg-rose-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">NO PAGO</div>
                        ) : null}
@@ -373,7 +381,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                      {new Date(targetDate + 'T00:00:00').getDay() === 0 ? 'No se programan visitas de cobro los domingos.' : 'No se encontraron registros de cobro para esta fecha.'}
                    </p>
                 </div>
-              )}
+              )}  
             </div>
           </div>
         )}

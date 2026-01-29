@@ -10,7 +10,7 @@ interface ClientListProps {
   users: User[];
   user: User;
   routes: Route[];
-  onPayment: (creditId: string, amount: number) => Promise<void>; // Updated to Promise for async handling
+  onPayment: (creditId: string, amount: number) => Promise<void>; 
   onViewDetails: (creditId: string) => void;
   onViewVisits: (creditId: string) => void; 
   onEditClient: (clientId: string) => void;
@@ -18,12 +18,16 @@ interface ClientListProps {
   onSearchChange?: (term: string) => void; 
 }
 
-// NUEVO TIPO DE FILTRO: 'aldia' agregado para clientes que ya pagaron la cuota de hoy
-type FilterType = 'mora' | 'hoy' | 'aldia' | 'falta1' | 'falta3' | 'pagados' | 'todos' | 'perdidos';
+// Filtros específicos para la cartera activa
+type ActiveFilterType = 'mora' | 'hoy' | 'aldia' | 'falta1' | 'falta3' | 'todos';
+// Módulos principales
+type ViewModule = 'active' | 'completed' | 'lost';
 
 const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, initialSearchTerm = '', onSearchChange }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
+  const [currentModule, setCurrentModule] = useState<ViewModule>('active');
+  const [activeFilter, setActiveFilter] = useState<ActiveFilterType>('todos');
+  
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; client?: Client; credit?: Credit }>({ isOpen: false });
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const { t } = useGlobal();
@@ -40,34 +44,27 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     }
   };
 
-  // LÓGICA DE SEMÁFORO ACTUALIZADA (Basada en Hitos de Cuota)
+  // LÓGICA DE SEMÁFORO ACTUALIZADA
   const getCreditStatusInfo = (credit: Credit) => {
     if (credit.status === 'Lost') {
         return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: false, isLost: true };
     }
 
-    // 1. Calcular cuántas cuotas ENTERAS ha pagado el cliente con su dinero acumulado
     const paidFullInstallments = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
-    
     const isFinished = paidFullInstallments >= credit.totalInstallments || credit.status === 'Completed';
     
     if (isFinished) {
          return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: true, isLost: false };
     }
 
-    // 2. Determinar la FECHA DE VENCIMIENTO de la SIGUIENTE cuota (la que toca pagar ahora)
     const baseDateStr = credit.firstPaymentDate || credit.startDate;
     let nextInstallmentDueDate: Date;
 
     if (credit.frequency === 'Daily') {
-        // addBusinessDays suma días hábiles saltando domingos
-        // Si pagó 0, la siguiente es la 1ra (índice 0, fecha base)
-        // Si pagó 1, la siguiente es la 2da (índice 1, fecha base + 1 día hábil)
         nextInstallmentDueDate = addBusinessDays(baseDateStr, paidFullInstallments);
     } else {
         const base = new Date(baseDateStr + 'T00:00:00');
         nextInstallmentDueDate = new Date(base);
-        
         if (credit.frequency === 'Weekly') {
             nextInstallmentDueDate.setDate(base.getDate() + (paidFullInstallments * 7));
         } else if (credit.frequency === 'Monthly') {
@@ -75,21 +72,9 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         }
     }
 
-    // 3. Comparar HOY vs LA FECHA DE LA SIGUIENTE CUOTA
-    // Usar TODAY_STR local para evitar UTC drift
     const todayDate = new Date(TODAY_STR + 'T00:00:00');
-    
-    // Normalizar horas para comparación pura de fecha (00:00:00)
     nextInstallmentDueDate.setHours(0,0,0,0);
     todayDate.setHours(0,0,0,0);
-
-    // LÓGICA AJUSTADA Y BLINDADA:
-    // MORA (Purple): Solo si HOY es > Fecha Vencimiento.
-    // Ej: Vencía ayer (Miercoles), Hoy es Jueves. Jueves > Miercoles = MORA.
-    // HOY (Blue): Si HOY == Fecha Vencimiento.
-    // Ej: Vence hoy (Jueves), Hoy es Jueves. Jueves == Jueves = HOY.
-    // AL DIA (Emerald): Si HOY < Fecha Vencimiento.
-    // Ej: Vence mañana (Viernes), Hoy es Jueves. Jueves < Viernes = AL DÍA (Ya pagó lo de hoy o adelantó).
 
     const isCurrentlyOverdue = todayDate.getTime() > nextInstallmentDueDate.getTime();
     const isDueToday = todayDate.getTime() === nextInstallmentDueDate.getTime();
@@ -97,95 +82,60 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 
     const pendingCount = credit.totalInstallments - paidFullInstallments;
     
-    let status: FilterType = 'todos';
+    let status: ActiveFilterType = 'todos';
     
     if (isCurrentlyOverdue) status = 'mora';
-    else if (isDueToday) status = 'hoy'; // Prioridad: Si es hoy, es Azul.
+    else if (isDueToday) status = 'hoy';
     else if (pendingCount === 1) status = 'falta1';
     else if (pendingCount > 0 && pendingCount <= 3) status = 'falta3';
-    else if (isPaidUpToDate) status = 'aldia'; // Prioridad: Si la próxima cuota es mañana o después, está "Al Día".
+    else if (isPaidUpToDate) status = 'aldia';
     
-    // Nota: 'aldia' tiene prioridad visual sobre 'falta1' o 'falta3' si está al día hoy. 
-    // Si se prefiere mostrar 'falta1' aunque esté al día, mover esa condición arriba.
-    // En este caso, "Al Día" (Verde) es lo que pide el usuario visualizar.
-
     return { isFinished, pendingCount, status, isCurrentlyOverdue, isDueToday, isPaidUpToDate, isLost: false };
   };
 
-  const creditItems = useMemo(() => {
-    return credits
-      .map(credit => {
+  // 1. Filtrado General y Mapeo de Datos
+  const mappedCredits = useMemo(() => {
+    return credits.map(credit => {
         const client = clients.find(c => c.id === credit.clientId);
         if (!client) return null;
         
         const info = getCreditStatusInfo(credit);
-        
         const route = routes.find(r => r.id === client.routeId);
         const routeName = route ? route.name : 'Sin Ruta';
         const routeCollectors = users.filter(u => u.role === UserRole.COLLECTOR && u.routeIds.includes(client.routeId));
         const collectorName = routeCollectors.length > 0 ? routeCollectors[0].name : 'Sin asignar';
         
-        return { client, credit, collectorName, routeName, info };
-      })
-      .filter((item): item is any => {
-        if (!item) return false;
+        // Filtro de Búsqueda
         const normalizedSearch = searchTerm.toLowerCase().trim();
         const matchesSearch = 
-          item.client.name.toLowerCase().includes(normalizedSearch) || 
-          item.client.alias.toLowerCase().includes(normalizedSearch) ||
-          item.client.dni.includes(normalizedSearch) ||
-          item.credit.id.toLowerCase().includes(normalizedSearch);
-        if (!matchesSearch) return false;
-        if (activeFilter === 'todos') {
-            if (searchTerm) return true;
-            return !item.info.isLost && !item.info.isFinished;
-        }
-        return item.info.status === activeFilter;
+          client.name.toLowerCase().includes(normalizedSearch) || 
+          client.alias.toLowerCase().includes(normalizedSearch) ||
+          client.dni.includes(normalizedSearch) ||
+          credit.id.toLowerCase().includes(normalizedSearch);
+
+        if (!matchesSearch) return null;
+
+        return { client, credit, collectorName, routeName, info };
+    }).filter((item): item is NonNullable<typeof item> => !!item);
+  }, [clients, credits, users, routes, searchTerm]);
+
+  // 2. Separación por Módulos
+  const activeCreditItems = useMemo(() => {
+      return mappedCredits.filter(item => {
+          if (item.info.isFinished || item.info.isLost) return false;
+          // Aplicar sub-filtro solo si estamos en el módulo activo
+          if (activeFilter === 'todos') return true;
+          return item.info.status === activeFilter;
       });
-  }, [clients, credits, users, routes, searchTerm, activeFilter]);
+  }, [mappedCredits, activeFilter]);
 
-  // Listas separadas para secciones específicas si fuera necesario
-  const activeCreditItems = creditItems.filter(item => !item.info.isFinished && !item.info.isLost);
-  
-  const completedCreditItems = credits.map(credit => {
-        const client = clients.find(c => c.id === credit.clientId);
-        if (!client) return null;
-        const info = getCreditStatusInfo(credit);
-        if (!info.isFinished) return null;
-        const route = routes.find(r => r.id === client.routeId);
-        const routeName = route ? route.name : 'Sin Ruta';
-        const routeCollectors = users.filter(u => u.role === UserRole.COLLECTOR && u.routeIds.includes(client.routeId));
-        const collectorName = routeCollectors.length > 0 ? routeCollectors[0].name : 'Sin asignar';
-        
-        const normalizedSearch = searchTerm.toLowerCase().trim();
-        const matchesSearch = 
-          client.name.toLowerCase().includes(normalizedSearch) || 
-          client.alias.toLowerCase().includes(normalizedSearch) ||
-          client.dni.includes(normalizedSearch);
-        
-        if (!matchesSearch) return null;
-        return { client, credit, collectorName, routeName, info };
-  }).filter((item): item is any => !!item);
+  const completedCreditItems = useMemo(() => {
+      return mappedCredits.filter(item => item.info.isFinished && !item.info.isLost);
+  }, [mappedCredits]);
 
-  const lostCreditItems = credits.map(credit => {
-        const client = clients.find(c => c.id === credit.clientId);
-        if (!client) return null;
-        const info = getCreditStatusInfo(credit);
-        if (!info.isLost) return null;
-        const route = routes.find(r => r.id === client.routeId);
-        const routeName = route ? route.name : 'Sin Ruta';
-        const routeCollectors = users.filter(u => u.role === UserRole.COLLECTOR && u.routeIds.includes(client.routeId));
-        const collectorName = routeCollectors.length > 0 ? routeCollectors[0].name : 'Sin asignar';
-
-        const normalizedSearch = searchTerm.toLowerCase().trim();
-        const matchesSearch = 
-          client.name.toLowerCase().includes(normalizedSearch) || 
-          client.alias.toLowerCase().includes(normalizedSearch) ||
-          client.dni.includes(normalizedSearch);
-        
-        if (!matchesSearch) return null;
-        return { client, credit, collectorName, routeName, info };
-  }).filter((item): item is any => !!item);
+  const lostCreditItems = useMemo(() => {
+      return mappedCredits.filter(item => item.info.isLost);
+  }, [mappedCredits]);
 
 
   const openPaymentModal = (client: Client, credit: Credit) => {
@@ -195,11 +145,9 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     setPaymentAmount(0); 
   };
 
-  // Se modificó para que sea async y espere la respuesta de la base de datos
   const handleConfirmPayment = async () => {
     if (paymentModal.credit && paymentAmount >= 0) {
       await onPayment(paymentModal.credit.id, paymentAmount);
-      // No cerramos el modal aquí, el PaymentModal maneja su propio ciclo de éxito/cierre
     }
   };
 
@@ -207,29 +155,22 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     onPayment(creditId, amount);
   };
 
-  const getCardStyle = (isFinished: boolean, status: FilterType) => {
+  const getCardStyle = (isFinished: boolean, status: string) => {
     if (status === 'perdidos') 
         return 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 shadow-md opacity-80';
-    
     if (isFinished) 
         return 'bg-emerald-100/90 dark:bg-emerald-900/30 border-emerald-500 shadow-md shadow-emerald-100/50 dark:shadow-none';
-    
     if (status === 'mora') 
         return 'bg-purple-50 dark:bg-purple-900/20 border-purple-500 shadow-md shadow-purple-100/50 dark:shadow-none';
-    
     if (status === 'hoy') 
         return 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 shadow-md shadow-blue-100/50 dark:shadow-none'; 
-    
     if (status === 'aldia') 
-        return 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 dark:border-emerald-500/50 shadow-md shadow-emerald-100/50 dark:shadow-none'; // ESTILO CORREGIDO PARA DARK MODE
-    
+        return 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 dark:border-emerald-500/50 shadow-md shadow-emerald-100/50 dark:shadow-none';
     if (status === 'falta1') 
         return 'bg-rose-100 dark:bg-rose-900/20 border-rose-500 shadow-md shadow-rose-100/50 dark:shadow-none';
-    
     if (status === 'falta3') 
         return 'bg-amber-100 dark:bg-amber-900/20 border-amber-500 shadow-md shadow-amber-100/50 dark:shadow-none';
     
-    // Estilo por defecto (Si no entra en categorías específicas)
     return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
   };
 
@@ -253,87 +194,123 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
           </div>
         </header>
 
-        <div className="flex flex-wrap gap-3 mb-8">
-          <FilterBadge color="bg-indigo-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
-          <FilterBadge color="bg-blue-500" label="Cobro Hoy" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} />
-          <FilterBadge color="bg-emerald-500" label="Al Día" active={activeFilter === 'aldia'} onClick={() => setActiveFilter('aldia')} /> {/* BOTÓN VERDE ESMERALDA */}
-          <FilterBadge color="bg-purple-600" label={t('mora_credits')} active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
-          <FilterBadge color="bg-rose-600" label={t('missing_1')} active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
-          <FilterBadge color="bg-amber-500" label={t('missing_3')} active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
+        {/* NAVEGACIÓN POR MÓDULOS (TABS) */}
+        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-x-auto">
+            <button 
+                onClick={() => setCurrentModule('active')}
+                className={`flex-1 min-w-[140px] py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${currentModule === 'active' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:bg-white/50 dark:hover:bg-white/5'}`}
+            >
+                Cartera Pendiente
+                <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 px-2 py-0.5 rounded-full text-[9px]">{activeCreditItems.length}</span>
+            </button>
+            <button 
+                onClick={() => setCurrentModule('completed')}
+                className={`flex-1 min-w-[140px] py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${currentModule === 'completed' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-400 hover:bg-white/50 dark:hover:bg-white/5'}`}
+            >
+                {t('settled_credits')}
+                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 px-2 py-0.5 rounded-full text-[9px]">{completedCreditItems.length}</span>
+            </button>
+            <button 
+                onClick={() => setCurrentModule('lost')}
+                className={`flex-1 min-w-[140px] py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${currentModule === 'lost' ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm' : 'text-slate-400 hover:bg-white/50 dark:hover:bg-white/5'}`}
+            >
+                Incobrables
+                <span className="bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300 px-2 py-0.5 rounded-full text-[9px]">{lostCreditItems.length}</span>
+            </button>
         </div>
 
-        {activeFilter !== 'pagados' && activeFilter !== 'perdidos' && (
-            <section className="space-y-4">
-            <div className="flex items-center gap-3 px-2">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{t('pending_portfolio')}</h3>
-                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+        {/* CONTENIDO DEL MÓDULO: ACTIVO */}
+        {currentModule === 'active' && (
+            <div className="animate-fadeIn">
+                {/* Filtros específicos para activos */}
+                <div className="flex flex-wrap gap-3 mb-6">
+                    <FilterBadge color="bg-indigo-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
+                    <FilterBadge color="bg-blue-500" label="Cobro Hoy" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} />
+                    <FilterBadge color="bg-emerald-500" label="Al Día" active={activeFilter === 'aldia'} onClick={() => setActiveFilter('aldia')} />
+                    <FilterBadge color="bg-purple-600" label={t('mora_credits')} active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
+                    <FilterBadge color="bg-rose-600" label={t('missing_1')} active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
+                    <FilterBadge color="bg-amber-500" label={t('missing_3')} active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                    {activeCreditItems.length > 0 ? activeCreditItems.map((item) => (
+                        <CreditCard 
+                            key={item.credit.id} 
+                            {...item}
+                            onOpenModal={openPaymentModal} 
+                            onQuickPayment={handleQuickPayment}
+                            onViewDetails={onViewDetails} 
+                            onViewVisits={onViewVisits}
+                            onEditClient={onEditClient}
+                            cardStyle={getCardStyle(false, item.info.status)}
+                            t={t}
+                        />
+                    )) : (
+                        <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-slate-400 font-medium">No se encontraron créditos activos con este filtro.</p>
+                        </div>
+                    )}
+                </div>
             </div>
-            <div className="grid grid-cols-1 gap-4">
-                {activeCreditItems.map((item) => (
-                <CreditCard 
-                    key={item.credit.id} 
-                    {...item}
-                    onOpenModal={openPaymentModal} 
-                    onQuickPayment={handleQuickPayment}
-                    onViewDetails={onViewDetails} 
-                    onViewVisits={onViewVisits}
-                    onEditClient={onEditClient}
-                    cardStyle={getCardStyle(false, item.info.status)}
-                    t={t}
-                />
-                ))}
-                {activeCreditItems.length === 0 && <div className="py-10 text-center text-slate-400 italic text-sm">No hay créditos activos para este filtro.</div>}
-            </div>
-            </section>
         )}
 
-        {(activeFilter === 'todos' || activeFilter === 'pagados') && completedCreditItems.length > 0 && (
-          <section className="space-y-4 mt-10">
-            <div className="flex items-center gap-3 px-2">
-              <h3 className="text-xs font-black text-emerald-600 uppercase tracking-[0.2em]">{t('settled_credits')}</h3>
-              <div className="flex-1 h-px bg-emerald-200"></div>
+        {/* CONTENIDO DEL MÓDULO: LIQUIDADOS */}
+        {currentModule === 'completed' && (
+            <div className="animate-fadeIn space-y-4">
+                <div className="flex items-center gap-3 px-2 mb-4">
+                    <h3 className="text-xs font-black text-emerald-600 uppercase tracking-[0.2em]">Historial de Créditos Finalizados</h3>
+                    <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-900/30"></div>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                    {completedCreditItems.length > 0 ? completedCreditItems.map((item) => (
+                        <CreditCard 
+                            key={item.credit.id} 
+                            {...item}
+                            onOpenModal={openPaymentModal} 
+                            onQuickPayment={handleQuickPayment}
+                            onViewDetails={onViewDetails} 
+                            onViewVisits={onViewVisits}
+                            onEditClient={onEditClient}
+                            cardStyle={getCardStyle(true, 'pagados')}
+                            t={t}
+                        />
+                    )) : (
+                        <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-slate-400 font-medium">No hay créditos finalizados para mostrar.</p>
+                        </div>
+                    )}
+                </div>
             </div>
-            <div className="grid grid-cols-1 gap-4">
-              {completedCreditItems.map((item) => (
-                <CreditCard 
-                  key={item.credit.id} 
-                  {...item}
-                  onOpenModal={openPaymentModal} 
-                  onQuickPayment={handleQuickPayment}
-                  onViewDetails={onViewDetails} 
-                  onViewVisits={onViewVisits}
-                  onEditClient={onEditClient}
-                  cardStyle={getCardStyle(true, 'pagados')}
-                  t={t}
-                />
-              ))}
-            </div>
-          </section>
         )}
 
-        {(activeFilter === 'todos' || activeFilter === 'perdidos') && lostCreditItems.length > 0 && (
-          <section className="space-y-4 mt-10">
-            <div className="flex items-center gap-3 px-2">
-              <h3 className="text-xs font-black text-rose-600 uppercase tracking-[0.2em]">{t('lost_credits')}</h3>
-              <div className="flex-1 h-px bg-rose-200"></div>
+        {/* CONTENIDO DEL MÓDULO: INCOBRABLES */}
+        {currentModule === 'lost' && (
+            <div className="animate-fadeIn space-y-4">
+                <div className="flex items-center gap-3 px-2 mb-4">
+                    <h3 className="text-xs font-black text-rose-600 uppercase tracking-[0.2em]">Cartera Castigada</h3>
+                    <div className="flex-1 h-px bg-rose-200 dark:bg-rose-900/30"></div>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                    {lostCreditItems.length > 0 ? lostCreditItems.map((item) => (
+                        <CreditCard 
+                            key={item.credit.id} 
+                            {...item}
+                            onOpenModal={() => {}} 
+                            onQuickPayment={() => {}}
+                            onViewDetails={onViewDetails} 
+                            onViewVisits={onViewVisits}
+                            onEditClient={onEditClient}
+                            cardStyle={getCardStyle(false, 'perdidos')}
+                            isLost
+                            t={t}
+                        />
+                    )) : (
+                        <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-slate-400 font-medium">No hay créditos marcados como incobrables.</p>
+                        </div>
+                    )}
+                </div>
             </div>
-            <div className="grid grid-cols-1 gap-4">
-              {lostCreditItems.map((item) => (
-                <CreditCard 
-                  key={item.credit.id} 
-                  {...item}
-                  onOpenModal={() => {}} 
-                  onQuickPayment={() => {}}
-                  onViewDetails={onViewDetails} 
-                  onViewVisits={onViewVisits}
-                  onEditClient={onEditClient}
-                  cardStyle={getCardStyle(false, 'perdidos')}
-                  isLost
-                  t={t}
-                />
-              ))}
-            </div>
-          </section>
         )}
       </div>
 
@@ -366,9 +343,8 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   const abonoActual = credit.totalPaid % credit.installmentValue;
   const debeCuotaActual = Math.max(0, credit.installmentValue - abonoActual);
 
-  // CÁLCULO DE DEUDA DE MORA (Sincronizado con lógica de Hitos de Cuota)
+  // CÁLCULO DE DEUDA DE MORA
   let amountStrictlyExpected = 0;
-  // Usar la fecha local exacta para consistencia con la lógica de estado
   const todayDate = new Date(TODAY_STR + 'T00:00:00');
   const baseDateStr = credit.firstPaymentDate || credit.startDate;
   const baseDate = new Date(baseDateStr + 'T00:00:00');
@@ -383,7 +359,6 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
      const diffDays = Math.floor((todayDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
      let cycleDays = 30;
      if (credit.frequency === 'Weekly') cycleDays = 7;
-     
      expectedInstallments = Math.floor(diffDays / cycleDays);
   }
   
@@ -538,16 +513,14 @@ const PaymentModal = ({ client, credit, amount, setAmount, onClose, onConfirm, t
     if (amount < 0) return;
     setStatus('processing');
     try {
-        await onConfirm(); // Realiza la inserción en DB y recarga
+        await onConfirm(); 
         setStatus('success');
-        // Esperar 2 segundos para que el usuario vea el check de éxito
         setTimeout(() => {
             onClose();
         }, 2000);
     } catch (error) {
         console.error("Error payment:", error);
         setStatus('idle');
-        // Aquí podrías agregar manejo de error visual si lo deseas
     }
   };
 
