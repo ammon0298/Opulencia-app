@@ -82,11 +82,10 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Sincronizar coordenadas externas con el mapa (Solo si cambian drásticamente o por GPS)
+  // Sincronizar coordenadas externas con el mapa
   useEffect(() => {
     if (mapInstance.current && markerRef.current) {
         const { lat, lng } = formData.coordinates;
-        // Solo mover la vista si la distancia es significativa para evitar saltos pequeños al arrastrar
         const currentCenter = mapInstance.current.getCenter();
         const dist = Math.sqrt(Math.pow(currentCenter.lat - lat, 2) + Math.pow(currentCenter.lng - lng, 2));
         
@@ -97,8 +96,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     }
   }, [formData.coordinates]);
 
-  // AUTO-GEOCODING: Solo para Ciudad/País (Macro ubicación)
-  // NO escuchamos 'address' aquí para evitar sobrescribir el pin cuando el usuario escribe la calle.
+  // AUTO-GEOCODING: Solo para Ciudad/País
   useEffect(() => {
     const { city, country } = formData;
     if (!city || !country || city.length < 3) return;
@@ -107,15 +105,14 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
 
     debounceRef.current = setTimeout(async () => {
         try {
-            // Búsqueda general solo por ciudad para centrar el mapa inicialmente
-            const query = `${city}, ${country}`;
+            const cleanCity = city.split('-')[0].trim();
+            const query = `${cleanCity}, ${country}`;
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
             const data = await response.json();
             
             if (data && data.length > 0) {
                 const newLat = parseFloat(data[0].lat);
                 const newLng = parseFloat(data[0].lon);
-                // Solo actualizamos si no hay una dirección específica escrita, para no perder el foco
                 if (!formData.address) {
                     setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
                 }
@@ -130,7 +127,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     };
   }, [formData.city, formData.country]);
 
-  // BUSCADOR MANUAL DE DIRECCIÓN EXACTA
+  // BUSCADOR MANUAL DE DIRECCIÓN EXACTA CON NORMALIZACIÓN MULTI-PAÍS
   const handleAddressSearch = async () => {
     if (!formData.address || !formData.city) {
         setNotification({ type: 'error', message: 'Ingrese dirección y ciudad para buscar.' });
@@ -138,30 +135,156 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
     }
     
     setIsSearchingAddr(true);
+    
     try {
-        // Limpieza de dirección para formato OSM estándar
-        let cleanAddress = formData.address
-            .toLowerCase()
-            .replace(/\b(no|num|numero|casa)\b\.?/g, '#') 
-            .replace(/\b(cll|cl)\b\.?/g, 'calle') 
-            .replace(/\b(cr|cra|kcra)\b\.?/g, 'carrera') 
-            .replace(/\b(av)\b\.?/g, 'avenida'); 
-
-        const query = `${cleanAddress}, ${formData.city}, ${formData.country}`;
+        let cleanAddress = formData.address.toLowerCase();
+        // Limpieza común
+        cleanAddress = cleanAddress.replace(/#/g, '').replace(/\bno\.\s/g, '').replace(/\bnum\.\s/g, '');
         
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
-        const data = await response.json();
+        const country = formData.country.toLowerCase();
+
+        // 1. GRUPO PORTUGUÉS (Brasil)
+        if (country.includes('brasil') || country.includes('brazil')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(r\.|r)\s/g, 'rua ')
+                .replace(/\b(av\.|av)\s/g, 'avenida ')
+                .replace(/\b(al\.|al)\s/g, 'alameda ')
+                .replace(/\b(rod\.|rod)\s/g, 'rodovia ')
+                .replace(/\b(st\.|st)\s/g, 'setor ')
+                .replace(/\b(jd\.|jd)\s/g, 'jardim ')
+                .replace(/\b(pq\.|pq)\s/g, 'parque ')
+                .replace(/\b(res\.|res)\s/g, 'residencial ')
+                .replace(/\b(est\.|est)\s/g, 'estrada ')
+                .replace(/\b(qd\.|qd)\s/g, 'quadra ')
+                .replace(/\b(lt\.|lt)\s/g, 'lote ')
+                .replace(/\b(bl\.|bl)\s/g, 'bloco ')
+                .replace(/\b(ap\.|ap|apto)\s/g, 'apartamento ');
+        }
+        
+        // 2. GRUPO ESPAÑOL (Latinoamérica + España)
+        else if (['colombia', 'argentina', 'perú', 'peru', 'chile', 'ecuador', 'venezuela', 'méxico', 'mexico', 'panamá', 'panama', 'costa rica', 'república dominicana', 'republica dominicana', 'españa', 'spain'].some(c => country.includes(c))) {
+            
+            // Abreviaturas Generales
+            cleanAddress = cleanAddress
+                .replace(/\b(cll\.|cll|cl\.|cl|c\.|c)\s/g, 'calle ')
+                .replace(/\b(cra\.|cra|kr\.|kr|cr\.|cr|kra\.|kra)\s/g, 'carrera ')
+                .replace(/\b(av\.|av|avda\.|avda)\s/g, 'avenida ')
+                .replace(/\b(dg\.|dg|diag\.|diag)\s/g, 'diagonal ')
+                .replace(/\b(tv\.|tv|tr\.|tr|transv\.|transv)\s/g, 'transversal ')
+                .replace(/\b(pje\.|pje)\s/g, 'pasaje ')
+                .replace(/\b(ap\.|ap|apto\.|apto)\s/g, 'apartamento ')
+                .replace(/\b(urb\.|urb)\s/g, 'urbanización ');
+
+            // México
+            if (country.includes('mexico') || country.includes('méxico')) {
+                cleanAddress = cleanAddress
+                    .replace(/\b(col\.|col)\s/g, 'colonia ')
+                    .replace(/\b(calz\.|calz)\s/g, 'calzada ')
+                    .replace(/\b(blvd\.|blvd)\s/g, 'bulevar ')
+                    .replace(/\b(priv\.|priv)\s/g, 'privada ');
+            }
+            // Perú
+            if (country.includes('peru') || country.includes('perú')) {
+                cleanAddress = cleanAddress
+                    .replace(/\b(jr\.|jr)\s/g, 'jirón ')
+                    .replace(/\b(mz\.|mz)\s/g, 'manzana ')
+                    .replace(/\b(lt\.|lt)\s/g, 'lote ')
+                    .replace(/\b(int\.|int)\s/g, 'interior ');
+            }
+            // Chile
+            if (country.includes('chile')) {
+                cleanAddress = cleanAddress
+                    .replace(/\b(pobl\.|pobl)\s/g, 'población ')
+                    .replace(/\b(v\.|v)\s/g, 'villa ');
+            }
+            // Argentina
+            if (country.includes('argentina')) {
+                 cleanAddress = cleanAddress
+                    .replace(/\b(b°|b\.|b)\s/g, 'barrio ');
+            }
+            // España
+             if (country.includes('españa') || country.includes('spain')) {
+                 cleanAddress = cleanAddress
+                    .replace(/\b(pza\.|pza)\s/g, 'plaza ')
+                    .replace(/\b(pigo\.|pigo)\s/g, 'polígono ')
+                    .replace(/\b(c\/)\s/g, 'calle ');
+            }
+        }
+
+        // 3. GRUPO ANGLOPARLANTE (USA, UK, India)
+        else if (['estados unidos', 'usa', 'united states', 'reino unido', 'uk', 'united kingdom', 'india'].some(c => country.includes(c))) {
+             cleanAddress = cleanAddress
+                .replace(/\b(st\.|st)\s/g, 'street ')
+                .replace(/\b(ave\.|ave)\s/g, 'avenue ')
+                .replace(/\b(rd\.|rd)\s/g, 'road ')
+                .replace(/\b(blvd\.|blvd)\s/g, 'boulevard ')
+                .replace(/\b(dr\.|dr)\s/g, 'drive ')
+                .replace(/\b(ln\.|ln)\s/g, 'lane ')
+                .replace(/\b(apt\.|apt)\s/g, 'apartment ')
+                .replace(/\b(ste\.|ste)\s/g, 'suite ');
+        }
+
+        // 4. FRANCIA
+        else if (country.includes('francia') || country.includes('france')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(r\.|r)\s/g, 'rue ')
+                .replace(/\b(av\.|av)\s/g, 'avenue ')
+                .replace(/\b(bd\.|bd)\s/g, 'boulevard ')
+                .replace(/\b(imp\.|imp)\s/g, 'impasse ')
+                .replace(/\b(pl\.|pl)\s/g, 'place ');
+        }
+
+        // 5. ALEMANIA
+        else if (country.includes('alemania') || country.includes('germany')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(str\.|str)\s/g, 'straße ')
+                .replace(/\b(pl\.|pl)\s/g, 'platz ');
+        }
+
+        // 6. ITALIA
+        else if (country.includes('italia') || country.includes('italy')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(v\.|v)\s/g, 'via ')
+                .replace(/\b(c\.so|cso)\s/g, 'corso ')
+                .replace(/\b(p\.za|pza)\s/g, 'piazza ')
+                .replace(/\b(v\.le|vle)\s/g, 'viale ');
+        }
+
+        // Limpieza de Códigos Postales (genérica para evitar conflictos)
+        cleanAddress = cleanAddress.replace(/\b[0-9]{5}(-?[0-9]{3,4})?\b/g, ''); 
+
+        // Limpiar ciudad (ej: "Goiânia - GO" -> "Goiânia")
+        const cleanCity = formData.city.split('-')[0].trim();
+        const cleanState = formData.city.includes('-') ? formData.city.split('-')[1].trim() : '';
+
+        // Query principal estructurada
+        let query = `${cleanAddress}, ${cleanCity}, ${formData.country}`;
+        if (cleanState) query += `, ${cleanState}`;
+        
+        let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
+        let data = await response.json();
+
+        // FALLBACK: Si falla, intentar una búsqueda más laxa (Solo Calle + Ciudad)
+        if (!data || data.length === 0) {
+            // Quitar detalles de barrio o números complejos, buscar solo la vía principal
+            const simpleStreet = cleanAddress.split(',')[0].split('-')[0].trim(); 
+            const fallbackQuery = `${simpleStreet}, ${cleanCity}, ${formData.country}`;
+            console.log("Intentando fallback:", fallbackQuery);
+            response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`);
+            data = await response.json();
+        }
 
         if (data && data.length > 0) {
             const newLat = parseFloat(data[0].lat);
             const newLng = parseFloat(data[0].lon);
             setFormData(prev => ({ ...prev, coordinates: { lat: newLat, lng: newLng } }));
-            setNotification({ type: 'success', message: 'Dirección encontrada en el mapa.' });
+            setNotification({ type: 'success', message: 'Dirección encontrada. Ajuste el pin si es necesario.' });
         } else {
-            setNotification({ type: 'error', message: 'No se encontró exacto. Intente mover el pin manualmente.' });
+            setNotification({ type: 'error', message: 'Ubicación aproximada no encontrada. Mueva el pin manualmente.' });
         }
     } catch (e) {
-        setNotification({ type: 'error', message: 'Error de conexión con el mapa.' });
+        console.error(e);
+        setNotification({ type: 'error', message: 'Error de conexión con el servicio de mapas.' });
     } finally {
         setIsSearchingAddr(false);
     }
@@ -348,7 +471,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                         type="text" 
                         value={formData.city} 
                         onChange={e => setFormData({...formData, city: e.target.value})}
-                        placeholder="Ej: Manizales"
+                        placeholder="Ej: Aparecida de Goiânia - GO"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white"
                         required
                     />
@@ -361,7 +484,7 @@ const NewClient: React.FC<NewClientProps> = ({ routes, clients, currentUser, onS
                             type="text" 
                             value={formData.address} 
                             onChange={e => setFormData({...formData, address: e.target.value})}
-                            placeholder="Ej: Cll 49 no 8a-02 San Cayetano"
+                            placeholder="Ej: R. Maringá - Vila Brasilia"
                             className="w-full sm:flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white"
                             required
                         />

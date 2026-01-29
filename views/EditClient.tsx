@@ -113,7 +113,7 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     }
   }, [formData.coordinates]);
 
-  // BUSQUEDA MANUAL
+  // BUSQUEDA MANUAL OPTIMIZADA MULTI-PAÍS
   const handleAddressSearch = async () => {
     if (!formData.address || !formData.city) {
         setNotification({ type: 'error', message: 'Escriba dirección y ciudad primero.' });
@@ -122,16 +122,140 @@ const EditClient: React.FC<EditClientProps> = ({ client, allClients, routes, cre
     
     setIsSearchingAddr(true);
     try {
-        let cleanAddress = formData.address
-            .toLowerCase()
-            .replace(/\b(no|num|numero|casa)\b\.?/g, '#') 
-            .replace(/\b(cll|cl)\b\.?/g, 'calle')
-            .replace(/\b(cr|cra|kcra)\b\.?/g, 'carrera')
-            .replace(/\b(av)\b\.?/g, 'avenida');
+        let cleanAddress = formData.address.toLowerCase();
+        // Limpieza común
+        cleanAddress = cleanAddress.replace(/#/g, '').replace(/\bno\.\s/g, '').replace(/\bnum\.\s/g, '');
+        
+        const country = formData.country.toLowerCase();
 
-        const query = `${cleanAddress}, ${formData.city}, ${formData.country}`;
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
-        const data = await response.json();
+        // 1. GRUPO PORTUGUÉS (Brasil)
+        if (country.includes('brasil') || country.includes('brazil')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(r\.|r)\s/g, 'rua ')
+                .replace(/\b(av\.|av)\s/g, 'avenida ')
+                .replace(/\b(al\.|al)\s/g, 'alameda ')
+                .replace(/\b(rod\.|rod)\s/g, 'rodovia ')
+                .replace(/\b(st\.|st)\s/g, 'setor ')
+                .replace(/\b(jd\.|jd)\s/g, 'jardim ')
+                .replace(/\b(pq\.|pq)\s/g, 'parque ')
+                .replace(/\b(res\.|res)\s/g, 'residencial ')
+                .replace(/\b(est\.|est)\s/g, 'estrada ')
+                .replace(/\b(qd\.|qd)\s/g, 'quadra ')
+                .replace(/\b(lt\.|lt)\s/g, 'lote ')
+                .replace(/\b(bl\.|bl)\s/g, 'bloco ')
+                .replace(/\b(ap\.|ap|apto)\s/g, 'apartamento ');
+        }
+        
+        // 2. GRUPO ESPAÑOL (Latinoamérica + España)
+        else if (['colombia', 'argentina', 'perú', 'peru', 'chile', 'ecuador', 'venezuela', 'méxico', 'mexico', 'panamá', 'panama', 'costa rica', 'república dominicana', 'republica dominicana', 'españa', 'spain'].some(c => country.includes(c))) {
+            
+            // Abreviaturas Generales
+            cleanAddress = cleanAddress
+                .replace(/\b(cll\.|cll|cl\.|cl|c\.|c)\s/g, 'calle ')
+                .replace(/\b(cra\.|cra|kr\.|kr|cr\.|cr|kra\.|kra)\s/g, 'carrera ')
+                .replace(/\b(av\.|av|avda\.|avda)\s/g, 'avenida ')
+                .replace(/\b(dg\.|dg|diag\.|diag)\s/g, 'diagonal ')
+                .replace(/\b(tv\.|tv|tr\.|tr|transv\.|transv)\s/g, 'transversal ')
+                .replace(/\b(pje\.|pje)\s/g, 'pasaje ')
+                .replace(/\b(ap\.|ap|apto\.|apto)\s/g, 'apartamento ')
+                .replace(/\b(urb\.|urb)\s/g, 'urbanización ');
+
+            // México
+            if (country.includes('mexico') || country.includes('méxico')) {
+                cleanAddress = cleanAddress
+                    .replace(/\b(col\.|col)\s/g, 'colonia ')
+                    .replace(/\b(calz\.|calz)\s/g, 'calzada ')
+                    .replace(/\b(blvd\.|blvd)\s/g, 'bulevar ')
+                    .replace(/\b(priv\.|priv)\s/g, 'privada ');
+            }
+            // Perú
+            if (country.includes('peru') || country.includes('perú')) {
+                cleanAddress = cleanAddress
+                    .replace(/\b(jr\.|jr)\s/g, 'jirón ')
+                    .replace(/\b(mz\.|mz)\s/g, 'manzana ')
+                    .replace(/\b(lt\.|lt)\s/g, 'lote ')
+                    .replace(/\b(int\.|int)\s/g, 'interior ');
+            }
+            // Chile
+            if (country.includes('chile')) {
+                cleanAddress = cleanAddress
+                    .replace(/\b(pobl\.|pobl)\s/g, 'población ')
+                    .replace(/\b(v\.|v)\s/g, 'villa ');
+            }
+            // Argentina
+            if (country.includes('argentina')) {
+                 cleanAddress = cleanAddress
+                    .replace(/\b(b°|b\.|b)\s/g, 'barrio ');
+            }
+            // España
+             if (country.includes('españa') || country.includes('spain')) {
+                 cleanAddress = cleanAddress
+                    .replace(/\b(pza\.|pza)\s/g, 'plaza ')
+                    .replace(/\b(pigo\.|pigo)\s/g, 'polígono ')
+                    .replace(/\b(c\/)\s/g, 'calle ');
+            }
+        }
+
+        // 3. GRUPO ANGLOPARLANTE (USA, UK, India)
+        else if (['estados unidos', 'usa', 'united states', 'reino unido', 'uk', 'united kingdom', 'india'].some(c => country.includes(c))) {
+             cleanAddress = cleanAddress
+                .replace(/\b(st\.|st)\s/g, 'street ')
+                .replace(/\b(ave\.|ave)\s/g, 'avenue ')
+                .replace(/\b(rd\.|rd)\s/g, 'road ')
+                .replace(/\b(blvd\.|blvd)\s/g, 'boulevard ')
+                .replace(/\b(dr\.|dr)\s/g, 'drive ')
+                .replace(/\b(ln\.|ln)\s/g, 'lane ')
+                .replace(/\b(apt\.|apt)\s/g, 'apartment ')
+                .replace(/\b(ste\.|ste)\s/g, 'suite ');
+        }
+
+        // 4. FRANCIA
+        else if (country.includes('francia') || country.includes('france')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(r\.|r)\s/g, 'rue ')
+                .replace(/\b(av\.|av)\s/g, 'avenue ')
+                .replace(/\b(bd\.|bd)\s/g, 'boulevard ')
+                .replace(/\b(imp\.|imp)\s/g, 'impasse ')
+                .replace(/\b(pl\.|pl)\s/g, 'place ');
+        }
+
+        // 5. ALEMANIA
+        else if (country.includes('alemania') || country.includes('germany')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(str\.|str)\s/g, 'straße ')
+                .replace(/\b(pl\.|pl)\s/g, 'platz ');
+        }
+
+        // 6. ITALIA
+        else if (country.includes('italia') || country.includes('italy')) {
+             cleanAddress = cleanAddress
+                .replace(/\b(v\.|v)\s/g, 'via ')
+                .replace(/\b(c\.so|cso)\s/g, 'corso ')
+                .replace(/\b(p\.za|pza)\s/g, 'piazza ')
+                .replace(/\b(v\.le|vle)\s/g, 'viale ');
+        }
+
+        // Limpieza de Códigos Postales (genérica para todos)
+        cleanAddress = cleanAddress.replace(/\b[0-9]{5}(-?[0-9]{3,4})?\b/g, ''); 
+
+        // Limpiar ciudad (ej: "Goiânia - GO" -> "Goiânia")
+        const cleanCity = formData.city.split('-')[0].trim();
+        const cleanState = formData.city.includes('-') ? formData.city.split('-')[1].trim() : '';
+
+        // Intento 1: Consulta Estructurada / Completa
+        let query = `${cleanAddress}, ${cleanCity}, ${formData.country}`;
+        if (cleanState) query += `, ${cleanState}`;
+
+        let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
+        let data = await response.json();
+        
+        // Intento 2: Fallback (Solo Calle y Ciudad) si falla
+        if (!data || data.length === 0) {
+            const simpleStreet = cleanAddress.split(',')[0].split('-')[0].trim(); 
+            const fallbackQuery = `${simpleStreet}, ${cleanCity}, ${formData.country}`;
+            response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1`);
+            data = await response.json();
+        }
         
         if (data && data.length > 0) {
             const newLat = parseFloat(data[0].lat);
