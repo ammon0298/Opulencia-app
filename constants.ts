@@ -1,4 +1,3 @@
-
 import { User, UserRole, Route, Client, Credit, Expense, Payment, RouteTransaction } from './types';
 
 // FUNCIÓN DE FECHA LOCAL CORREGIDA

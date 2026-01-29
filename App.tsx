@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -116,7 +115,7 @@ const dbToExpense = (e: any): Expense => ({
 
 const dbToTx = (t: any): RouteTransaction => ({
   id: t.id,
-  business_id: t.business_id,
+  businessId: t.business_id,
   routeId: t.route_id,
   date: t.transaction_date ?? t.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   amount: Number(t.amount),
@@ -430,6 +429,46 @@ const AppContent: React.FC = () => {
 
     return () => {
         if (gpsInterval) clearInterval(gpsInterval);
+    };
+  }, [currentUser]);
+
+  // SISTEMA DE CIERRE AUTOMÁTICO POR INACTIVIDAD (5 MINUTOS)
+  // Ayuda a tomar coordenadas frescas al obligar un re-login.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutos en milisegundos
+    let timeoutId: any;
+
+    const autoLogout = () => {
+        localStorage.removeItem('op_user');
+        setCurrentUser(null);
+        setCurrentView('auth'); // Redirigir a login directamente
+        setAuthError('Sesión cerrada por inactividad (5 min). Ingrese nuevamente para actualizar su posición GPS.');
+    };
+
+    const resetTimer = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(autoLogout, INACTIVITY_LIMIT);
+    };
+
+    // Eventos a monitorizar
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    // Adjuntar listeners
+    events.forEach(event => {
+        document.addEventListener(event, resetTimer);
+    });
+
+    // Iniciar temporizador
+    resetTimer();
+
+    // Limpieza
+    return () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        events.forEach(event => {
+            document.removeEventListener(event, resetTimer);
+        });
     };
   }, [currentUser]);
 

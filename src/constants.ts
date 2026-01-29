@@ -1,4 +1,3 @@
-
 import { User, UserRole, Route, Client, Credit, Expense, Payment, RouteTransaction } from './types';
 
 // FUNCIÓN DE FECHA LOCAL CORREGIDA
@@ -9,6 +8,19 @@ const getLocalISOString = () => {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+// Obtiene la FECHA Y HORA exacta del sistema local (sin convertir a UTC)
+// Formato: YYYY-MM-DDTHH:mm:ss (Compatible con ISO 8601 para DB)
+export const getCurrentLocalTimestamp = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
 export const TODAY_STR = getLocalISOString();
@@ -52,6 +64,9 @@ export const COUNTRY_DATA = [
 export const addBusinessDays = (startDateStr: string, daysToAdd: number): Date => {
   const current = new Date(startDateStr + 'T00:00:00');
   let added = 0;
+  // Si daysToAdd es 0, devolvemos la misma fecha
+  if (daysToAdd === 0) return current;
+  
   while (added < daysToAdd) {
     current.setDate(current.getDate() + 1);
     // 0 = Domingo. Si es Domingo, no aumentamos el contador 'added', 
