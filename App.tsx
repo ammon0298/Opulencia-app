@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -115,7 +116,7 @@ const dbToExpense = (e: any): Expense => ({
 
 const dbToTx = (t: any): RouteTransaction => ({
   id: t.id,
-  businessId: t.business_id,
+  business_id: t.business_id,
   routeId: t.route_id,
   date: t.transaction_date ?? t.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   amount: Number(t.amount),
@@ -438,13 +439,13 @@ const AppContent: React.FC = () => {
     if (!currentUser) return;
 
     const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutos en milisegundos
-    let timeoutId: any;
+    let timeoutId: NodeJS.Timeout;
 
     const autoLogout = () => {
         localStorage.removeItem('op_user');
         setCurrentUser(null);
         setCurrentView('auth'); // Redirigir a login directamente
-        setAuthError('Sesión cerrada por inactividad (5 min). Ingrese nuevamente para actualizar su posición GPS.');
+        setAuthError('Sesión cerrada por seguridad , inactividad (5 min)');
     };
 
     const resetTimer = () => {
