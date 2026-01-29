@@ -77,7 +77,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 
   const getInstallmentStatusForDate = (credit: Credit, targetDate: Date) => {
     const startDate = new Date(credit.startDate + 'T00:00:00');
-    if (targetDate < startDate) return { isInstallmentDay: false, installmentNum: 0 };
+    if (targetDate.getTime() < startDate.getTime()) return { isInstallmentDay: false, installmentNum: 0 };
     
     if (credit.frequency === 'Daily' && targetDate.getDay() === 0) {
         return { isInstallmentDay: false, installmentNum: 0 };
@@ -86,7 +86,11 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     let isInstallmentDay = false;
     let installmentNum = 0;
     
-    const targetDateStr = targetDate.toISOString().split('T')[0];
+    // FIX: Construcción manual de string local YYYY-MM-DD
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const d = String(targetDate.getDate()).padStart(2, '0');
+    const targetDateStr = `${y}-${m}-${d}`;
 
     if (credit.frequency === 'Daily') { 
         isInstallmentDay = true; 
@@ -181,8 +185,12 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     const data = [];
     
     for (let day = 1; day <= daysInMonth; day++) {
+      // FIX: Date construction
       const currentDayDate = new Date(selYear, selMonth, day);
-      const currentDayStr = currentDayDate.toISOString().split('T')[0];
+      
+      const dayStr = String(day).padStart(2, '0');
+      const monthStr = String(selMonth + 1).padStart(2, '0');
+      const currentDayStr = `${selYear}-${monthStr}-${dayStr}`;
       
       let targetForDay = 0;
       let actualCollected = 0;
@@ -203,7 +211,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       }
 
       data.push({ 
-          day: String(day).padStart(2, '0'), 
+          day: dayStr, 
           collected: Math.round(actualCollected), 
           target: Math.round(targetForDay) 
       });

@@ -97,12 +97,20 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
 
   const getInstallmentStatusForDate = (credit: Credit, targetDate: Date) => {
     const startDate = new Date(credit.startDate + 'T00:00:00');
-    if (targetDate < startDate) return { isInstallmentDay: false, installmentNum: 0 };
+    // FIX: Comparación segura de fechas
+    if (targetDate.getTime() < startDate.getTime()) return { isInstallmentDay: false, installmentNum: 0 };
+    
+    // FIX: Si es diario y domingo, no cuenta
     if (credit.frequency === 'Daily' && targetDate.getDay() === 0) return { isInstallmentDay: false, installmentNum: 0 };
 
     let isInstallmentDay = false;
     let installmentNum = 0;
-    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    // FIX: Construcción manual de string local YYYY-MM-DD para evitar desfases de zona horaria con toISOString()
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const d = String(targetDate.getDate()).padStart(2, '0');
+    const targetDateStr = `${y}-${m}-${d}`;
 
     if (credit.frequency === 'Daily') { 
         isInstallmentDay = true; 
@@ -202,8 +210,12 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     const data = [];
     
     for (let day = 1; day <= daysInMonth; day++) {
+      // FIX: Date construction
       const currentDayDate = new Date(selYear, selMonth, day);
-      const currentDayStr = currentDayDate.toISOString().split('T')[0];
+      
+      const dayStr = String(day).padStart(2, '0');
+      const monthStr = String(selMonth + 1).padStart(2, '0');
+      const currentDayStr = `${selYear}-${monthStr}-${dayStr}`;
       
       let targetForDay = 0;
       let actualCollected = 0;
@@ -222,7 +234,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       }
 
       data.push({ 
-          day: String(day).padStart(2, '0'), 
+          day: dayStr, 
           collected: Math.round(actualCollected), 
           target: Math.round(targetForDay) 
       });
@@ -236,6 +248,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(selYear, selMonth, day);
       let totalMora = 0;
+      
       stats.credits.filter(cr => cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
         const { installmentNum } = getInstallmentStatusForDate(cr, currentDate);
         const shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
