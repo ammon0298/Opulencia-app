@@ -225,11 +225,19 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(selYear, selMonth, day);
       let totalMora = 0;
-      stats.credits.filter(cr => cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
+      // FIX: Calcular mora para todos los créditos activos, sin depender del flag 'isOverdue'
+      // que podría estar desactualizado. Se calcula matemáticamente deuda > 0.
+      stats.credits.filter(cr => cr.status !== 'Lost').forEach(cr => {
         const { installmentNum } = getInstallmentStatusForDate(cr, currentDate);
-        const shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
-        const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
-        totalMora += (installmentNum > cr.totalInstallments) ? (cr.totalToPay - cr.totalPaid) : currentDebt;
+        
+        if (installmentNum > 0) {
+            const shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
+            const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
+            
+            if (currentDebt > 0) {
+                totalMora += (installmentNum > cr.totalInstallments) ? (cr.totalToPay - cr.totalPaid) : currentDebt;
+            }
+        }
       });
       data.push({ day: String(day).padStart(2, '0'), moraTotal: Math.round(totalMora) });
     }

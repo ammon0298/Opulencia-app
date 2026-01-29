@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -22,7 +23,7 @@ import { supabase } from './lib/supabase';
 import { verifyPassword, hashPassword, generateOTP } from './utils/security';
 import { GlobalProvider } from './contexts/GlobalContext';
 import { sendLicenseRequestEmail, sendOTPEmail } from './utils/email';
-import { TODAY_STR, getCurrentLocalTimestamp } from './constants';
+import { TODAY_STR, getCurrentLocalTimestamp, countBusinessDays, addBusinessDays } from './constants';
 
 // UUID v4 check (suficiente para nuestro caso)
 const isUuid = (v: string) =>
@@ -115,7 +116,7 @@ const dbToExpense = (e: any): Expense => ({
 
 const dbToTx = (t: any): RouteTransaction => ({
   id: t.id,
-  businessId: t.business_id,
+  business_id: t.business_id,
   routeId: t.route_id,
   date: t.transaction_date ?? t.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   amount: Number(t.amount),
@@ -186,7 +187,6 @@ const creditToDb = (c: Credit) => ({
   total_to_pay: c.totalToPay,
   installment_value: c.installmentValue,
   total_installments: c.totalInstallments,
-  // Fix: use paidInstallments property correctly
   paid_installments: c.paidInstallments ?? 0,
   total_paid: c.totalPaid ?? 0,
   frequency: c.frequency,
@@ -224,6 +224,44 @@ const txToDb = (t: RouteTransaction) => ({
   description: t.description || null,
   transaction_date: t.date
 });
+
+// Helper para calcular Mora Real
+const calculateCreditStatus = (credit: Credit, totalPaid: number): boolean => {
+    if (credit.status !== 'Active') return false;
+    
+    // Si ya pagó todo, no está en mora
+    if (totalPaid >= credit.totalToPay) return false;
+
+    // Calcular cuotas debidas hasta HOY
+    const baseDate = credit.firstPaymentDate || credit.startDate;
+    const todayDate = new Date(TODAY_STR + 'T00:00:00');
+    const startObj = new Date(baseDate + 'T00:00:00');
+
+    if (todayDate < startObj) return false; // Aún no empieza
+
+    let expectedInstallments = 0;
+    
+    if (credit.frequency === 'Daily') {
+        // countBusinessDays cuenta días hábiles entre inicio y fin (sin incluir fin si no pasó)
+        // Agregamos 1 para incluir el día actual si ya pasó
+        expectedInstallments = countBusinessDays(baseDate, TODAY_STR) + 1;
+        // Si hoy es domingo, countBusinessDays no lo suma, correcto.
+        // Pero si hoy es domingo, el pago se espera para el lunes (o dia habil anterior), 
+        // simplificamos: Mora es si debe plata de días hábiles ANTERIORES.
+    } else {
+        // Lógica simplificada para semanal/mensual
+        const diffTime = todayDate.getTime() - startObj.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const cycleDays = credit.frequency === 'Weekly' ? 7 : 30;
+        expectedInstallments = Math.floor(diffDays / cycleDays) + 1; 
+    }
+
+    const cappedExpected = Math.min(credit.totalInstallments, expectedInstallments);
+    const amountExpected = cappedExpected * credit.installmentValue;
+
+    // Margen de error pequeño por redondeo
+    return totalPaid < (amountExpected - 1);
+};
 
 const AppContent: React.FC = () => {
   // Data States
@@ -287,8 +325,6 @@ const AppContent: React.FC = () => {
       if (subData) setSubscription(dbToSubscription(subData));
 
       // CORRECCIÓN CRÍTICA: Calcular totalPaid real sumando los pagos
-      // Esto soluciona el bug de créditos que aparecen en mora a pesar de tener pagos,
-      // ya que la columna total_paid en la tabla credits podría no estar sincronizada.
       const mappedPayments = paymentsData ? paymentsData.map(dbToPayment) : [];
       setPayments(mappedPayments);
 
@@ -299,8 +335,10 @@ const AppContent: React.FC = () => {
                   .filter(p => p.creditId === appCredit.id)
                   .reduce((sum, p) => sum + p.amount, 0);
               
-              // Usar el valor calculado para garantizar consistencia en la UI
-              return { ...appCredit, totalPaid: realTotalPaid };
+              // Recalcular isOverdue basado en pagos reales y fecha actual
+              const isOverdue = calculateCreditStatus(appCredit, realTotalPaid);
+              
+              return { ...appCredit, totalPaid: realTotalPaid, isOverdue };
           });
           setCredits(mappedCredits);
       }
@@ -453,15 +491,10 @@ const AppContent: React.FC = () => {
 
   const handleRegister = async (data: any) => {
     try {
-        // Modo "Solicitud de Licencia":
-        // Solo se envía el correo al administrador del sistema. 
-        // NO se crea el usuario automáticamente en la base de datos.
         const emailSent = await sendLicenseRequestEmail(data);
-        
         if (!emailSent) {
             throw new Error("No se pudo enviar el correo de solicitud. Por favor verifique su conexión.");
         }
-
         return true;
     } catch (e: any) {
         console.error("License Request Error:", e);
@@ -627,24 +660,10 @@ const AppContent: React.FC = () => {
       case 'collector_dashboard':
         return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
       case 'credits':
-        // FIX: Use getCurrentLocalTimestamp() for payment date to respect device local time instead of UTC
         return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: getCurrentLocalTimestamp(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} />;
+      // ... resto de casos (sin cambios) ...
       case 'client_management':
-        return (
-          <ClientManagement 
-            clients={filteredData.clients} 
-            allClients={clients} 
-            routes={visibleRoutes} 
-            user={currentUser} 
-            credits={filteredData.credits} 
-            payments={filteredData.payments}
-            selectedRouteId={selectedRouteId} 
-            onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} 
-            onDeleteClient={() => {}} 
-            onNewClient={() => setCurrentView('new_client')} 
-            onUpdateClients={handleSaveClientBulk} 
-          />
-        );
+        return <ClientManagement clients={filteredData.clients} allClients={clients} routes={visibleRoutes} user={currentUser} credits={filteredData.credits} payments={filteredData.payments} selectedRouteId={selectedRouteId} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
       case 'edit_client': {
         const clientToEdit = clients.find((c) => c.id === selectedClientId);
         const activeCredit = credits.find((c) => c.clientId === selectedClientId && c.status === 'Active');
@@ -661,7 +680,6 @@ const AppContent: React.FC = () => {
       case 'liquidation':
         return <LiquidationView selectedRouteId={selectedRouteId} credits={credits} expenses={expenses} payments={payments} clients={clients} routes={visibleRoutes} transactions={transactions} />;
       case 'users':
-        // ACTUALIZADO: Pasar 'clients' y 'selectedRouteId'
         return <UserManagement users={users} routes={routes} currentUser={currentUser} onSave={handleRefreshData} subscription={subscription} clients={clients} selectedRouteId={selectedRouteId} />;
       case 'routes_mgmt':
         return <RouteManagement routes={routes} users={users} user={currentUser} transactions={transactions} onSave={handleRefreshData} onAddTransaction={persistRouteTransaction} subscription={subscription} />;
@@ -686,7 +704,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
-          <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">$</div>
+          <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-2xl font-black animate-bounce shadow-2xl">O</div>
           <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Iniciando...</p>
         </div>
       </div>

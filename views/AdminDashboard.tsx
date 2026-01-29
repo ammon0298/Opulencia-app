@@ -249,11 +249,24 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       const currentDate = new Date(selYear, selMonth, day);
       let totalMora = 0;
       
-      stats.credits.filter(cr => cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
+      // FIX: Calcular mora matemática para todos los créditos activos, 
+      // independientemente de si el flag 'isOverdue' está activo o no.
+      // Esto asegura que la gráfica muestre la deuda acumulada real diaria.
+      stats.credits.filter(cr => cr.status !== 'Lost').forEach(cr => {
         const { installmentNum } = getInstallmentStatusForDate(cr, currentDate);
-        const shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
-        const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
-        totalMora += (installmentNum > cr.totalInstallments) ? (cr.totalToPay - cr.totalPaid) : currentDebt;
+        // Si installmentNum es 0, no hay deuda todavía para esa fecha
+        if (installmentNum > 0) {
+            const shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
+            // Usamos cr.totalPaid (que es el acumulado HOY) porque la gráfica de mora histórica
+            // suele representar "cuánto deben hoy". Si quisiéramos historia exacta, necesitaríamos recalcular pagos por fecha.
+            // Para la vista de "Comportamiento de Mora Actual proyectado", esto es correcto:
+            const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
+            
+            // Si hay deuda, sumamos
+            if (currentDebt > 0) {
+                totalMora += (installmentNum > cr.totalInstallments) ? (cr.totalToPay - cr.totalPaid) : currentDebt;
+            }
+        }
       });
       data.push({ day: String(day).padStart(2, '0'), moraTotal: Math.round(totalMora) });
     }
