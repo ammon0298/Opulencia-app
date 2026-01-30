@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Client, Credit, Payment } from '../types';
 import { TODAY_STR, addBusinessDays } from '../constants';
@@ -28,6 +29,13 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, credit, payments,
   const capitalRatio = credit.capital / credit.totalToPay;
   const interestRatio = (credit.totalToPay - credit.capital) / credit.totalToPay;
   const capitalLoss = currentBalance * capitalRatio;
+
+  const freqMap: Record<string, string> = {
+    'Daily': 'DIARIO',
+    'Weekly': 'SEMANAL',
+    'Monthly': 'MENSUAL'
+  };
+  const freqLabel = freqMap[credit.frequency] || credit.frequency;
 
   const history = useMemo(() => {
     const sortedPayments = [...payments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -129,6 +137,17 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, credit, payments,
 
         <div className={`rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden border shadow-2xl ${credit.status === 'Lost' ? 'bg-rose-50 dark:bg-rose-950 border-rose-200 dark:border-rose-900' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
           <div className="py-10 md:py-12 text-center relative">
+            
+            {/* TARJETA DE FRECUENCIA DE PAGO (SOLICITADA) */}
+            <div className="absolute top-4 right-4 md:top-8 md:right-12">
+                <div className={`px-5 py-2.5 rounded-2xl border shadow-sm backdrop-blur-md flex flex-col items-center justify-center ${credit.status === 'Lost' ? 'bg-white/50 border-rose-200' : 'bg-slate-50/80 dark:bg-slate-800/80 border-slate-100 dark:border-slate-700'}`}>
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] mb-0.5">MODALIDAD</span>
+                    <span className={`text-xs md:text-sm font-black uppercase tracking-widest ${credit.status === 'Lost' ? 'text-rose-600' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                        {freqLabel}
+                    </span>
+                </div>
+            </div>
+
             <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.5em] text-indigo-400 mb-2">CAPITAL TOTAL RECAUDADO</p>
             {/* CORRECCIÓN 3: Reducción de tamaño de fuente para evitar desbordamiento */}
             <p className="text-5xl md:text-7xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter leading-none">${realTotalPaid.toLocaleString()}</p>
