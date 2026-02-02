@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -242,18 +241,23 @@ const calculateCreditStatus = (credit: Credit, totalPaid: number): boolean => {
     let expectedInstallments = 0;
     
     if (credit.frequency === 'Daily') {
-        // countBusinessDays cuenta días hábiles entre inicio y fin (sin incluir fin si no pasó)
-        // Agregamos 1 para incluir el día actual si ya pasó
-        expectedInstallments = countBusinessDays(baseDate, TODAY_STR) + 1;
-        // Si hoy es domingo, countBusinessDays no lo suma, correcto.
-        // Pero si hoy es domingo, el pago se espera para el lunes (o dia habil anterior), 
-        // simplificamos: Mora es si debe plata de días hábiles ANTERIORES.
+        // CORRECCIÓN: Para estar en mora, deben haber pasado los días COMPLETOS antes de hoy.
+        // countBusinessDays cuenta los días entre inicio y fin. Si hoy es el día de pago, no debe contarse como mora.
+        // Anteriormente se sumaba +1, lo que hacía que el pago de hoy fuera exigible como "atrasado".
+        expectedInstallments = countBusinessDays(baseDate, TODAY_STR);
     } else {
         // Lógica simplificada para semanal/mensual
         const diffTime = todayDate.getTime() - startObj.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const cycleDays = credit.frequency === 'Weekly' ? 7 : 30;
-        expectedInstallments = Math.floor(diffDays / cycleDays) + 1; 
+        if (diffTime < 0) {
+            expectedInstallments = 0;
+        } else {
+            const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const cycleDays = credit.frequency === 'Weekly' ? 7 : 30;
+            // (daysPassed - 1) asegura que el día exacto de corte no sume una cuota vencida.
+            // Ejemplo: Día 7 (Semanal). (7-1)/7 = 0. + 1 = 1 cuota vencida (la inicial).
+            // Día 8. (8-1)/7 = 1. + 1 = 2 cuotas vencidas.
+            expectedInstallments = 1 + Math.floor((daysPassed - 1) / cycleDays);
+        }
     }
 
     const cappedExpected = Math.min(credit.totalInstallments, expectedInstallments);
