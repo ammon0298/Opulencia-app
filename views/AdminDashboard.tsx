@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment, Subscription } from '../types';
@@ -314,7 +313,10 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       <div className="mb-8">
         <AIAssistant 
           metrics={metrics} 
-          totalExpenses={stats.expenses.reduce((a, b) => a + b.value, 0)} 
+          totalExpenses={stats.expenses.reduce((a, b) => a + b.value, 0)}
+          clients={stats.clients}
+          credits={stats.credits}
+          payments={stats.payments} 
         />
       </div>
 
