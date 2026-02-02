@@ -310,11 +310,17 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                             <h4 className="font-black text-lg text-slate-800 dark:text-white truncate">{item.name}</h4>
                             <div className="flex items-center gap-3 mt-1.5">
                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{item.alias}</span>
+                               
+                               {/* BOTÓN CRÉDITO MOVIL */}
                                <button 
                                 onClick={() => onGoToCredit(item.credit.id)}
-                                className="bg-slate-800 dark:bg-slate-700 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest shadow-sm"
+                                className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm border border-indigo-200 dark:border-indigo-800 active:scale-95 ml-1"
+                                title="Ver Crédito"
                                >
-                                #{item.credit.id.slice(-6).toUpperCase()}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                                </svg>
                                </button>
                                
                                {/* BOTÓN MAPA MOVIL - AUMENTADO */}
@@ -345,11 +351,17 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                       <div className="hidden md:flex items-center gap-3 mb-1.5">
                         <h4 className="font-black text-xl lg:text-2xl truncate text-slate-800 dark:text-white">{item.name}</h4>
                         <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-300">{item.alias}</span>
+                        
+                        {/* BOTÓN CRÉDITO ESCRITORIO */}
                         <button 
                           onClick={() => onGoToCredit(item.credit.id)}
-                          className="ml-2 bg-slate-800 dark:bg-slate-700 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-all active:scale-95 flex items-center gap-1.5"
+                          className="ml-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
                         >
-                          #{item.credit.id.slice(-6).toUpperCase()}
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                            <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                          </svg>
+                          CRÉDITO
                         </button>
 
                         {/* BOTÓN MAPA ESCRITORIO - AUMENTADO LIGERAMENTE */}

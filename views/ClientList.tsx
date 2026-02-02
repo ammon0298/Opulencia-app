@@ -14,6 +14,7 @@ interface ClientListProps {
   onViewDetails: (creditId: string) => void;
   onViewVisits: (creditId: string) => void; 
   onEditClient: (clientId: string) => void;
+  onNavigate: (view: string) => void; // Added navigation prop
   initialSearchTerm?: string;
   onSearchChange?: (term: string) => void; 
 }
@@ -23,7 +24,7 @@ type ActiveFilterType = 'mora' | 'hoy' | 'aldia' | 'falta1' | 'falta3' | 'todos'
 // Módulos principales
 type ViewModule = 'active' | 'completed' | 'lost';
 
-const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, initialSearchTerm = '', onSearchChange }) => {
+const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, onNavigate, initialSearchTerm = '', onSearchChange }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [currentModule, setCurrentModule] = useState<ViewModule>('active');
   const [activeFilter, setActiveFilter] = useState<ActiveFilterType>('todos');
@@ -182,15 +183,27 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
             <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('credit_mgmt')}</h2>
             <p className="text-slate-500 dark:text-slate-400 font-medium">{t('client_list')}</p>
           </div>
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder={t('search')} 
-              className="pl-12 pr-12 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full md:w-80 shadow-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none font-bold text-slate-700 dark:text-slate-200 transition-all"
-              value={searchTerm}
-              onChange={handleSearchInput}
-            />
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 absolute left-4 top-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+            {/* Botón Rápido a Enrutamiento */}
+            <button 
+                onClick={() => onNavigate('routing')}
+                className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all active:scale-95 border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                {t('routing')}
+            </button>
+
+            <div className="relative w-full md:w-80">
+                <input 
+                type="text" 
+                placeholder={t('search')} 
+                className="pl-12 pr-12 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full shadow-sm focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 outline-none font-bold text-slate-700 dark:text-slate-200 transition-all"
+                value={searchTerm}
+                onChange={handleSearchInput}
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 absolute left-4 top-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
           </div>
         </header>
 
