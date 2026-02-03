@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Client, Credit, User, UserRole, Route } from '../types';
+import { Client, Credit, User, UserRole, Route, Payment } from '../types';
 import { TODAY_STR, countBusinessDays, addBusinessDays } from '../constants';
 import { useGlobal } from '../contexts/GlobalContext';
 
 interface ClientListProps {
   clients: Client[];
   credits: Credit[];
+  payments: Payment[];
   users: User[];
   user: User;
   routes: Route[];
@@ -14,20 +15,24 @@ interface ClientListProps {
   onViewDetails: (creditId: string) => void;
   onViewVisits: (creditId: string) => void; 
   onEditClient: (clientId: string) => void;
-  onNavigate: (view: string) => void; // Added navigation prop
+  onNavigate: (view: string) => void; 
   initialSearchTerm?: string;
   onSearchChange?: (term: string) => void; 
 }
 
 // Filtros específicos para la cartera activa
-type ActiveFilterType = 'mora' | 'hoy' | 'aldia' | 'falta1' | 'falta3' | 'todos';
+type ActiveFilterType = 'mora' | 'hoy' | 'aldia' | 'falta1' | 'falta3' | 'todos' | 'pagado_hoy' | 'parcial';
 // Módulos principales
 type ViewModule = 'active' | 'completed' | 'lost';
 
-const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, onNavigate, initialSearchTerm = '', onSearchChange }) => {
+const ClientList: React.FC<ClientListProps> = ({ clients, credits, payments, users, user, routes, onPayment, onViewDetails, onViewVisits, onEditClient, onNavigate, initialSearchTerm = '', onSearchChange }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [currentModule, setCurrentModule] = useState<ViewModule>('active');
   const [activeFilter, setActiveFilter] = useState<ActiveFilterType>('todos');
+  
+  // Nuevos estados para filtro de fecha (Por defecto HOY)
+  const [filterDateStart, setFilterDateStart] = useState(TODAY_STR);
+  const [filterDateEnd, setFilterDateEnd] = useState(TODAY_STR);
   
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; client?: Client; credit?: Credit }>({ isOpen: false });
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -45,17 +50,27 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     }
   };
 
-  // LÓGICA DE SEMÁFORO ACTUALIZADA
-  const getCreditStatusInfo = (credit: Credit) => {
+  // Helper para obtener la fecha del último pago (Fecha de liquidación aproximada)
+  const getLastPaymentDate = (creditId: string) => {
+    const credPayments = payments.filter(p => p.creditId === creditId);
+    if (credPayments.length === 0) return null;
+    // Ordenar descendente para obtener el último
+    credPayments.sort((a,b) => b.date.localeCompare(a.date));
+    // Retornar solo la parte de la fecha YYYY-MM-DD
+    return credPayments[0].date.split('T')[0];
+  };
+
+  // LÓGICA DE SEMÁFORO UNIFICADA CON ENRUTAMIENTO
+  const getCreditStatusInfo = (credit: Credit, payments: any[]) => {
     if (credit.status === 'Lost') {
-        return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: false, isLost: true };
+        return { isFinished: false, pendingCount: 0, status: 'perdidos', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: false, isLost: true, isFullPaymentToday: false, isPartialPaymentToday: false, isMissing1: false, isMissing3: false };
     }
 
     const paidFullInstallments = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
     const isFinished = paidFullInstallments >= credit.totalInstallments || credit.status === 'Completed';
     
     if (isFinished) {
-         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: true, isLost: false };
+         return { isFinished: true, pendingCount: 0, status: 'pagados', isCurrentlyOverdue: false, isDueToday: false, isPaidUpToDate: true, isLost: false, isFullPaymentToday: false, isPartialPaymentToday: false, isMissing1: false, isMissing3: false };
     }
 
     const baseDateStr = credit.firstPaymentDate || credit.startDate;
@@ -83,15 +98,31 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 
     const pendingCount = credit.totalInstallments - paidFullInstallments;
     
+    // Verificar pagos de HOY
+    const todayPayment = payments.find(p => p.creditId === credit.id && p.date.startsWith(TODAY_STR));
+    const amountPaidToday = todayPayment ? todayPayment.amount : 0;
+    const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
+    const isPartialPaymentToday = amountPaidToday > 0 && amountPaidToday < credit.installmentValue;
+
+    const isMissing1 = pendingCount === 1;
+    const isMissing3 = pendingCount > 1 && pendingCount <= 3;
+
+    // Determinar Status para Filtros (Prioridad Semáforo)
     let status: ActiveFilterType = 'todos';
     
-    if (isCurrentlyOverdue) status = 'mora';
+    if (isFullPaymentToday) status = 'pagado_hoy';
+    else if (isPartialPaymentToday) status = 'parcial';
+    else if (isCurrentlyOverdue) status = 'mora';
     else if (isDueToday) status = 'hoy';
-    else if (pendingCount === 1) status = 'falta1';
-    else if (pendingCount > 0 && pendingCount <= 3) status = 'falta3';
-    else if (isPaidUpToDate) status = 'aldia';
+    else if (isMissing1) status = 'falta1';
+    else if (isMissing3) status = 'falta3';
+    else if (isPaidUpToDate) status = 'aldia'; // Solo si no aplica nada más
     
-    return { isFinished, pendingCount, status, isCurrentlyOverdue, isDueToday, isPaidUpToDate, isLost: false };
+    return { 
+        isFinished, pendingCount, status, 
+        isCurrentlyOverdue, isDueToday, isPaidUpToDate, isLost: false,
+        isFullPaymentToday, isPartialPaymentToday, isMissing1, isMissing3
+    };
   };
 
   // 1. Filtrado General y Mapeo de Datos
@@ -100,7 +131,9 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         const client = clients.find(c => c.id === credit.clientId);
         if (!client) return null;
         
-        const info = getCreditStatusInfo(credit);
+        const relevantPayments = payments.filter(p => p.creditId === credit.id);
+        
+        const info = getCreditStatusInfo(credit, relevantPayments);
         const route = routes.find(r => r.id === client.routeId);
         const routeName = route ? route.name : 'Sin Ruta';
         const routeCollectors = users.filter(u => u.role === UserRole.COLLECTOR && u.routeIds.includes(client.routeId));
@@ -118,25 +151,35 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
 
         return { client, credit, collectorName, routeName, info };
     }).filter((item): item is NonNullable<typeof item> => !!item);
-  }, [clients, credits, users, routes, searchTerm]);
+  }, [clients, credits, payments, users, routes, searchTerm]);
 
-  // 2. Separación por Módulos
+  // 2. Separación por Módulos con Filtro de Fecha Aplicado
   const activeCreditItems = useMemo(() => {
+      // Activos no usan el filtro de fecha del UI, siempre muestran estado actual
       return mappedCredits.filter(item => {
           if (item.info.isFinished || item.info.isLost) return false;
-          // Aplicar sub-filtro solo si estamos en el módulo activo
           if (activeFilter === 'todos') return true;
           return item.info.status === activeFilter;
       });
   }, [mappedCredits, activeFilter]);
 
   const completedCreditItems = useMemo(() => {
-      return mappedCredits.filter(item => item.info.isFinished && !item.info.isLost);
-  }, [mappedCredits]);
+      return mappedCredits.filter(item => {
+          if (!item.info.isFinished || item.info.isLost) return false;
+          // Filtrar por fecha de liquidación (último pago)
+          const finishDate = getLastPaymentDate(item.credit.id) || item.credit.startDate; 
+          return finishDate >= filterDateStart && finishDate <= filterDateEnd;
+      });
+  }, [mappedCredits, filterDateStart, filterDateEnd, payments]);
 
   const lostCreditItems = useMemo(() => {
-      return mappedCredits.filter(item => item.info.isLost);
-  }, [mappedCredits]);
+      return mappedCredits.filter(item => {
+          if (!item.info.isLost) return false;
+          // Filtrar por fecha de creación (Start Date) como proxy, ya que no hay fecha de pérdida
+          const dateRef = item.credit.startDate;
+          return dateRef >= filterDateStart && dateRef <= filterDateEnd;
+      });
+  }, [mappedCredits, filterDateStart, filterDateEnd]);
 
 
   const openPaymentModal = (client: Client, credit: Credit) => {
@@ -156,21 +199,25 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
     onPayment(creditId, amount);
   };
 
-  const getCardStyle = (isFinished: boolean, status: string) => {
+  const getCardStyle = (isFinished: boolean, status: string, info: any) => {
     if (status === 'perdidos') 
         return 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 shadow-md opacity-80';
     if (isFinished) 
         return 'bg-emerald-100/90 dark:bg-emerald-900/30 border-emerald-500 shadow-md shadow-emerald-100/50 dark:shadow-none';
-    if (status === 'mora') 
-        return 'bg-purple-50 dark:bg-purple-900/20 border-purple-500 shadow-md shadow-purple-100/50 dark:shadow-none';
-    if (status === 'hoy') 
-        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 shadow-md shadow-blue-100/50 dark:shadow-none'; 
-    if (status === 'aldia') 
-        return 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 dark:border-emerald-500/50 shadow-md shadow-emerald-100/50 dark:shadow-none';
-    if (status === 'falta1') 
-        return 'bg-rose-100 dark:bg-rose-900/20 border-rose-500 shadow-md shadow-rose-100/50 dark:shadow-none';
-    if (status === 'falta3') 
-        return 'bg-amber-100 dark:bg-amber-900/20 border-amber-500 shadow-md shadow-amber-100/50 dark:shadow-none';
+    
+    // Prioridad Semáforo
+    if (info.isFullPaymentToday)
+        return 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/30 shadow-emerald-100 dark:shadow-none';
+    if (info.isPartialPaymentToday)
+        return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-500/30 shadow-orange-100 dark:shadow-none';
+    if (info.isCurrentlyOverdue)
+        return 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-500/30 shadow-purple-100 dark:shadow-none';
+    if (info.isDueToday) // Cobro Hoy
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-500/30 shadow-blue-100 dark:shadow-none';
+    if (info.isMissing1)
+        return 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 shadow-rose-100 dark:shadow-none';
+    if (info.isMissing3)
+        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30 shadow-amber-100 dark:shadow-none';
     
     return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500';
   };
@@ -185,7 +232,6 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
           </div>
           
           <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-            {/* Botón Rápido a Enrutamiento */}
             <button 
                 onClick={() => onNavigate('routing')}
                 className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all active:scale-95 border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1"
@@ -208,7 +254,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         </header>
 
         {/* NAVEGACIÓN POR MÓDULOS (TABS) */}
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-x-auto">
+        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-x-auto gap-1">
             <button 
                 onClick={() => setCurrentModule('active')}
                 className={`flex-1 min-w-[140px] py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${currentModule === 'active' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:bg-white/50 dark:hover:bg-white/5'}`}
@@ -232,17 +278,50 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
             </button>
         </div>
 
+        {/* FILTRO DE FECHAS (Solo para Liquidados e Incobrables) */}
+        {currentModule !== 'active' && (
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Filtrar por Rango:</span>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <input 
+                        type="date" 
+                        value={filterDateStart}
+                        onChange={(e) => setFilterDateStart(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-100"
+                    />
+                    <span className="text-slate-300">-</span>
+                    <input 
+                        type="date" 
+                        value={filterDateEnd}
+                        onChange={(e) => setFilterDateEnd(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-100"
+                    />
+                    <button 
+                        onClick={() => { setFilterDateStart(TODAY_STR); setFilterDateEnd(TODAY_STR); }}
+                        className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors"
+                    >
+                        Hoy
+                    </button>
+                </div>
+            </div>
+        )}
+
         {/* CONTENIDO DEL MÓDULO: ACTIVO */}
         {currentModule === 'active' && (
             <div className="animate-fadeIn">
-                {/* Filtros específicos para activos */}
                 <div className="flex flex-wrap gap-3 mb-6">
-                    <FilterBadge color="bg-indigo-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
-                    <FilterBadge color="bg-blue-500" label="Cobro Hoy" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} />
-                    <FilterBadge color="bg-emerald-500" label="Al Día" active={activeFilter === 'aldia'} onClick={() => setActiveFilter('aldia')} />
-                    <FilterBadge color="bg-purple-600" label={t('mora_credits')} active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
-                    <FilterBadge color="bg-rose-600" label={t('missing_1')} active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
-                    <FilterBadge color="bg-amber-500" label={t('missing_3')} active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
+                    <FilterBadge color="bg-slate-500" label={t('active_credits')} active={activeFilter === 'todos'} onClick={() => setActiveFilter('todos')} />
+                    <FilterBadge color="bg-emerald-500" label="PAGO REGISTRADO" active={activeFilter === 'pagado_hoy'} onClick={() => setActiveFilter('pagado_hoy')} />
+                    <FilterBadge color="bg-orange-500" label="ABONO PARCIAL" active={activeFilter === 'parcial'} onClick={() => setActiveFilter('parcial')} />
+                    <FilterBadge color="bg-purple-600" label="MORA ACTIVA" active={activeFilter === 'mora'} onClick={() => setActiveFilter('mora')} />
+                    <FilterBadge color="bg-blue-600" label="COBRO HOY" active={activeFilter === 'hoy'} onClick={() => setActiveFilter('hoy')} />
+                    <FilterBadge color="bg-rose-600" label="FALTA 1 CUOTA" active={activeFilter === 'falta1'} onClick={() => setActiveFilter('falta1')} />
+                    <FilterBadge color="bg-amber-500" label="FALTAN <= 3" active={activeFilter === 'falta3'} onClick={() => setActiveFilter('falta3')} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
@@ -255,7 +334,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
                             onViewDetails={onViewDetails} 
                             onViewVisits={onViewVisits}
                             onEditClient={onEditClient}
-                            cardStyle={getCardStyle(false, item.info.status)}
+                            cardStyle={getCardStyle(false, item.info.status, item.info)}
                             t={t}
                         />
                     )) : (
@@ -271,7 +350,11 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         {currentModule === 'completed' && (
             <div className="animate-fadeIn space-y-4">
                 <div className="flex items-center gap-3 px-2 mb-4">
-                    <h3 className="text-xs font-black text-emerald-600 uppercase tracking-[0.2em]">Historial de Créditos Finalizados</h3>
+                    <h3 className="text-xs font-black text-emerald-600 uppercase tracking-[0.2em]">
+                        {filterDateStart === filterDateEnd && filterDateStart === TODAY_STR 
+                            ? "Historial de Créditos Finalizados (Hoy)" 
+                            : `Historial Finalizados (${filterDateStart} a ${filterDateEnd})`}
+                    </h3>
                     <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-900/30"></div>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
@@ -284,12 +367,14 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
                             onViewDetails={onViewDetails} 
                             onViewVisits={onViewVisits}
                             onEditClient={onEditClient}
-                            cardStyle={getCardStyle(true, 'pagados')}
+                            cardStyle={getCardStyle(true, 'pagados', item.info)}
                             t={t}
                         />
                     )) : (
                         <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
-                            <p className="text-slate-400 font-medium">No hay créditos finalizados para mostrar.</p>
+                            <p className="text-slate-400 font-medium">
+                                No hay créditos finalizados en el rango seleccionado.
+                            </p>
                         </div>
                     )}
                 </div>
@@ -300,7 +385,11 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
         {currentModule === 'lost' && (
             <div className="animate-fadeIn space-y-4">
                 <div className="flex items-center gap-3 px-2 mb-4">
-                    <h3 className="text-xs font-black text-rose-600 uppercase tracking-[0.2em]">Cartera Castigada</h3>
+                    <h3 className="text-xs font-black text-rose-600 uppercase tracking-[0.2em]">
+                        {filterDateStart === filterDateEnd && filterDateStart === TODAY_STR 
+                            ? "Cartera Castigada (Hoy)" 
+                            : `Cartera Castigada (${filterDateStart} a ${filterDateEnd})`}
+                    </h3>
                     <div className="flex-1 h-px bg-rose-200 dark:bg-rose-900/30"></div>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
@@ -313,13 +402,15 @@ const ClientList: React.FC<ClientListProps> = ({ clients, credits, users, user, 
                             onViewDetails={onViewDetails} 
                             onViewVisits={onViewVisits}
                             onEditClient={onEditClient}
-                            cardStyle={getCardStyle(false, 'perdidos')}
+                            cardStyle={getCardStyle(false, 'perdidos', item.info)}
                             isLost
                             t={t}
                         />
                     )) : (
                         <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
-                            <p className="text-slate-400 font-medium">No hay créditos marcados como incobrables.</p>
+                            <p className="text-slate-400 font-medium">
+                                No hay créditos incobrables (por fecha de creación) en este rango.
+                            </p>
                         </div>
                     )}
                 </div>
@@ -353,8 +444,9 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
 
   const saldoTotal = Math.max(0, credit.totalToPay - credit.totalPaid);
-  const abonoActual = credit.totalPaid % credit.installmentValue;
-  const debeCuotaActual = Math.max(0, credit.installmentValue - abonoActual);
+  
+  // SE USA LA CUOTA FIJA PACTADA SIEMPRE PARA EL BOTÓN
+  const valorCuotaFija = credit.installmentValue;
 
   // CÁLCULO DE DEUDA DE MORA
   let amountStrictlyExpected = 0;
@@ -380,6 +472,9 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   
   const debeMora = Math.max(0, amountStrictlyExpected - credit.totalPaid);
 
+  // Cálculo de cuotas pagadas para el indicador
+  const paidInstallmentsDisplay = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
+
   const handleAction = (amount: number, label: string) => {
     onQuickPayment(credit.id, amount);
     setSuccessFeedback(label);
@@ -393,14 +488,20 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
       onClick={() => onViewDetails(credit.id)}
       className={`${cardStyle} cursor-pointer p-5 border-2 rounded-[2.5rem] flex flex-col xl:flex-row xl:items-center justify-between gap-6 transition-all hover:translate-x-1 shadow-sm group relative`}
     >
-      {/* Badge Estado Visual Superior Derecho */}
+      {/* Badge Estado Visual Superior Derecho - IDÉNTICO A ROUTING */}
       <div className="absolute top-0 right-0">
-         {info.isCurrentlyOverdue ? (
-            <div className="bg-purple-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">MORA</div>
+         {info.isFullPaymentToday ? (
+            <div className="bg-emerald-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">PAGO REGISTRADO</div>
+         ) : info.isPartialPaymentToday ? (
+            <div className="bg-orange-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">ABONO PARCIAL</div>
+         ) : info.isCurrentlyOverdue ? (
+            <div className="bg-purple-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">MORA ACTIVA</div>
+         ) : info.isMissing1 ? (
+            <div className="bg-rose-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">FALTA 1 CUOTA</div>
+         ) : info.isMissing3 ? (
+            <div className="bg-amber-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">FALTAN 3 O MENOS</div>
          ) : info.isDueToday ? (
             <div className="bg-blue-600 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">COBRO HOY</div>
-         ) : info.isPaidUpToDate ? (
-            <div className="bg-emerald-500 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-sm">AL DÍA</div>
          ) : (
             <div className="bg-slate-400 text-white text-[8px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-sm">PENDIENTE</div>
          )}
@@ -418,8 +519,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
         </button>
         <div className="truncate">
           <div className="flex items-center gap-3 mb-1">
-            <h4 className="font-black text-slate-900 dark:text-white text-lg md:text-xl truncate">{client.name}</h4>
-            <span className="bg-white/80 dark:bg-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600 uppercase tracking-tighter shadow-xs">{client.alias}</span>
+            <h4 className="font-black text-slate-900 dark:text-white text-lg md:text-xl truncate">{client.alias || client.name}</h4>
             {isLost && <span className="bg-rose-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">{t('lost_credits')}</span>}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -443,20 +543,22 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
                 </div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 transition-opacity duration-300">
-                    <button 
-                        onClick={() => handleAction(0, 'Visita Registrada')}
-                        className="flex flex-col items-center justify-center p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900 rounded-xl transition-all group/btn"
-                    >
-                        <span className="text-[8px] font-black uppercase text-slate-400 group-hover/btn:text-indigo-500 dark:group-hover/btn:text-indigo-300">NO PAGA</span>
-                        <span className="text-sm font-black text-slate-700 dark:text-slate-200 group-hover/btn:text-indigo-700 dark:group-hover/btn:text-indigo-300">$0</span>
-                    </button>
+                    
+                    {/* PROGRESS INDICATOR (Replaces No Pay Button) */}
+                    <div className="flex flex-col items-center justify-center p-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl cursor-default group/btn">
+                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">PROGRESO</span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{paidInstallmentsDisplay}</span>
+                            <span className="text-[10px] font-bold text-slate-400">/{credit.totalInstallments}</span>
+                        </div>
+                    </div>
 
                     <button 
-                        onClick={() => handleAction(debeCuotaActual, 'Pago Recibido')}
+                        onClick={() => handleAction(valorCuotaFija, 'Pago Recibido')}
                         className="flex flex-col items-center justify-center p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-600 hover:border-indigo-600 rounded-xl transition-all group/btn"
                     >
                         <span className="text-[8px] font-black uppercase text-indigo-400 group-hover/btn:text-indigo-200">CUOTA</span>
-                        <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 group-hover/btn:text-white">${debeCuotaActual.toLocaleString()}</span>
+                        <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 group-hover/btn:text-white">${valorCuotaFija.toLocaleString()}</span>
                     </button>
 
                     {debeMora > 0 ? (
@@ -486,7 +588,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
          ) : (
             <div className="h-full flex items-center justify-center bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    {isLost ? 'CRÉDITO CASTIGADO - GESTIÓN BLOQUEADA' : 'CRÉDITO FINALIZADO - PAZ Y SALVO'}
+                    {isLost ? `CRÉDITO CASTIGADO (Fecha: ${credit.startDate})` : `CRÉDITO FINALIZADO`}
                 </span>
             </div>
          )}

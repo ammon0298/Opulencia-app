@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Client, Credit, Route, Expense, Payment, RouteTransaction, UserRole, Subscription } from './types';
 import Layout from './components/Layout';
@@ -704,8 +705,8 @@ const AppContent: React.FC = () => {
       case 'collector_dashboard':
         return <CollectorDashboard navigate={handleNavigation} user={currentUser} routes={visibleRoutes} stats={{ clients: filteredData.clients, credits: filteredData.credits, expenses: filteredData.expenses, payments: filteredData.payments }} />;
       case 'credits':
-        return <ClientList clients={filteredData.clients} credits={filteredData.credits} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: getCurrentLocalTimestamp(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} onNavigate={handleNavigation} />;
-      // ... resto de casos (sin cambios) ...
+        // ADDED: Pass filteredData.payments to ClientList to calculate "Paid Today" correctly
+        return <ClientList clients={filteredData.clients} credits={filteredData.credits} payments={filteredData.payments} users={users} user={currentUser} routes={visibleRoutes} initialSearchTerm={creditsFilter} onSearchChange={setCreditsFilter} onPayment={async (cId, amt) => { const pay: Payment = { id: newUuid(), businessId: currentUser.businessId, creditId: cId, date: getCurrentLocalTimestamp(), amount: amt }; await supabase.from('payments').insert(paymentToDb(pay)); await loadBusinessData(currentUser.businessId); }} onViewDetails={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_details'); }} onViewVisits={(cId) => { setSelectedCreditId(cId); setCurrentView('credit_visits'); }} onEditClient={(clientId) => { setSelectedClientId(clientId); setCurrentView('edit_client'); }} onNavigate={handleNavigation} />;
       case 'client_management':
         return <ClientManagement clients={filteredData.clients} allClients={clients} routes={visibleRoutes} user={currentUser} credits={filteredData.credits} payments={filteredData.payments} selectedRouteId={selectedRouteId} onEditClient={(id) => { setSelectedClientId(id); setCurrentView('edit_client'); }} onDeleteClient={() => {}} onNewClient={() => setCurrentView('new_client')} onUpdateClients={handleSaveClientBulk} />;
       case 'edit_client': {

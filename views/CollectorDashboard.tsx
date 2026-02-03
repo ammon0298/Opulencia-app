@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
@@ -109,6 +110,8 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
   };
 
   // CÁLCULO DE MÉTRICAS GLOBALES (Adaptadas con pagos reales)
+  // Aunque no se muestren las tarjetas, se mantienen para el asistente IA si es necesario,
+  // o para futuros usos.
   const metrics = useMemo(() => {
     let overdueAmount = 0;           
     let totalInvested = 0;
@@ -171,12 +174,6 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       profitRate: totalInterestExpected > 0 ? (totalRealizedProfit / totalInterestExpected) * 100 : 0
     };
   }, [stats]);
-
-  // CORRECCIÓN: Total Recaudado (Acumulado Histórico) en lugar de solo Hoy
-  const totalCollectedGlobal = useMemo(() => {
-    if (!stats.payments) return 0;
-    return stats.payments.reduce((acc, p) => acc + p.amount, 0);
-  }, [stats.payments]);
 
   // CÁLCULO DE GRÁFICA REAL VS META (Igual que Admin)
   const chartData = useMemo(() => {
@@ -275,21 +272,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* CORREGIDO: Usando totalCollectedGlobal para mostrar el acumulado total */}
-        <StatCard title={t('total_collected')} value={`$${totalCollectedGlobal.toLocaleString()}`} color="indigo" icon={<IconCash />} />
-        
-        <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
-        <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
-        <StatCard title={t('projected_profit')} value={`$${metrics.totalInterestExpected.toLocaleString()}`} color="violet" icon={<IconTrend />} />
-        <StatCard title={t('total_expenses')} value={`$${stats.expenses.reduce((a,b)=>a+b.value,0).toLocaleString()}`} color="rose" icon={<IconExpense />} />
-        <StatCard title={t('total_clients')} value={stats.clients.length} color="amber" icon={<IconUsersCount />} />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ProgressCard title={t('return_capital')} label1={t('return_capital')} val1={metrics.totalRecoveredCapital} perc1={metrics.recoveryRate} label2={t('projected_profit')} val2={metrics.totalRealizedProfit} perc2={metrics.profitRate} />
-        <ProgressCard title={t('pending_portfolio')} label1={t('capital_street')} val1={metrics.totalPendingToCollect} label2={t('projected_profit')} val2={metrics.totalInterestExpected - metrics.totalRealizedProfit} />
-      </div>
+      {/* SECCIÓN DE TARJETAS RESUMEN ELIMINADA POR PRIVACIDAD DEL COBRADOR */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <ChartBlock title="Cumplimiento de Mi Ruta (Sanos)" data={chartData} type="compliance" theme={theme} />
@@ -315,38 +298,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
   );
 };
 
-// UI Components (Reutilizados del AdminDashboard para consistencia visual)
-const StatCard = ({ title, value, color, icon }: any) => {
-  const colors: any = { indigo: 'bg-indigo-600', emerald: 'bg-emerald-600', rose: 'bg-rose-600', amber: 'bg-amber-600', violet: 'bg-violet-600', red: 'bg-red-600' };
-  return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-6 transition-all hover:translate-y-[-4px]">
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 ${colors[color]}`}><div className="scale-110">{icon}</div></div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-tight whitespace-normal mb-1">{title}</p>
-        <p className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white whitespace-nowrap overflow-visible">{value}</p>
-      </div>
-    </div>
-  );
-};
-
-const ProgressCard = ({ title, label1, val1, perc1, label2, val2, perc2 }: any) => (
-  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-700">
-     <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3"><div className="w-2 h-6 bg-emerald-500 rounded-full"></div>{title}</h3>
-     <div className="grid grid-cols-2 gap-6">
-        <div>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label1}</p>
-           <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">${Math.round(val1).toLocaleString()}</p>
-           {perc1 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{width: `${perc1}%`}}></div></div>}
-        </div>
-        <div>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label2}</p>
-           <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">${Math.round(val2).toLocaleString()}</p>
-           {perc2 !== undefined && <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{width: `${perc2}%`}}></div></div>}
-        </div>
-     </div>
-  </div>
-);
-
+// UI Components
 const ChartBlock = ({ title, data, type, theme }: any) => {
   const isDark = theme === 'dark';
   return (
@@ -393,10 +345,6 @@ const QuickButton = ({ label, onClick, icon }: any) => (
 
 const IconCash = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const IconLoan = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
-const IconTrend = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>;
-const IconExpense = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const IconUsersCount = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
-const IconLoss = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>;
 const IconReceipt = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" /></svg>;
 const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
 const IconChart = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /></svg>;

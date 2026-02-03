@@ -56,7 +56,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
   const getVisitDetailsForCredit = (credit: Credit, dateStr: string) => {
     // Si el crédito está perdido, no aparece en ruta
-    if (credit.status === 'Lost') return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false };
+    if (credit.status === 'Lost') return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
 
     const isRealOverdue = checkIsOverdue(credit);
 
@@ -65,10 +65,10 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     
     // Si la fecha consultada es Domingo y el crédito es diario, no se cobra.
     if (credit.frequency === 'Daily' && checkDate.getDay() === 0) {
-       return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue };
+       return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
     }
 
-    if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue };
+    if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
 
     let isInstallmentDay = false;
     let installmentNum = 0;
@@ -88,7 +88,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
     // Si ya pasamos el total de cuotas y no debe nada (y no está en mora), no mostrar
     if (installmentNum > credit.totalInstallments && !isRealOverdue) {
-        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false };
+        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
     }
 
     const totalExpectedByDate = Math.min(credit.totalInstallments, installmentNum) * credit.installmentValue;
@@ -97,13 +97,19 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     const amountPaidToday = paymentToday ? paymentToday.amount : 0;
     
     // Lógica de estado de pago para colores
-    // Si pagó hoy la cuota completa o más, es verde.
     const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
     const isPartialPaymentToday = amountPaidToday > 0 && amountPaidToday < credit.installmentValue;
     
-    const shouldShow = isInstallmentDay || (isRealOverdue && !isPaidTotal) || (amountPaidToday > 0); // Mostrar si pagó adelantado
+    // Nuevas banderas: Falta 1 o Falta 3
+    const paidFullInstallments = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
+    const pendingInstallments = Math.max(0, credit.totalInstallments - paidFullInstallments);
+    const isMissing1 = pendingInstallments === 1;
+    const isMissing3 = pendingInstallments > 1 && pendingInstallments <= 3;
 
-    if (!shouldShow) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue };
+    // Mostrar si: es día de pago, o está en mora (y debe), o pagó hoy (adelantado o normal), o está terminando
+    const shouldShow = isInstallmentDay || (isRealOverdue && !isPaidTotal) || (amountPaidToday > 0) || (isMissing1 || isMissing3);
+
+    if (!shouldShow) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
 
     let reasonLabel = credit.frequency === 'Daily' ? 'Ciclo Diario' : (credit.frequency === 'Weekly' ? 'Ciclo Semanal' : 'Ciclo Mensual');
     let suggestedAmount = credit.installmentValue;
@@ -120,11 +126,13 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
         reason: reasonLabel, 
         amount: displayAmount,
         realAmount: amountPaidToday,
-        isPaid: isPaidTotal, // Esto es si va al día globalmente
-        isFullPaymentToday, // Pagó la cuota de HOY completa
-        isPartialPaymentToday, // Pagó algo pero incompleto hoy
+        isPaid: isPaidTotal,
+        isFullPaymentToday, 
+        isPartialPaymentToday,
         isInstallmentDay,
-        isOverdue: isRealOverdue
+        isOverdue: isRealOverdue,
+        isMissing1,
+        isMissing3
     };
   };
 
@@ -170,30 +178,37 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     setTargetDate(d.toISOString().split('T')[0]);
   };
 
-  // Función auxiliar para determinar el color de la tarjeta
-  // AHORA SOPORTA DARK MODE con fondos translúcidos en lugar de blancos
+  // Función auxiliar para determinar el color de la tarjeta (PRIORIDAD SEMÁFORO)
   const getCardColorClass = (item: any) => {
-      // Si pagó hoy (completo o más), VERDE prioridad
+      // 1. PAGO REGISTRADO (Verde)
       if (item.isFullPaymentToday) 
         return 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/30 shadow-emerald-100 dark:shadow-none';
 
-      // Prioridad: Mora (MORADO) si está en mora y NO pagó hoy suficiente para salir
+      // 2. ABONO PARCIAL (Naranja)
+      if (item.isPartialPaymentToday) 
+        return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-500/30 shadow-orange-100 dark:shadow-none';
+
+      // 3. MORA ACTIVA (Morado)
       if (item.isOverdue && !item.isPaid) 
         return 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-500/30 shadow-purple-100 dark:shadow-none';
       
-      // Prioridad: Pago Parcial (NARANJA)
-      if (item.isPartialPaymentToday) 
-        return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-500/30 shadow-orange-100 dark:shadow-none';
-      
-      // NUEVO: COBRO HOY (AZUL) - Si es día de pago, no ha pagado y no está en mora crítica
+      // 4. COBRO HOY (Azul)
       if (item.isInstallmentDay && item.realAmount === 0 && !item.isOverdue)
         return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-500/30 shadow-blue-100 dark:shadow-none';
 
-      // Prioridad: No Pago (ROJIZO) solo si es pasado
+      // 5. FALTA 1 (Rosa) - Si no es cobro hoy ni mora, pero falta 1
+      if (item.isMissing1)
+        return 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 shadow-rose-100 dark:shadow-none';
+
+      // 6. FALTA <= 3 (Ámbar)
+      if (item.isMissing3)
+        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30 shadow-amber-100 dark:shadow-none';
+
+      // 7. NO PAGO (Rojo) solo si es pasado
       if (targetDate < TODAY_STR && item.realAmount === 0) 
         return 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 shadow-rose-100 dark:shadow-none';
 
-      // Default (Blanco en Light, Slate Oscuro en Dark)
+      // Default (Blanco)
       return 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700';
   };
 
@@ -285,7 +300,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                 visitsForDate.map((item, index) => (
                   <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)}`}>
                     
-                    {/* Badge Superior Derecho según Estado */}
+                    {/* Badge Superior Derecho según Estado - PRIORIDAD SEMÁFORO */}
                     <div className="absolute top-0 right-0">
                        {item.isFullPaymentToday ? (
                           <div className="bg-emerald-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">PAGO REGISTRADO</div>
@@ -293,6 +308,10 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                           <div className="bg-orange-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">ABONO PARCIAL</div>
                        ) : item.isOverdue && !item.isPaid ? (
                           <div className="bg-purple-600 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">MORA ACTIVA</div>
+                       ) : item.isMissing1 ? (
+                          <div className="bg-rose-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">FALTA 1 CUOTA</div>
+                       ) : item.isMissing3 ? (
+                          <div className="bg-amber-500 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">FALTAN 3 O MENOS</div>
                        ) : item.isInstallmentDay && item.realAmount === 0 && !item.isOverdue ? (
                           <div className="bg-blue-600 text-white text-[8px] md:text-[9px] font-black px-4 md:px-6 py-1.5 md:py-2 rounded-bl-2xl md:rounded-bl-3xl uppercase tracking-widest">COBRO HOY</div>
                        ) : targetDate < TODAY_STR && item.realAmount === 0 ? (
@@ -311,7 +330,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                             <div className="flex items-center gap-3 mt-1.5">
                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{item.alias}</span>
                                
-                               {/* BOTÓN CRÉDITO MOVIL */}
                                <button 
                                 onClick={() => onGoToCredit(item.credit.id)}
                                 className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm border border-indigo-200 dark:border-indigo-800 active:scale-95 ml-1"
@@ -323,7 +341,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                 </svg>
                                </button>
                                
-                               {/* BOTÓN MAPA MOVIL - AUMENTADO */}
                                {item.coordinates?.lat && (
                                  <button 
                                    onClick={(e) => handleOpenMap(e, item.coordinates?.lat, item.coordinates?.lng)}
@@ -334,7 +351,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                                  </button>
                                )}
 
-                               {/* BOTÓN LLAMAR MOVIL - AUMENTADO */}
                                <a
                                    href={`tel:${getLocalPhone(item.phone)}`}
                                    className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-800 active:scale-95"
@@ -352,7 +368,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                         <h4 className="font-black text-xl lg:text-2xl truncate text-slate-800 dark:text-white">{item.name}</h4>
                         <span className="px-2 py-0.5 rounded-lg text-[8px] lg:text-[9px] font-black border uppercase tracking-tighter bg-white/60 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-300">{item.alias}</span>
                         
-                        {/* BOTÓN CRÉDITO ESCRITORIO */}
                         <button 
                           onClick={() => onGoToCredit(item.credit.id)}
                           className="ml-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
@@ -364,7 +379,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                           CRÉDITO
                         </button>
 
-                        {/* BOTÓN MAPA ESCRITORIO - AUMENTADO LIGERAMENTE */}
                         {item.coordinates?.lat && (
                            <button 
                              onClick={(e) => handleOpenMap(e, item.coordinates?.lat, item.coordinates?.lng)}
@@ -375,7 +389,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                            </button>
                         )}
 
-                        {/* BOTÓN LLAMAR ESCRITORIO - AUMENTADO LIGERAMENTE */}
                         <a
                             href={`tel:${getLocalPhone(item.phone)}`}
                             className="ml-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition-colors active:scale-95 shadow-sm"
@@ -393,7 +406,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                            <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300`}>
                              {item.reason}
                            </span>
-                           {/* Etiqueta AL DÍA si el cliente no debe nada acumulado */}
+                           {/* Etiquetas adicionales */}
                            {item.isPaid && (
                                <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
                                    ESTADO: AL DÍA
