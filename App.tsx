@@ -25,7 +25,7 @@ import { GlobalProvider } from './contexts/GlobalContext';
 import { sendLicenseRequestEmail, sendOTPEmail } from './utils/email';
 import { TODAY_STR, getCurrentLocalTimestamp, countBusinessDays, addBusinessDays } from './constants';
 
-// UUID v4 check (suficiente para nuestro caso)
+// UUID v4 check (suficiente para nuestro caso) miralo bien
 const isUuid = (v: string) =>
   typeof v === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
