@@ -361,7 +361,7 @@ const WhatsAppFloat = () => {
   // ==========================================
   // CONFIGURACIÓN DE CONTACTO - PERSONALIZAR AQUÍ
   // ==========================================
-  const phoneNumber = "573233951836"; // Sin el símbolo '+'
+  const phoneNumber = "573206952860"; // Sin el símbolo '+'
   const message = "Hola, me interesa conocer más sobre Opulencia Pro.";
   // ==========================================
 
