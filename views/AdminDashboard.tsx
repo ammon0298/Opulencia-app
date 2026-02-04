@@ -220,8 +220,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       let targetForDay = 0;
       let actualCollected = 0;
 
-      // FILTRO: Excluir créditos perdidos Y COMPLETADOS del cálculo de meta diaria
-      stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost' && cr.status !== 'Completed').forEach(cr => {
+      // FILTRO: Incluir créditos activos aunque estén en mora (!cr.isOverdue ELIMINADO)
+      stats.credits.filter(cr => cr.status !== 'Lost' && cr.status !== 'Completed').forEach(cr => {
         const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
           targetForDay += cr.installmentValue;
