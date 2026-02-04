@@ -177,3 +177,80 @@ CREATE POLICY "Public Access for Development" ON routes FOR ALL USING (true);
 CREATE POLICY "Public Access for Development" ON expenses FOR ALL USING (true);
 CREATE POLICY "Public Access for Development" ON route_transactions FOR ALL USING (true);
 CREATE POLICY "Public Access for Development" ON business_subscriptions FOR ALL USING (true);
+
+--FUNCION CIERRE EN 0 LOS NO PAGOS 
+CREATE OR REPLACE FUNCTION public.handle_daily_closing()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  cierre_ts    timestamptz := NOW() - INTERVAL '24 hours';
+  cierre_fecha date        := (cierre_ts AT TIME ZONE 'America/Bogota')::date;
+BEGIN
+  INSERT INTO public.payments (
+    id,
+    business_id,
+    credit_id,
+    amount,
+    payment_date,
+    note
+  )
+  SELECT
+    gen_random_uuid(),
+    c.business_id,
+    c.id,
+    0,
+    cierre_ts,
+    'Cierre Automático: No hubo recaudo registrado'
+  FROM public.credits c
+  WHERE c.status = 'Active'
+    AND c.total_to_pay > (
+      SELECT COALESCE(SUM(p_check.amount), 0)
+      FROM public.payments p_check
+      WHERE p_check.credit_id = c.id
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.payments p
+      WHERE p.credit_id = c.id
+        AND (p.payment_date AT TIME ZONE 'America/Bogota')::date = cierre_fecha
+    );
+END;
+$$;
+
+
+-- Programar el job con nombre 'cierre_diario_automatico'
+SELECT cron.schedule(
+  'cierre_diario_automatico_ok', -- Nombre único del trabajo
+  '0 5 * * *',                -- Cron expression: Minuto 0, Hora 5 (5:00 AM UTC)
+  $$SELECT public.handle_daily_closing()$$ -- Comando a ejecutar
+);
+
+SELECT * FROM cron.job;
+
+--eliminar el cron
+SELECT cron.unschedule(3);
+
+--ejecutar una funcion
+SELECT public.handle_daily_closing();
+
+
+--FUNCION PARA LIMPIEZA DE GASTOS 
+CREATE OR REPLACE FUNCTION clean_old_expense_images()
+RETURNS void AS $$
+BEGIN
+  UPDATE public.expenses
+  SET proof_image_url = NULL
+  WHERE created_at < NOW() - INTERVAL '7 days'
+  AND proof_image_url IS NOT NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Lo programamos para el lunes a las 00:00 (Medianoche de domingo a lunes)
+SELECT cron.schedule(
+  'cleanup-expenses-job',
+  '0 0 * * 1', -- El '1' significa Lunes
+  'SELECT clean_old_expense_images();'
+);

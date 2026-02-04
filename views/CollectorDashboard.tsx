@@ -75,18 +75,16 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     return options.sort((a, b) => b.value.localeCompare(a.value));
   }, [stats.credits]);
 
+  // Lógica exacta de AdminDashboard para cálculo de cuotas
   const getInstallmentStatusForDate = (credit: Credit, targetDate: Date) => {
     const startDate = new Date(credit.startDate + 'T00:00:00');
     if (targetDate.getTime() < startDate.getTime()) return { isInstallmentDay: false, installmentNum: 0 };
     
-    if (credit.frequency === 'Daily' && targetDate.getDay() === 0) {
-        return { isInstallmentDay: false, installmentNum: 0 };
-    }
+    if (credit.frequency === 'Daily' && targetDate.getDay() === 0) return { isInstallmentDay: false, installmentNum: 0 };
 
     let isInstallmentDay = false;
     let installmentNum = 0;
     
-    // FIX: Construcción manual de string local YYYY-MM-DD
     const y = targetDate.getFullYear();
     const m = String(targetDate.getMonth() + 1).padStart(2, '0');
     const d = String(targetDate.getDate()).padStart(2, '0');
@@ -102,16 +100,13 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
         installmentNum = Math.floor(diffDays / 7) + 1; 
     }
     else if (credit.frequency === 'Monthly') { 
-        const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         isInstallmentDay = targetDate.getDate() === startDate.getDate(); 
+        const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         installmentNum = Math.floor(diffDays / 30) + 1; 
     }
     return { isInstallmentDay, installmentNum };
   };
 
-  // CÁLCULO DE MÉTRICAS GLOBALES (Adaptadas con pagos reales)
-  // Aunque no se muestren las tarjetas, se mantienen para el asistente IA si es necesario,
-  // o para futuros usos.
   const metrics = useMemo(() => {
     let overdueAmount = 0;           
     let totalInvested = 0;
@@ -121,7 +116,6 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     let totalPendingToCollect = 0;
     let totalLostCapital = 0;
 
-    // Usar pagos reales si existen
     if (stats.payments && stats.payments.length > 0) {
         stats.credits.forEach(cr => {
             const creditPayments = stats.payments?.filter(p => p.creditId === cr.id).reduce((sum, p) => sum + p.amount, 0) || 0;
@@ -132,7 +126,6 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
             totalRealizedProfit += creditPayments * profitRatio;
         });
     } else {
-        // Fallback
         stats.credits.forEach(cr => {
             const capitalRatio = cr.capital / cr.totalToPay;
             const profitRatio = (cr.totalToPay - cr.capital) / cr.totalToPay;
@@ -175,13 +168,12 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     };
   }, [stats]);
 
-  // CÁLCULO DE GRÁFICA REAL VS META (Igual que Admin)
+  // CÁLCULO DE GRÁFICA REAL VS META (Idéntico a Admin)
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
     
     for (let day = 1; day <= daysInMonth; day++) {
-      // FIX: Date construction
       const currentDayDate = new Date(selYear, selMonth, day);
       
       const dayStr = String(day).padStart(2, '0');
@@ -221,8 +213,7 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(selYear, selMonth, day);
       let totalMora = 0;
-      // FIX: Calcular mora para todos los créditos activos, sin depender del flag 'isOverdue'
-      // que podría estar desactualizado. Se calcula matemáticamente deuda > 0.
+      
       stats.credits.filter(cr => cr.status !== 'Lost').forEach(cr => {
         const { installmentNum } = getInstallmentStatusForDate(cr, currentDate);
         
@@ -272,10 +263,8 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
         />
       </div>
 
-      {/* SECCIÓN DE TARJETAS RESUMEN ELIMINADA POR PRIVACIDAD DEL COBRADOR */}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ChartBlock title="Cumplimiento de Mi Ruta (Sanos)" data={chartData} type="compliance" theme={theme} />
+        <ChartBlock title={t('compliance_goals')} data={chartData} type="compliance" theme={theme} />
         <ChartBlock title="Recaudo de Mora (Mi Ruta)" data={moraChartData} type="mora" theme={theme} />
       </div>
 
