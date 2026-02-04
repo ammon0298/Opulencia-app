@@ -55,8 +55,16 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   };
 
   const getVisitDetailsForCredit = (credit: Credit, dateStr: string) => {
-    // Si el crédito está perdido, no aparece en ruta
-    if (credit.status === 'Lost') return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
+    // 1. FILTRO ESTRICTO: Si el crédito está perdido O COMPLETADO, no aparece en ruta.
+    // Esto corrige que los liquidados sumen a la meta.
+    if (credit.status === 'Lost' || credit.status === 'Completed') {
+        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
+    }
+
+    // 2. FILTRO MATEMÁTICO: Si ya pagó todo, tampoco debe aparecer (aunque el status no se haya actualizado aún por latencia)
+    if (credit.totalPaid >= credit.totalToPay) {
+        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
+    }
 
     const isRealOverdue = checkIsOverdue(credit);
 
@@ -160,8 +168,13 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   const stats = useMemo(() => {
     const healthyVisits = visitsForDate.filter(v => v.reason !== 'Mora Pendiente');
     
+    // CORRECCIÓN LÓGICA DE META:
+    // Si ya pagó hoy (realAmount > 0), la meta cubierta es ese pago (o la cuota si pagó más, pero asumimos el pago).
+    // Si NO ha pagado hoy, la meta es el valor de la cuota (installmentValue).
+    // Esto asegura que la META sea la suma de lo que se espera recoger.
     const totalToCollectToday = healthyVisits.reduce((acc, curr) => {
-        return acc + (curr.realAmount > 0 ? Math.max(curr.realAmount, curr.credit.installmentValue) : curr.credit.installmentValue);
+        // Usamos la cuota esperada como base de la meta
+        return acc + curr.credit.installmentValue;
     }, 0);
 
     const alreadyCollected = healthyVisits.reduce((acc, curr) => acc + curr.realAmount, 0);
@@ -250,8 +263,9 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                    )}
                 </div>
                 <div>
-                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Meta Pendiente (Sanos)</p>
-                   <h3 className="text-2xl md:text-4xl font-black">${Math.max(0, stats.total - stats.collected).toLocaleString()} <span className="text-xs md:text-lg text-slate-500 font-bold">/ ${stats.total.toLocaleString()}</span></h3>
+                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Avance Recaudo (Sanos)</p>
+                   {/* CORRECCIÓN DE VISUALIZACIÓN: RECAUDADO / META (De 0 a Total) */}
+                   <h3 className="text-2xl md:text-4xl font-black">${stats.collected.toLocaleString()} <span className="text-xs md:text-lg text-slate-500 font-bold">/ ${stats.total.toLocaleString()}</span></h3>
                 </div>
              </div>
              <div className="flex flex-col justify-center">

@@ -191,8 +191,8 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       let targetForDay = 0;
       let actualCollected = 0;
 
-      // Meta Teórica
-      stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
+      // Meta Teórica (Excluir liquidados y completados)
+      stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost' && cr.status !== 'Completed').forEach(cr => {
         const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
           targetForDay += cr.installmentValue;

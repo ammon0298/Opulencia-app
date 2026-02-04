@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment, Subscription } from '../types';
@@ -219,7 +220,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       let targetForDay = 0;
       let actualCollected = 0;
 
-      stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost').forEach(cr => {
+      // FILTRO: Excluir créditos perdidos Y COMPLETADOS del cálculo de meta diaria
+      stats.credits.filter(cr => !cr.isOverdue && cr.status !== 'Lost' && cr.status !== 'Completed').forEach(cr => {
         const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
         if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
           targetForDay += cr.installmentValue;
