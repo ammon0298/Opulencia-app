@@ -456,17 +456,19 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                     </div>
 
                     {/* BLOQUE DE PROGRESO DE PAGO (RECIBIDO vs META) */}
-                    <div className="w-full md:w-auto flex flex-col md:items-end justify-center gap-1 pt-4 md:pt-0 border-t md:border-t-0 border-black/5 dark:border-white/10 min-w-[160px]">
+                    {/* Added md:pt-6 to push content down below the absolute badge */}
+                    <div className="w-full md:w-auto flex flex-col md:items-end justify-center gap-1 pt-4 md:pt-6 border-t md:border-t-0 border-black/5 dark:border-white/10 min-w-[140px]">
                        <div className="flex items-center justify-between md:justify-end gap-2 w-full">
                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Recibido / Meta</p>
-                           <span className={`text-xs font-black uppercase tracking-widest ${progressPercent >= 100 ? 'text-emerald-500' : 'text-slate-400'}`}>{progressPercent}%</span>
+                           <span className={`text-[10px] font-black uppercase tracking-widest ${progressPercent >= 100 ? 'text-emerald-500' : 'text-slate-400'}`}>{progressPercent}%</span>
                        </div>
                        
-                       <div className="flex items-baseline gap-1.5 md:justify-end">
-                          <span className={`text-2xl md:text-3xl font-black ${textAmountClass}`}>
+                       <div className="flex items-baseline gap-1 md:justify-end">
+                          {/* Reduced font sizes: text-xl (mobile) / text-2xl (desktop) */}
+                          <span className={`text-xl md:text-2xl font-black ${textAmountClass}`}>
                             ${item.realAmount.toLocaleString()}
                           </span>
-                          <span className="text-sm md:text-base font-bold text-slate-300 dark:text-slate-600">
+                          <span className="text-xs md:text-sm font-bold text-slate-300 dark:text-slate-600">
                             / ${item.amount.toLocaleString()}
                           </span>
                        </div>
