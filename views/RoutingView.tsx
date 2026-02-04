@@ -55,14 +55,22 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   };
 
   const getVisitDetailsForCredit = (credit: Credit, dateStr: string) => {
-    // 1. FILTRO ESTRICTO: Si el crédito está perdido O COMPLETADO, no aparece en ruta.
-    if (credit.status === 'Lost' || credit.status === 'Completed') {
+    // CALCULAR PAGO DEL DÍA PRIMERO (Esencial para mostrar históricos de liquidados)
+    const paymentToday = payments.find(p => p.creditId === credit.id && p.date.split('T')[0] === dateStr);
+    const amountPaidToday = paymentToday ? paymentToday.amount : 0;
+
+    // 1. FILTRO ESTRICTO: Solo excluir 'Lost'. 'Completed' ahora se evalúa según actividad.
+    if (credit.status === 'Lost') {
         return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
     }
 
-    // 2. FILTRO MATEMÁTICO: Si ya pagó todo, tampoco debe aparecer
+    // 2. FILTRO MATEMÁTICO: Si ya pagó todo...
     if (credit.totalPaid >= credit.totalToPay) {
-        return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
+        // ...PERO si hoy hubo un pago (o estamos viendo un día pasado donde se pagó), DEBE MOSTRARSE.
+        // Si no hay pago hoy y ya está pagado, lo ocultamos.
+        if (amountPaidToday === 0) {
+             return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
+        }
     }
 
     const isRealOverdue = checkIsOverdue(credit);
@@ -72,7 +80,10 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     
     // Si la fecha consultada es Domingo y el crédito es diario, no se cobra.
     if (credit.frequency === 'Daily' && checkDate.getDay() === 0) {
-       return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
+       // Excepción: Si pagó un domingo, mostrarlo
+       if (amountPaidToday === 0) {
+           return { visit: false, reason: 'Domingo - No Laboral', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
+       }
     }
 
     if (checkDate < startDate) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
@@ -93,15 +104,14 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
       installmentNum = Math.floor(diffDays / 30) + 1; 
     }
 
-    // Si ya pasamos el total de cuotas y no debe nada (y no está en mora), no mostrar
-    if (installmentNum > credit.totalInstallments && !isRealOverdue) {
+    // Si ya pasamos el total de cuotas y no debe nada (y no está en mora), no mostrar.
+    // EXCEPCIÓN: Si pagó hoy, mostrar.
+    if (installmentNum > credit.totalInstallments && !isRealOverdue && amountPaidToday === 0) {
         return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
     }
 
     const totalExpectedByDate = Math.min(credit.totalInstallments, installmentNum) * credit.installmentValue;
     const isPaidTotal = credit.totalPaid >= totalExpectedByDate;
-    const paymentToday = payments.find(p => p.creditId === credit.id && p.date.split('T')[0] === dateStr);
-    const amountPaidToday = paymentToday ? paymentToday.amount : 0;
     
     // Lógica de estado de pago para colores
     const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
@@ -166,12 +176,14 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   }, [clients, credits, payments, selectedRouteId, targetDate]);
 
   const stats = useMemo(() => {
-    const healthyVisits = visitsForDate.filter(v => v.reason !== 'Mora Pendiente');
+    // CORRECCIÓN CRÍTICA: No filtrar por "Mora Pendiente" ni ningún otro estado.
+    // Debemos sumar TODOS los 'realAmount' que aparecen en la lista visual del rutero.
+    // Esto asegura que lo cobrado en mora sume al total de recaudo real.
     
     // Total a cobrar hoy (Suma de METAS individuales)
-    const totalToCollectToday = healthyVisits.reduce((acc, curr) => acc + curr.amount, 0);
-    // Total ya recaudado
-    const alreadyCollected = healthyVisits.reduce((acc, curr) => acc + curr.realAmount, 0);
+    const totalToCollectToday = visitsForDate.reduce((acc, curr) => acc + curr.amount, 0);
+    // Total ya recaudado (Suma REAL de todo lo visible)
+    const alreadyCollected = visitsForDate.reduce((acc, curr) => acc + curr.realAmount, 0);
     
     // FALTANTE: Lo que falta para llegar a la meta (Mínimo 0)
     const missing = Math.max(0, totalToCollectToday - alreadyCollected);
