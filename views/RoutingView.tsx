@@ -56,12 +56,11 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
   const getVisitDetailsForCredit = (credit: Credit, dateStr: string) => {
     // 1. FILTRO ESTRICTO: Si el crédito está perdido O COMPLETADO, no aparece en ruta.
-    // Esto corrige que los liquidados sumen a la meta.
     if (credit.status === 'Lost' || credit.status === 'Completed') {
         return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
     }
 
-    // 2. FILTRO MATEMÁTICO: Si ya pagó todo, tampoco debe aparecer (aunque el status no se haya actualizado aún por latencia)
+    // 2. FILTRO MATEMÁTICO: Si ya pagó todo, tampoco debe aparecer
     if (credit.totalPaid >= credit.totalToPay) {
         return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: false, isMissing1: false, isMissing3: false };
     }
@@ -108,7 +107,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     const isFullPaymentToday = amountPaidToday >= credit.installmentValue;
     const isPartialPaymentToday = amountPaidToday > 0 && amountPaidToday < credit.installmentValue;
     
-    // Nuevas banderas: Falta 1 o Falta 3
     const paidFullInstallments = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
     const pendingInstallments = Math.max(0, credit.totalInstallments - paidFullInstallments);
     const isMissing1 = pendingInstallments === 1;
@@ -124,15 +122,17 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
     if (isRealOverdue && !isPaidTotal) {
       reasonLabel = 'Mora Pendiente';
-      suggestedAmount = Math.max(0, totalExpectedByDate - credit.totalPaid);
+      // Sugerir el valor de la mora acumulada O al menos una cuota
+      const pendingDebt = Math.max(0, totalExpectedByDate - credit.totalPaid);
+      suggestedAmount = pendingDebt > 0 ? pendingDebt : credit.installmentValue;
     }
 
-    const displayAmount = amountPaidToday > 0 ? amountPaidToday : suggestedAmount;
-
+    // UPDATE: Mantener suggestedAmount fijo como la META del día, no reemplazar por lo pagado
+    // amount: Meta/Sugerido, realAmount: Pagado Realmente
     return { 
         visit: true, 
         reason: reasonLabel, 
-        amount: displayAmount,
+        amount: suggestedAmount, 
         realAmount: amountPaidToday,
         isPaid: isPaidTotal,
         isFullPaymentToday, 
@@ -168,21 +168,18 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   const stats = useMemo(() => {
     const healthyVisits = visitsForDate.filter(v => v.reason !== 'Mora Pendiente');
     
-    // CORRECCIÓN LÓGICA DE META:
-    // Si ya pagó hoy (realAmount > 0), la meta cubierta es ese pago (o la cuota si pagó más, pero asumimos el pago).
-    // Si NO ha pagado hoy, la meta es el valor de la cuota (installmentValue).
-    // Esto asegura que la META sea la suma de lo que se espera recoger.
-    const totalToCollectToday = healthyVisits.reduce((acc, curr) => {
-        // Usamos la cuota esperada como base de la meta
-        return acc + curr.credit.installmentValue;
-    }, 0);
-
+    // Total a cobrar hoy (Suma de METAS individuales)
+    const totalToCollectToday = healthyVisits.reduce((acc, curr) => acc + curr.amount, 0);
+    // Total ya recaudado
     const alreadyCollected = healthyVisits.reduce((acc, curr) => acc + curr.realAmount, 0);
+    
+    // FALTANTE: Lo que falta para llegar a la meta (Mínimo 0)
+    const missing = Math.max(0, totalToCollectToday - alreadyCollected);
     
     const count = visitsForDate.length; 
     const paidCount = visitsForDate.filter(v => v.realAmount > 0).length;
 
-    return { total: totalToCollectToday, collected: alreadyCollected, count, paidCount };
+    return { total: totalToCollectToday, collected: alreadyCollected, missing, count, paidCount };
   }, [visitsForDate]);
 
   const quickFilter = (days: number) => {
@@ -264,7 +261,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                 </div>
                 <div>
                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Avance Recaudo (Sanos)</p>
-                   {/* CORRECCIÓN DE VISUALIZACIÓN: RECAUDADO / META (De 0 a Total) */}
                    <h3 className="text-2xl md:text-4xl font-black">${stats.collected.toLocaleString()} <span className="text-xs md:text-lg text-slate-500 font-bold">/ ${stats.total.toLocaleString()}</span></h3>
                 </div>
              </div>
@@ -277,10 +273,21 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                    <div className="h-full bg-emerald-500 transition-all duration-1000" style={{width: `${stats.total > 0 ? Math.min(100, (stats.collected / stats.total) * 100) : (stats.collected > 0 ? 100 : 0)}%`}}></div>
                 </div>
              </div>
-             <div className="flex items-center justify-between lg:justify-end gap-6 md:gap-10 lg:border-l lg:border-white/10 lg:pl-10">
-                <div className="text-left lg:text-right">
-                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Créditos Gestionados</p>
-                   <p className="text-xl md:text-2xl font-black text-white">{stats.paidCount} <span className="text-[10px] md:text-xs text-slate-500 uppercase">de {stats.count}</span></p>
+             
+             {/* COLUMNA MODIFICADA: FALTANTE + GESTIONADOS */}
+             <div className="flex flex-col sm:flex-row items-center justify-between lg:justify-end gap-6 md:gap-10 lg:border-l lg:border-white/10 lg:pl-10">
+                <div className="text-left lg:text-right w-full sm:w-auto">
+                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-rose-400 mb-1">Faltante del Día</p>
+                   {stats.missing > 0 ? (
+                       <p className="text-xl md:text-2xl font-black text-white">${stats.missing.toLocaleString()}</p>
+                   ) : (
+                       <p className="text-xl md:text-2xl font-black text-emerald-400">META CUBIERTA</p>
+                   )}
+                </div>
+                
+                <div className="text-left lg:text-right w-full sm:w-auto">
+                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Gestionados</p>
+                   <p className="text-xl md:text-2xl font-black text-white">{stats.paidCount} <span className="text-[10px] md:text-xs text-slate-500 uppercase">/ {stats.count}</span></p>
                 </div>
              </div>
           </div>
@@ -311,7 +318,31 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
 
             <div className="space-y-4 max-w-5xl mx-auto w-full">
               {visitsForDate.length > 0 ? (
-                visitsForDate.map((item, index) => (
+                visitsForDate.map((item, index) => {
+                  
+                  // Lógica para color de barra y texto según recaudo vs meta
+                  let progressPercent = 0;
+                  if (item.amount > 0) {
+                      progressPercent = Math.min(100, Math.round((item.realAmount / item.amount) * 100));
+                  } else if (item.realAmount > 0) {
+                      progressPercent = 100;
+                  }
+
+                  let colorClass = "bg-slate-300 dark:bg-slate-600";
+                  let textAmountClass = "text-slate-400 dark:text-slate-500"; // Default gris (sin pago)
+
+                  if (item.realAmount >= item.amount && item.amount > 0) {
+                      colorClass = "bg-emerald-500"; // Verde (Cumplido)
+                      textAmountClass = "text-emerald-600 dark:text-emerald-400";
+                  } else if (item.realAmount > 0) {
+                      colorClass = "bg-amber-500"; // Naranja (Parcial)
+                      textAmountClass = "text-amber-500";
+                  } else if (item.amount > 0) {
+                      // Nada pagado, pero hay deuda
+                      textAmountClass = "text-slate-300 dark:text-slate-600";
+                  }
+
+                  return (
                   <div key={item.credit.id} className={`flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 p-5 md:p-6 border rounded-[2rem] md:rounded-[2.5rem] transition-all relative overflow-hidden group ${getCardColorClass(item)}`}>
                     
                     {/* Badge Superior Derecho según Estado - PRIORIDAD SEMÁFORO */}
@@ -420,32 +451,38 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                            <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300`}>
                              {item.reason}
                            </span>
-                           {/* Etiquetas adicionales */}
-                           {item.isPaid && (
-                               <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
-                                   ESTADO: AL DÍA
-                               </span>
-                           )}
-                           {item.isOverdue && !item.isPaid && (
-                               <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-sm bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300">
-                                   ESTADO: EN MORA
-                               </span>
-                           )}
                          </div>
                       </div>
                     </div>
 
-                    <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-black/5 dark:border-white/10">
-                       <div className="flex flex-col items-start md:items-end min-w-[100px] md:min-w-[140px]">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 whitespace-nowrap">{item.realAmount > 0 ? 'Recibido' : 'Cuota Sugerida'}</p>
-                          <p className={`text-xl md:text-3xl font-black ${item.realAmount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-white'}`}>
-                            ${item.amount.toLocaleString()}
-                          </p>
+                    {/* BLOQUE DE PROGRESO DE PAGO (RECIBIDO vs META) */}
+                    <div className="w-full md:w-auto flex flex-col md:items-end justify-center gap-1 pt-4 md:pt-0 border-t md:border-t-0 border-black/5 dark:border-white/10 min-w-[160px]">
+                       <div className="flex items-center justify-between md:justify-end gap-2 w-full">
+                           <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Recibido / Meta</p>
+                           <span className={`text-xs font-black uppercase tracking-widest ${progressPercent >= 100 ? 'text-emerald-500' : 'text-slate-400'}`}>{progressPercent}%</span>
+                       </div>
+                       
+                       <div className="flex items-baseline gap-1.5 md:justify-end">
+                          <span className={`text-2xl md:text-3xl font-black ${textAmountClass}`}>
+                            ${item.realAmount.toLocaleString()}
+                          </span>
+                          <span className="text-sm md:text-base font-bold text-slate-300 dark:text-slate-600">
+                            / ${item.amount.toLocaleString()}
+                          </span>
+                       </div>
+
+                       {/* Barra de Progreso Visual */}
+                       <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1 shadow-inner border border-slate-200 dark:border-slate-700">
+                          <div 
+                            className={`h-full transition-all duration-700 ease-out rounded-full ${colorClass}`} 
+                            style={{ width: `${progressPercent}%` }}
+                          ></div>
                        </div>
                     </div>
                   </div>
-                )
-              )) : (
+                  );
+                })
+              ) : (
                 <div className="py-24 text-center bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-700">
                    <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-500 shadow-inner">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
