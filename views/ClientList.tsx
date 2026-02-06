@@ -634,7 +634,7 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
           }} 
           className="flex-1 xl:flex-none bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-6 py-3 rounded-2xl text-xs font-black transition shadow-sm active:scale-95 uppercase tracking-widest"
         >
-          {t('edit')}
+          {t('history')}
         </button>
       </div>
     </div>
