@@ -117,13 +117,14 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
         installmentNum = countBusinessDays(credit.startDate, targetDateStr) + 1;
     }
     else if (credit.frequency === 'Weekly') { 
-        const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        isInstallmentDay = diffDays % 7 === 0; 
+        // FIX: Usar Math.floor para ser conservador y coincidir con ClientList (evitar "sumar más" antes de tiempo)
+        const diffDays = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        isInstallmentDay = diffDays >= 0 && diffDays % 7 === 0; 
         installmentNum = Math.floor(diffDays / 7) + 1; 
     }
     else if (credit.frequency === 'Monthly') { 
         isInstallmentDay = targetDate.getDate() === startDate.getDate(); 
-        const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         installmentNum = Math.floor(diffDays / 30) + 1; 
     }
     return { isInstallmentDay, installmentNum };
@@ -265,25 +266,31 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
 
       let totalMora = 0;
       
-      stats.credits.filter(cr => cr.status !== 'Lost').forEach(cr => {
+      stats.credits.forEach(cr => {
+        // FILTRO CRÍTICO: Excluir explícitamente Perdidos, Completados y Pagados Totales
+        // Esto asegura que la gráfica no sume "deudas fantasmas" de créditos terminados
+        if (cr.status === 'Lost' || cr.status === 'Completed') return;
+        if (cr.totalPaid >= cr.totalToPay) return;
+
         const { installmentNum, isInstallmentDay } = getInstallmentStatusForDate(cr, currentDate);
         
         if (installmentNum > 0) {
-            // shouldBePaid calcula la expectativa acumulada hasta la fecha
-            let shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
+            // Lógica idéntica al Botón de Mora en ClientList:
+            // 1. Calculamos lo que debería llevar pagado estrictamente hasta la fecha
+            const cappedInstallments = Math.min(cr.totalInstallments, installmentNum);
+            let expectedAmount = cappedInstallments * cr.installmentValue;
             
-            // FIX: Si es el día de pago, RESTAR la cuota de hoy para calcular "Mora Pura" (solo atrasos previos)
-            // El usuario no quiere incluir la cuota del día en la suma de mora.
+            // 2. Restamos lo que ya pagó
+            let currentDebt = expectedAmount - cr.totalPaid;
+
+            // 3. Si hoy es día de pago, le "perdonamos" la cuota de HOY en el cálculo de MORA (porque vence a medianoche)
             if (isInstallmentDay) {
-                shouldBePaid -= cr.installmentValue;
+                currentDebt -= cr.installmentValue;
             }
 
-            // Usamos cr.totalPaid (acumulado HOY) como proxy para la vista general. 
-            // Para precisión histórica perfecta se requeriría recalcular pagos día a día, pero para Dashboard esto es estándar.
-            const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
-            
+            // 4. Solo sumamos si hay deuda positiva (Mora Real)
             if (currentDebt > 0) {
-                totalMora += (installmentNum > cr.totalInstallments) ? (cr.totalToPay - cr.totalPaid) : currentDebt;
+                totalMora += currentDebt;
             }
         }
       });

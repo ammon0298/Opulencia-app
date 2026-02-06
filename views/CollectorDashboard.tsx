@@ -95,13 +95,14 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
         installmentNum = countBusinessDays(credit.startDate, targetDateStr) + 1;
     }
     else if (credit.frequency === 'Weekly') { 
-        const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        isInstallmentDay = diffDays % 7 === 0; 
+        // FIX: Math.floor para no adelantar cuotas
+        const diffDays = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        isInstallmentDay = diffDays >= 0 && diffDays % 7 === 0; 
         installmentNum = Math.floor(diffDays / 7) + 1; 
     }
     else if (credit.frequency === 'Monthly') { 
         isInstallmentDay = targetDate.getDate() === startDate.getDate(); 
-        const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         installmentNum = Math.floor(diffDays / 30) + 1; 
     }
     return { isInstallmentDay, installmentNum };
@@ -227,21 +228,31 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 
       let totalMora = 0;
       
-      stats.credits.filter(cr => cr.status !== 'Lost').forEach(cr => {
+      stats.credits.forEach(cr => {
+        // FILTRO CRÍTICO: Excluir explícitamente Perdidos, Completados y Pagados Totales
+        // Esto asegura que la gráfica no sume "deudas fantasmas" de créditos terminados
+        if (cr.status === 'Lost' || cr.status === 'Completed') return;
+        if (cr.totalPaid >= cr.totalToPay) return;
+
         const { installmentNum, isInstallmentDay } = getInstallmentStatusForDate(cr, currentDate);
         
         if (installmentNum > 0) {
-            let shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
+            // Lógica idéntica al Botón de Mora en ClientList:
+            // 1. Calculamos lo que debería llevar pagado estrictamente hasta la fecha
+            const cappedInstallments = Math.min(cr.totalInstallments, installmentNum);
+            let expectedAmount = cappedInstallments * cr.installmentValue;
             
-            // FIX: Si es el día de pago, RESTAR la cuota de hoy para calcular "Mora Pura" (solo atrasos previos)
+            // 2. Restamos lo que ya pagó
+            let currentDebt = expectedAmount - cr.totalPaid;
+
+            // 3. Si hoy es día de pago, le "perdonamos" la cuota de HOY en el cálculo de MORA (porque vence a medianoche)
             if (isInstallmentDay) {
-                shouldBePaid -= cr.installmentValue;
+                currentDebt -= cr.installmentValue;
             }
 
-            const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
-            
+            // 4. Solo sumamos si hay deuda positiva (Mora Real)
             if (currentDebt > 0) {
-                totalMora += (installmentNum > cr.totalInstallments) ? (cr.totalToPay - cr.totalPaid) : currentDebt;
+                totalMora += currentDebt;
             }
         }
       });
