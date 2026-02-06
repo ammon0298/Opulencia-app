@@ -128,17 +128,16 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
     if (!shouldShow) return { visit: false, reason: '', amount: 0, realAmount: 0, isPaid: false, isPartial: false, isInstallmentDay: false, isOverdue: isRealOverdue, isMissing1: false, isMissing3: false };
 
     let reasonLabel = credit.frequency === 'Daily' ? 'Ciclo Diario' : (credit.frequency === 'Weekly' ? 'Ciclo Semanal' : 'Ciclo Mensual');
+    
+    // CORRECCIÓN: Usar siempre el valor de la cuota como meta diaria, incluso en mora.
+    // Se elimina la suma de deuda acumulada para la meta diaria del rutero.
     let suggestedAmount = credit.installmentValue;
 
     if (isRealOverdue && !isPaidTotal) {
       reasonLabel = 'Mora Pendiente';
-      // Sugerir el valor de la mora acumulada O al menos una cuota
-      const pendingDebt = Math.max(0, totalExpectedByDate - credit.totalPaid);
-      suggestedAmount = pendingDebt > 0 ? pendingDebt : credit.installmentValue;
+      // Mantenemos suggestedAmount como credit.installmentValue
     }
 
-    // UPDATE: Mantener suggestedAmount fijo como la META del día, no reemplazar por lo pagado
-    // amount: Meta/Sugerido, realAmount: Pagado Realmente
     return { 
         visit: true, 
         reason: reasonLabel, 
@@ -176,10 +175,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
   }, [clients, credits, payments, selectedRouteId, targetDate]);
 
   const stats = useMemo(() => {
-    // CORRECCIÓN CRÍTICA: No filtrar por "Mora Pendiente" ni ningún otro estado.
-    // Debemos sumar TODOS los 'realAmount' que aparecen en la lista visual del rutero.
-    // Esto asegura que lo cobrado en mora sume al total de recaudo real.
-    
     // Total a cobrar hoy (Suma de METAS individuales)
     const totalToCollectToday = visitsForDate.reduce((acc, curr) => acc + curr.amount, 0);
     // Total ya recaudado (Suma REAL de todo lo visible)
@@ -272,7 +267,7 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                    )}
                 </div>
                 <div>
-                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Avance Recaudo (Sanos)</p>
+                   <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Avance Recaudo</p>
                    <h3 className="text-2xl md:text-4xl font-black">${stats.collected.toLocaleString()} <span className="text-xs md:text-lg text-slate-500 font-bold">/ ${stats.total.toLocaleString()}</span></h3>
                 </div>
              </div>
@@ -468,7 +463,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                     </div>
 
                     {/* BLOQUE DE PROGRESO DE PAGO (RECIBIDO vs META) */}
-                    {/* Added md:pt-6 to push content down below the absolute badge */}
                     <div className="w-full md:w-auto flex flex-col md:items-end justify-center gap-1 pt-4 md:pt-6 border-t md:border-t-0 border-black/5 dark:border-white/10 min-w-[140px]">
                        <div className="flex items-center justify-between md:justify-end gap-2 w-full">
                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Recibido / Meta</p>
@@ -476,7 +470,6 @@ const RoutingView: React.FC<RoutingProps> = ({ clients, selectedRouteId, credits
                        </div>
                        
                        <div className="flex items-baseline gap-1 md:justify-end">
-                          {/* Reduced font sizes: text-xl (mobile) / text-2xl (desktop) */}
                           <span className={`text-xl md:text-2xl font-black ${textAmountClass}`}>
                             ${item.realAmount.toLocaleString()}
                           </span>

@@ -210,15 +210,30 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
   const moraChartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
+    const todayLimit = new Date(TODAY_STR + 'T00:00:00');
+
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(selYear, selMonth, day);
+      
+      // FIX: Si el día es futuro, no graficar (retornar null o break)
+      if (currentDate > todayLimit) {
+          data.push({ day: String(day).padStart(2, '0'), moraTotal: null });
+          continue;
+      }
+
       let totalMora = 0;
       
       stats.credits.filter(cr => cr.status !== 'Lost').forEach(cr => {
-        const { installmentNum } = getInstallmentStatusForDate(cr, currentDate);
+        const { installmentNum, isInstallmentDay } = getInstallmentStatusForDate(cr, currentDate);
         
         if (installmentNum > 0) {
-            const shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
+            let shouldBePaid = Math.min(cr.totalInstallments, installmentNum) * cr.installmentValue;
+            
+            // FIX: Si es el día de pago, RESTAR la cuota de hoy para calcular "Mora Pura" (solo atrasos previos)
+            if (isInstallmentDay) {
+                shouldBePaid -= cr.installmentValue;
+            }
+
             const currentDebt = Math.max(0, shouldBePaid - cr.totalPaid);
             
             if (currentDebt > 0) {
@@ -317,7 +332,7 @@ const ChartBlock = ({ title, data, type, theme }: any) => {
                  <Line type="monotone" dataKey="target" stroke="#3b82f6" strokeWidth={3} dot={false} />
                </>
              ) : (
-               <Line type="stepAfter" dataKey="moraTotal" stroke="#f43f5e" strokeWidth={3} dot={false} />
+               <Line type="stepAfter" dataKey="moraTotal" connectNulls={false} stroke="#f43f5e" strokeWidth={3} dot={false} />
              )}
           </ComposedChart>
        </ResponsiveContainer>
