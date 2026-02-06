@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Credit, Expense, Payment, Client, Route, RouteTransaction } from '../types';
 import { TODAY_STR } from '../constants';
@@ -129,6 +130,105 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
     ? 'Todas las Rutas' 
     : routes.find(r => r.id === selectedRouteId)?.name || 'Ruta Seleccionada';
 
+  // --- FUNCIÓN DE EXPORTACIÓN A CSV (EXCEL) ---
+  const handleDownloadReport = () => {
+    const formatCurrency = (val: number) => `$${val.toLocaleString('es-CO')}`;
+    const cleanStr = (str: string) => `"${str.replace(/"/g, '""')}"`; // Escapar comillas para CSV
+
+    // 1. Construir filas del CSV
+    const rows = [
+      ['REPORTE DE CIERRE DE CAJA - OPULENCIA PRO'],
+      ['Fecha de Generación', new Date().toLocaleString()],
+      ['Ruta / Zona', cleanStr(currentRouteName)],
+      ['Rango de Fechas', `De ${dateRange.start} a ${dateRange.end}`],
+      [], // Espacio
+      ['RESUMEN GENERAL (CONCEPTOS CONTABLES)'],
+      ['Concepto Contable', 'Valor'],
+      ['Fondo Acumulado', formatCurrency(calculatedStartBase)],
+      ['Total Recaudos', formatCurrency(totalCollected)],
+      ['Inyecciones Capital', formatCurrency(totalInjections)],
+      ['Gastos Operativos', `-${formatCurrency(totalExpensesValue)}`],
+      ['Nuevos Préstamos', `-${formatCurrency(totalNewLoans)}`],
+      ['Retiros Ganancias', `-${formatCurrency(totalWithdrawals)}`],
+      ['EFECTIVO CIERRE', formatCurrency(realDelivery)],
+      [],
+      ['DETALLE DE SALIDAS (GASTOS Y RETIROS)'],
+      ['Fecha', 'Tipo', 'Nombre/Concepto', 'Valor'],
+    ];
+
+    // Agregar Gastos
+    rangeExpenses.forEach(e => {
+        rows.push([
+            e.date,
+            'Gasto Operativo',
+            cleanStr(`${e.name} - ${e.concept || ''}`),
+            `-${formatCurrency(e.value)}`
+        ]);
+    });
+    // Agregar Retiros
+    rangeTransactions.filter(t => t.type === 'WITHDRAWAL').forEach(t => {
+        rows.push([
+            t.date,
+            'Retiro Capital',
+            cleanStr(t.description || 'Retiro'),
+            `-${formatCurrency(t.amount)}`
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(['DETALLE DE ENTRADAS (RECAUDOS E INYECCIONES)']);
+    rows.push(['Fecha', 'Tipo', 'Cliente/Descripción', 'Valor']);
+
+    // Agregar Recaudos
+    rangePayments.forEach(p => {
+        const cr = credits.find(c => c.id === p.creditId);
+        const cl = cr ? clients.find(c => c.id === cr.clientId) : null;
+        rows.push([
+            p.date.split('T')[0],
+            'Recaudo',
+            cleanStr(cl ? `${cl.name} (CR#${p.creditId.slice(-4)})` : 'Cliente Desconocido'),
+            formatCurrency(p.amount)
+        ]);
+    });
+    // Agregar Inyecciones
+    rangeTransactions.filter(t => t.type === 'INJECTION').forEach(t => {
+        rows.push([
+            t.date,
+            'Inyección Capital',
+            cleanStr(t.description || 'Inyección'),
+            formatCurrency(t.amount)
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(['DETALLE DE NUEVOS PRÉSTAMOS']);
+    rows.push(['Fecha', 'Cliente', 'ID Crédito', 'Valor Prestado']);
+
+    // Agregar Nuevos Préstamos
+    rangeCredits.forEach(cr => {
+        const cl = clients.find(c => c.id === cr.clientId);
+        rows.push([
+            cr.startDate,
+            cleanStr(cl?.name || '---'),
+            `#${cr.id.slice(-6).toUpperCase()}`,
+            `-${formatCurrency(cr.capital)}`
+        ]);
+    });
+
+    // 2. Convertir Array a String CSV
+    const csvContent = rows.map(e => e.join(';')).join('\n'); // Usar punto y coma para Excel en esp
+
+    // 3. Crear Blob y descargar
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Cierre_Caja_${dateRange.start}_${dateRange.end}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-12 animate-fadeIn pb-20">
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
@@ -163,6 +263,15 @@ const LiquidationView: React.FC<LiquidationProps> = ({ selectedRouteId, credits,
                 />
              </div>
           </div>
+          
+          {/* BOTÓN DE DESCARGA */}
+          <button 
+            onClick={handleDownloadReport}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-transform active:scale-95 border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 whitespace-nowrap"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Descargar Reporte
+          </button>
         </div>
       </header>
 
