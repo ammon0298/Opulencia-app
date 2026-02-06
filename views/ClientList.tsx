@@ -459,12 +459,14 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   if (baseDate > todayDate) {
       expectedInstallments = 0;
   } else if (credit.frequency === 'Daily') {
-     expectedInstallments = countBusinessDays(baseDateStr, TODAY_STR);
+     // FIX: +1 para contar ordinalmente la cuota de hoy en el total esperado
+     expectedInstallments = countBusinessDays(baseDateStr, TODAY_STR) + 1;
   } else {
      const diffDays = Math.floor((todayDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
      let cycleDays = 30;
      if (credit.frequency === 'Weekly') cycleDays = 7;
-     expectedInstallments = Math.floor(diffDays / cycleDays);
+     // FIX: +1 para contar ordinalmente la cuota de hoy en el total esperado
+     expectedInstallments = Math.floor(diffDays / cycleDays) + 1;
   }
   
   const cappedExpectedInstallments = Math.min(credit.totalInstallments, expectedInstallments);

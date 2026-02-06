@@ -91,7 +91,8 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
 
     if (credit.frequency === 'Daily') { 
         isInstallmentDay = true; 
-        installmentNum = countBusinessDays(credit.startDate, targetDateStr);
+        // FIX: +1 para contar el día actual como una cuota exigible en el cálculo ordinal
+        installmentNum = countBusinessDays(credit.startDate, targetDateStr) + 1;
     }
     else if (credit.frequency === 'Weekly') { 
         const diffDays = Math.round((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
