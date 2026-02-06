@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment, Subscription } from '../types';
@@ -220,10 +219,16 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       let targetForDay = 0;
       let actualCollected = 0;
 
-      // FILTRO: Incluir créditos activos aunque estén en mora (!cr.isOverdue ELIMINADO)
-      stats.credits.filter(cr => cr.status !== 'Lost' && cr.status !== 'Completed').forEach(cr => {
-        const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
-        if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
+      // FILTRO CORREGIDO: Coincidir con la lógica del Enrutamiento (Active = Mostrar en Meta)
+      // Si el crédito está activo y debe dinero, y es día de cobro, suma a la meta.
+      // Se elimina la restricción de installmentNum <= totalInstallments para incluir morosos activos.
+      stats.credits.forEach(cr => {
+        if (cr.status === 'Lost' || cr.status === 'Completed') return;
+        if (cr.totalPaid >= cr.totalToPay) return; // Si ya pagó todo, no suma meta
+
+        const { isInstallmentDay } = getInstallmentStatusForDate(cr, currentDayDate);
+        
+        if (isInstallmentDay) {
           targetForDay += cr.installmentValue;
         }
       });

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User, Route, Credit, Expense, Client, Payment } from '../types';
@@ -183,10 +182,14 @@ const CollectorDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, 
       let targetForDay = 0;
       let actualCollected = 0;
 
-      // Meta Teórica (Excluir liquidados y completados) - SE INCLUYEN LOS DE MORA PARA REFLEJAR LA META REAL
-      stats.credits.filter(cr => cr.status !== 'Lost' && cr.status !== 'Completed').forEach(cr => {
-        const { isInstallmentDay, installmentNum } = getInstallmentStatusForDate(cr, currentDayDate);
-        if (isInstallmentDay && installmentNum <= cr.totalInstallments) {
+      // FILTRO CORREGIDO: Coincidir con la lógica del Enrutamiento (Active = Mostrar en Meta)
+      stats.credits.forEach(cr => {
+        if (cr.status === 'Lost' || cr.status === 'Completed') return;
+        if (cr.totalPaid >= cr.totalToPay) return; 
+
+        const { isInstallmentDay } = getInstallmentStatusForDate(cr, currentDayDate);
+        
+        if (isInstallmentDay) {
           targetForDay += cr.installmentValue;
         }
       });

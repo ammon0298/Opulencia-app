@@ -470,7 +470,26 @@ const CreditCard = ({ client, credit, collectorName, routeName, info, onOpenModa
   const cappedExpectedInstallments = Math.min(credit.totalInstallments, expectedInstallments);
   amountStrictlyExpected = cappedExpectedInstallments * credit.installmentValue;
   
-  const debeMora = Math.max(0, amountStrictlyExpected - credit.totalPaid);
+  // Deuda total acumulada a la fecha
+  const totalDebtIncludingToday = Math.max(0, amountStrictlyExpected - credit.totalPaid);
+  
+  // DETERMINAR SI HOY ES DÍA DE PAGO PARA RESTARLO DE LA MORA
+  let isPaymentDay = false;
+  if (credit.frequency === 'Daily') {
+      if (todayDate.getDay() !== 0) isPaymentDay = true;
+  } else if (credit.frequency === 'Weekly') {
+      const diffTime = todayDate.getTime() - baseDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays % 7 === 0) isPaymentDay = true;
+  } else if (credit.frequency === 'Monthly') {
+      if (todayDate.getDate() === baseDate.getDate()) isPaymentDay = true;
+  }
+
+  // Si hoy es día de pago, restamos 1 cuota de la deuda total para obtener la mora pura (atraso real)
+  let debeMora = totalDebtIncludingToday;
+  if (isPaymentDay && debeMora > 0) {
+      debeMora = Math.max(0, totalDebtIncludingToday - credit.installmentValue);
+  }
 
   // Cálculo de cuotas pagadas para el indicador
   const paidInstallmentsDisplay = Math.floor((credit.totalPaid + 0.1) / credit.installmentValue);
