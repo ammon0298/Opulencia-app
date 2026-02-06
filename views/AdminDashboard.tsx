@@ -113,11 +113,9 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
 
     if (credit.frequency === 'Daily') { 
         isInstallmentDay = true; 
-        // FIX: +1 para contar el día actual como una cuota exigible en el cálculo ordinal
         installmentNum = countBusinessDays(credit.startDate, targetDateStr) + 1;
     }
     else if (credit.frequency === 'Weekly') { 
-        // FIX: Usar Math.floor para ser conservador y coincidir con ClientList (evitar "sumar más" antes de tiempo)
         const diffDays = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         isInstallmentDay = diffDays >= 0 && diffDays % 7 === 0; 
         installmentNum = Math.floor(diffDays / 7) + 1; 
@@ -130,7 +128,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     return { isInstallmentDay, installmentNum };
   };
 
-  // CÁLCULO DE MÉTRICAS GLOBALES (Históricas y Totales)
+  // CÁLCULO DE MÉTRICAS GLOBALES
   const metrics = useMemo(() => {
     let overdueAmount = 0;           
     let totalInvested = 0; 
@@ -197,23 +195,17 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     };
   }, [stats]);
 
-  // CORRECCIÓN: Total Recaudado (Acumulado Histórico) en lugar de solo Hoy
   const totalCollectedGlobal = useMemo(() => {
     if (!stats.payments) return 0;
     return stats.payments.reduce((acc, p) => acc + p.amount, 0);
   }, [stats.payments]);
-
-  // Se mantiene el cálculo de hoy solo para la gráfica si es necesario, 
-  // pero el KPI principal ahora usa totalCollectedGlobal
 
   const chartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
     
     for (let day = 1; day <= daysInMonth; day++) {
-      // FIX: Date construction
       const currentDayDate = new Date(selYear, selMonth, day);
-      
       const dayStr = String(day).padStart(2, '0');
       const monthStr = String(selMonth + 1).padStart(2, '0');
       const currentDayStr = `${selYear}-${monthStr}-${dayStr}`;
@@ -221,15 +213,11 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       let targetForDay = 0;
       let actualCollected = 0;
 
-      // FILTRO CORREGIDO: Coincidir con la lógica del Enrutamiento (Active = Mostrar en Meta)
-      // Si el crédito está activo y debe dinero, y es día de cobro, suma a la meta.
-      // Se elimina la restricción de installmentNum <= totalInstallments para incluir morosos activos.
       stats.credits.forEach(cr => {
         if (cr.status === 'Lost' || cr.status === 'Completed') return;
-        if (cr.totalPaid >= cr.totalToPay) return; // Si ya pagó todo, no suma meta
+        if (cr.totalPaid >= cr.totalToPay) return; 
 
         const { isInstallmentDay } = getInstallmentStatusForDate(cr, currentDayDate);
-        
         if (isInstallmentDay) {
           targetForDay += cr.installmentValue;
         }
@@ -250,16 +238,18 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
     return data;
   }, [selectedPeriod, stats.credits, stats.payments]);
 
+  // LÓGICA DE GRÁFICA DE MORA REESCRITA PARA COINCIDIR EXACTAMENTE CON CLIENTLIST (BOTÓN MORA)
   const moraChartData = useMemo(() => {
     const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
     const data = [];
     const todayLimit = new Date(TODAY_STR + 'T00:00:00');
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = new Date(selYear, selMonth, day);
+      const currentDayDate = new Date(selYear, selMonth, day);
+      const currentDayStr = `${selYear}-${String(selMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       
-      // FIX: Si el día es futuro, no graficar (retornar null o break)
-      if (currentDate > todayLimit) {
+      // Si el día es futuro, no graficar
+      if (currentDayDate > todayLimit) {
           data.push({ day: String(day).padStart(2, '0'), moraTotal: null });
           continue;
       }
@@ -267,31 +257,60 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       let totalMora = 0;
       
       stats.credits.forEach(cr => {
-        // FILTRO CRÍTICO: Excluir explícitamente Perdidos, Completados y Pagados Totales
-        // Esto asegura que la gráfica no sume "deudas fantasmas" de créditos terminados
+        // 1. Excluir Perdidos y Completados (Pagados Totalmente)
         if (cr.status === 'Lost' || cr.status === 'Completed') return;
         if (cr.totalPaid >= cr.totalToPay) return;
 
-        const { installmentNum, isInstallmentDay } = getInstallmentStatusForDate(cr, currentDate);
-        
-        if (installmentNum > 0) {
-            // Lógica idéntica al Botón de Mora en ClientList:
-            // 1. Calculamos lo que debería llevar pagado estrictamente hasta la fecha
-            const cappedInstallments = Math.min(cr.totalInstallments, installmentNum);
-            let expectedAmount = cappedInstallments * cr.installmentValue;
+        // 2. Lógica exacta de CreditCard (ClientList.tsx)
+        const baseDateStr = cr.firstPaymentDate || cr.startDate;
+        const baseDate = new Date(baseDateStr + 'T00:00:00');
+
+        // Si el crédito no ha empezado en esta fecha del gráfico, ignorar
+        if (baseDate > currentDayDate) return;
+
+        let expectedInstallments = 0;
+
+        if (cr.frequency === 'Daily') {
+            // FIX: +1 para contar ordinalmente la cuota del día actual en el total esperado (Igual que ClientList)
+            expectedInstallments = countBusinessDays(baseDateStr, currentDayStr) + 1;
+        } else {
+            const diffTime = currentDayDate.getTime() - baseDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            let cycleDays = 30;
+            if (cr.frequency === 'Weekly') cycleDays = 7;
             
-            // 2. Restamos lo que ya pagó
-            let currentDebt = expectedAmount - cr.totalPaid;
+            // FIX: +1 para contar ordinalmente (Igual que ClientList)
+            expectedInstallments = Math.floor(diffDays / cycleDays) + 1;
+        }
 
-            // 3. Si hoy es día de pago, le "perdonamos" la cuota de HOY en el cálculo de MORA (porque vence a medianoche)
-            if (isInstallmentDay) {
-                currentDebt -= cr.installmentValue;
+        const cappedExpected = Math.min(cr.totalInstallments, expectedInstallments);
+        const amountStrictlyExpected = cappedExpected * cr.installmentValue;
+        
+        // Deuda total acumulada a la fecha
+        const debt = Math.max(0, amountStrictlyExpected - cr.totalPaid);
+
+        if (debt > 0) {
+            // Determinar si en ESTE DÍA del gráfico es día de pago para restar la cuota
+            // Lógica exacta de ClientList
+            let isPaymentDay = false;
+            
+            if (cr.frequency === 'Daily') {
+                if (currentDayDate.getDay() !== 0) isPaymentDay = true;
+            } else if (cr.frequency === 'Weekly') {
+                const diffTime = currentDayDate.getTime() - baseDate.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0 && diffDays % 7 === 0) isPaymentDay = true;
+            } else if (cr.frequency === 'Monthly') {
+                if (currentDayDate.getDate() === baseDate.getDate()) isPaymentDay = true;
             }
 
-            // 4. Solo sumamos si hay deuda positiva (Mora Real)
-            if (currentDebt > 0) {
-                totalMora += currentDebt;
+            let finalMora = debt;
+            // Si es día de pago, restamos 1 cuota de la deuda total para obtener la mora pura (atraso real)
+            if (isPaymentDay) {
+                finalMora = Math.max(0, debt - cr.installmentValue);
             }
+            
+            totalMora += finalMora;
         }
       });
       data.push({ day: String(day).padStart(2, '0'), moraTotal: Math.round(totalMora) });
@@ -348,7 +367,6 @@ const AdminDashboard: React.FC<DashboardProps> = ({ navigate, user, routes, stat
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Se usa t('total_collected') para reflejar que es el acumulado general */}
         <StatCard title={t('total_collected')} value={`$${totalCollectedGlobal.toLocaleString()}`} color="indigo" icon={<IconCash />} />
         <StatCard title={t('capital_street')} value={`$${metrics.totalInvested.toLocaleString()}`} color="emerald" icon={<IconLoan />} />
         <StatCard title={t('capital_lost')} value={`$${Math.round(metrics.totalLostCapital).toLocaleString()}`} color="red" icon={<IconLoss />} />
